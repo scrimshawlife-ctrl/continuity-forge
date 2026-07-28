@@ -70,12 +70,19 @@ Canonical state changes require schema validation, source provenance, determinis
 
 See `docs/campaigns/` for M0–M7 campaign specifications.
 
-## What’s next (post-1.0)
+## Post-1.0 foundations (rc2)
 
-- Real provider SDKs behind the gateway
-- Hosted Temporal worker implementing adapter contracts
-- PostgreSQL + object storage for canon and artifacts
-- Full multi-tenant authN/Z
+- **Filesystem stores:** `FileRunStore`, `FileProjectStore` for durable local state
+- **In-process worker:** `continuity-forge worker-dry-run <script>` (Temporal-shaped, no cluster)
+- **Provider registry:** `CF_PROVIDER=mock` (default); `openai`/`runway` fail closed until keys exist
+- Optional: `pip install 'continuity-forge[temporal]'` for `temporalio` (cluster still required to host)
+
+### Still later
+
+- Real provider SDK implementations
+- Hosted Temporal cluster worker process
+- PostgreSQL + object storage
+- Multi-tenant authN/Z
 
 ## License / status
 
