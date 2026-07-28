@@ -3,9 +3,9 @@
 Complete install paths for kernel, operator UI, MCP (Hermes), production-shaped Docker,
 and **bare-metal Linux** (systemd).
 
-**Current release:** **[v1.5.0](releases/1.5.0.md)** — handoff (shot breakdown + continuity export).  
+**Current release:** **[v1.5.1](releases/1.5.1.md)** — handoff (breakdown + file import + CI harness).  
 **Baseline freeze:** **[v1.4.0](releases/1.4.0.md)** — pre-handoff kernel.  
-Pin handoff: `git checkout v1.5.0`. Not production film.
+Pin handoff: `git checkout v1.5.1`. Not production film.
 
 **Requirements:** Python **3.12+**, `pip`, git. Docker optional (full stack).
 

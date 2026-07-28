@@ -45,6 +45,11 @@ GATES = (
             "--floors-only",
         ),
     ),
+    # Handoff product path: paste/import → breakdown JSON/MD/API/CLI
+    Gate(
+        "handoff",
+        (sys.executable, str(ROOT / "scripts" / "handoff_harness.py")),
+    ),
 )
 
 

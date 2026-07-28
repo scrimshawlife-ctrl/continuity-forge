@@ -106,15 +106,24 @@
               >
                 Run proof
               </button>
+              <button type="button" class="btn btn--ghost" id="btn-import">
+                Import file
+              </button>
+              <input
+                type="file"
+                id="script-file"
+                accept=".fountain,.fdx,.txt,text/plain,application/xml"
+                hidden
+              />
               <button type="button" class="btn btn--ghost" id="btn-sample">
                 Reset sample
               </button>
               <button type="button" class="btn btn--ghost" id="btn-clear">Clear</button>
             </div>
             <p class="field__hint" id="breakdown-hint">
-              <strong>Handoff path:</strong> paste or edit the script →
-              <strong>Build breakdown</strong> → download JSON (or Markdown) for
-              connectors. Shot list + continuity entities. Not production film.
+              <strong>Handoff path:</strong> paste, <strong>Import file</strong>
+              (.fountain / .fdx), or edit → <strong>Build breakdown</strong> →
+              download JSON (or Markdown) for connectors. Not production film.
             </p>
 
             <div class="run-summary" id="run-meta" hidden aria-live="polite">
