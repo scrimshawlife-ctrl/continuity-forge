@@ -8,7 +8,13 @@ from typing import Any, Literal
 
 from continuity_forge_ir import content_hash
 from continuity_forge_operator import MutationEnvelope, ProjectStore
-from continuity_forge_providers import ProviderGateway
+from continuity_forge_providers import (
+    CostLedger,
+    CostSummary,
+    ProviderGateway,
+    empty_ledger,
+    summarize_ledger,
+)
 from pydantic import BaseModel, Field
 
 from continuity_forge_repair.loop import run_repair_loop
@@ -37,6 +43,9 @@ class ProofReceipt(BaseModel):
     budget_seconds: float = 60.0
     within_budget: bool
     shots: list[ShotProof]
+    # Run-scoped provider cost telemetry (not project canon; PROPOSED boundary).
+    cost_ledger: CostLedger | None = None
+    cost_summary: CostSummary | None = None
     receipt_hash: str
 
 
@@ -101,6 +110,7 @@ def run_controlled_proof(
 
     contracts = (project.shot_contracts or {}).get("contracts") or []
     shot_proofs: list[ShotProof] = []
+    cost_ledger: CostLedger = empty_ledger()
     for index, contract in enumerate(contracts):
         # Force one repair cycle on the first shot only for proof of loop behavior.
         result = run_repair_loop(
@@ -109,6 +119,7 @@ def run_controlled_proof(
             seed=f"{seed}:{index}",
             fail_first=(index == 0),
         )
+        cost_ledger = cost_ledger.extend(result.cost_events)
         repair_actions: list[str] = []
         rationales: list[str] = []
         for attempt in result.attempts:
@@ -140,6 +151,12 @@ def run_controlled_proof(
 
     elapsed = time.perf_counter() - started
     artifacts = run.artifacts
+    within = elapsed <= budget_seconds
+    cost_summary = summarize_ledger(
+        cost_ledger,
+        wall_clock_seconds=elapsed,
+        budget_seconds=budget_seconds,
+    )
     receipt = ProofReceipt(
         document_key=key,
         source_hash=project.source_hash,
@@ -148,8 +165,10 @@ def run_controlled_proof(
         shot_contracts_hash=artifacts.shot_contracts_hash if artifacts else None,
         elapsed_seconds=elapsed,
         budget_seconds=budget_seconds,
-        within_budget=elapsed <= budget_seconds,
+        within_budget=within,
         shots=shot_proofs,
+        cost_ledger=cost_ledger,
+        cost_summary=cost_summary,
         receipt_hash="",
     )
     receipt = receipt.model_copy(

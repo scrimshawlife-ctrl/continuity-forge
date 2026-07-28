@@ -19,6 +19,11 @@ def test_controlled_proof_receipt() -> None:
     assert first.shots
     assert first.receipt_hash
     assert first.within_budget
+    assert first.cost_ledger is not None
+    assert first.cost_summary is not None
+    assert first.cost_summary.event_count >= 1
+    assert first.cost_summary.retry_event_count >= 1
+    assert first.cost_ledger.claim == "cost_ledger_run_provenance_not_canon"
     # Deterministic artifact hashes for same seed/source
     assert first.source_hash == second.source_hash
     assert first.production_ir_hash == second.production_ir_hash
@@ -27,6 +32,8 @@ def test_controlled_proof_receipt() -> None:
         s.accepted_candidate_hash for s in second.shots
     ]
     assert first.shots[0].attempts >= 2  # fail_first on first shot
+    # Cost event candidate hashes align with accepted candidates when present
+    assert all(e.authority == "PROPOSED" for e in first.cost_ledger.events)
 
 
 def test_controlled_proof_from_text() -> None:

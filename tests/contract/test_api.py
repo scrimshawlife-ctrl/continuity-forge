@@ -242,6 +242,13 @@ def test_controlled_proof_endpoint() -> None:
     assert payload["shots"]
     assert payload["shots"][0]["attempts"] >= 2
     assert "anonymous::api-proof-ui" in payload["document_key"]
+    assert payload["cost_ledger"] is not None
+    assert payload["cost_summary"] is not None
+    assert payload["cost_ledger"]["claim"] == "cost_ledger_run_provenance_not_canon"
+    assert payload["cost_summary"]["event_count"] >= 1
+    assert payload["cost_summary"]["retry_event_count"] >= 1
+    assert payload["cost_summary"]["by_provider"].get("mock", 0) >= 1
+    assert all(e["authority"] == "PROPOSED" for e in payload["cost_ledger"]["events"])
 
 
 def test_web_ui_is_served() -> None:
@@ -270,10 +277,15 @@ def test_web_ui_is_served() -> None:
     assert "Acquire lease" in index.text
     assert "Compile incremental" in index.text
     assert 'id="btn-compile-incremental"' in index.text
+    assert 'id="receipt-budget"' in index.text
+    assert 'id="cost-panel"' in index.text
+    assert 'id="claim-budget-label"' in index.text
+    assert "Cost ledger" in index.text
     styles = client.get("/styles.css")
     assert styles.status_code == 200
     assert "Hallmark" in styles.text
     assert "claim-banner--post-proof" in styles.text
+    assert "cost-panel" in styles.text
     tokens = client.get("/tokens.css")
     assert tokens.status_code == 200
     assert "--color-accent" in tokens.text
@@ -296,6 +308,9 @@ def test_web_ui_is_served() -> None:
     assert "/v1/compile/incremental" in app_js.text
     assert "compileIncremental" in app_js.text
     assert "lastCompiledDocument" in app_js.text
+    assert "renderCostPanel" in app_js.text
+    assert "over budget" in app_js.text
+    assert "cost_summary" in app_js.text
 
 
 def test_health_reports_version() -> None:
