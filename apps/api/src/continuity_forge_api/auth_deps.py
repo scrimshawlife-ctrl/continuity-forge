@@ -1,0 +1,60 @@
+"""FastAPI auth dependencies for multi-tenant API keys."""
+
+from __future__ import annotations
+
+import os
+
+from continuity_forge_auth import (
+    DEFAULT_AUTH_SERVICE,
+    AuthError,
+    AuthService,
+    Principal,
+    bootstrap_dev_tenant,
+)
+from fastapi import Depends, Header, HTTPException
+
+
+def get_auth_service() -> AuthService:
+    service = DEFAULT_AUTH_SERVICE
+    if (
+        os.environ.get("CF_BOOTSTRAP_DEV_TENANT", "").casefold() in {"1", "true", "yes"}
+        and not service.list_tenants()
+    ):
+        bootstrap_dev_tenant(service)
+    return service
+
+
+def auth_required() -> bool:
+    return os.environ.get("CF_AUTH_REQUIRED", "").casefold() in {"1", "true", "yes"}
+
+
+def get_principal(
+    authorization: str | None = Header(default=None),
+    service: AuthService = Depends(get_auth_service),
+) -> Principal:
+    if not auth_required():
+        if authorization:
+            try:
+                return service.authenticate(authorization)
+            except AuthError:
+                return Principal(tenant_id="anonymous", actor_id="anonymous", scopes=["*"])
+        return Principal(tenant_id="anonymous", actor_id="anonymous", scopes=["*"])
+    try:
+        return service.authenticate(authorization)
+    except AuthError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+
+
+def require_principal(principal: Principal = Depends(get_principal)) -> Principal:
+    return principal
+
+
+def tenant_document_key(tenant_id: str, document_key: str) -> str:
+    """Scope document keys per tenant to enforce isolation.
+
+    Uses '::' (not '/') so keys remain single path segments in REST routes.
+    """
+    prefix = f"{tenant_id}::"
+    if document_key.startswith(prefix):
+        return document_key
+    return f"{prefix}{document_key}"

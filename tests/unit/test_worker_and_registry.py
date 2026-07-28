@@ -46,5 +46,5 @@ def test_provider_registry_defaults_to_mock() -> None:
 def test_unconfigured_real_provider_fails_closed() -> None:
     document = compile_text(SOURCE, document_key="reg2")
     contract = compile_shot_contracts(document).contracts[0].model_dump(mode="json")
-    with pytest.raises(RuntimeError, match="not configured"):
+    with pytest.raises(RuntimeError, match="OPENAI_API_KEY|not installed"):
         get_gateway("openai").generate_for_shot(contract, seed="1")
