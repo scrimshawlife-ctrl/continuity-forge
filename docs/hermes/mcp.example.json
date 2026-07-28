@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "continuity-forge": {
+      "command": "/ABSOLUTE/PATH/TO/continuity-forge/.venv/bin/continuity-forge-mcp",
+      "args": [],
+      "env": {
+        "CF_STORE_ROOT": "/ABSOLUTE/PATH/TO/cf-data",
+        "CF_PROVIDER": "mock"
+      }
+    }
+  }
+}

@@ -18,6 +18,7 @@ Continuity Forge is a deterministic cinematic-production kernel surrounded by a 
 - Continuity Forge owns identity, memory, causality, continuity, approvals, validation, and provenance.
 - Temporal owns durable workflow execution after M0.
 - Hermes and OpenClaw are external operator clients through MCP and REST.
+- Hermes must load `skills/hermes-continuity-forge` (or equivalent) and use MCP tools; it never stores film canon in chat memory.
 - LangGraph, if used, is limited to bounded reasoning subgraphs and cannot own canonical state.
 
 ## Active campaign
@@ -29,6 +30,11 @@ and operator UI v1.3 are on `main`.
 
 Operator UI: `apps/web/` (Hallmark Terminal · Workbench). Served from the API at `/`.
 Default UX: script → Run proof → receipt. Advanced: leases, approvals, runs, connection.
+
+Hermes skill (agentic operator): `skills/hermes-continuity-forge/`.
+Install + MCP wiring: `docs/hermes/README.md`.
+Meta-prompt to rebuild the skill when tools change: `docs/hermes/BUILD_SKILL_PROMPT.md`.
+Setup: `docs/SETUP.md`.
 
 ## CI
 

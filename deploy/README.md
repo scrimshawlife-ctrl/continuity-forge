@@ -1,6 +1,9 @@
 # Production-shaped local stack
 
+Prerequisites and non-Docker install: **[docs/SETUP.md](../docs/SETUP.md)**.
+
 ```bash
+# from repo root; prefer production extras inside the image (Dockerfile installs .[production])
 docker compose -f deploy/docker-compose.yml up --build
 # after API is healthy:
 bash deploy/smoke.sh

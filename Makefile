@@ -1,7 +1,10 @@
-.PHONY: install validate test lint format typecheck proof ui
+.PHONY: install install-prod validate test lint format typecheck proof ui mcp
 
 install:
 	python -m pip install -e '.[dev]'
+
+install-prod:
+	python -m pip install -e '.[production]'
 
 validate:
 	python scripts/validate_m0.py
@@ -11,6 +14,9 @@ proof:
 
 ui:
 	uvicorn continuity_forge_api.main:app --reload --port 8080
+
+mcp:
+	continuity-forge-mcp
 
 test:
 	python -m pytest
