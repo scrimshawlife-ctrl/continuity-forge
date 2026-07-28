@@ -1,4 +1,13 @@
-from continuity_forge_compiler import compile_fdx_result, compile_text, compile_text_result
+from pathlib import Path
+
+import pytest
+
+from continuity_forge_compiler import (
+    compile_fdx_result,
+    compile_file,
+    compile_text,
+    compile_text_result,
+)
 
 
 def test_compile_is_deterministic() -> None:
@@ -15,19 +24,27 @@ def test_source_spans_are_preserved() -> None:
     text = "INT. ROOM - DAY\n\nA lamp flickers.\n"
     document = compile_text(text)
     action = document.scenes[0].atoms[1]
-    assert text[action.source_span.start_offset:action.source_span.end_offset].strip() == "A lamp flickers."
+    assert text[action.source_span.start_offset:action.source_span.end_offset].strip() == (
+        "A lamp flickers."
+    )
 
 
 def test_compile_result_reports_unemitted_source() -> None:
     result = compile_text_result("TITLE PAGE\n\nINT. ROOM - DAY\n\nA lamp flickers.\n")
     assert result.coverage.uncovered_non_whitespace_bytes > 0
-    assert any(item.code == "CF_PARSE_CONTENT_BEFORE_SCENE" for item in result.diagnostics)
-    assert any(item.code == "CF_COVERAGE_UNEMITTED_SOURCE" for item in result.diagnostics)
+    assert any(
+        item.code == "CF_PARSE_CONTENT_BEFORE_SCENE" for item in result.diagnostics
+    )
+    assert any(
+        item.code == "CF_COVERAGE_UNEMITTED_SOURCE" for item in result.diagnostics
+    )
 
 
 def test_orphan_character_is_typed_warning() -> None:
     result = compile_text_result("INT. ROOM - DAY\n\nMARA\n\nThe light dies.\n")
-    diagnostic = next(item for item in result.diagnostics if item.code == "CF_PARSE_ORPHAN_CHARACTER")
+    diagnostic = next(
+        item for item in result.diagnostics if item.code == "CF_PARSE_ORPHAN_CHARACTER"
+    )
     assert diagnostic.severity == "warning"
     assert diagnostic.source_span is not None
 
@@ -49,3 +66,23 @@ def test_fdx_ingestion_normalizes_to_same_ir_shape() -> None:
         "dialogue",
     ]
     assert result.coverage.source_coverage_ratio == 1.0
+
+
+def test_malformed_fdx_fails_closed_with_typed_error() -> None:
+    result = compile_fdx_result("<FinalDraft><Content>")
+    assert result.document.scenes == []
+    assert any(item.code == "CF_FDX_MALFORMED" for item in result.diagnostics)
+    assert any(item.severity == "error" for item in result.diagnostics)
+
+
+def test_coverage_counts_utf8_bytes() -> None:
+    text = "INT. CAFÉ - DAY\n\nA neon sigil glows.\n"
+    result = compile_text_result(text)
+    assert result.coverage.source_bytes == len(text.encode("utf-8"))
+
+
+def test_compile_file_rejects_unsupported_format(tmp_path: Path) -> None:
+    source = tmp_path / "screenplay.docx"
+    source.write_text("not a screenplay", encoding="utf-8")
+    with pytest.raises(ValueError, match="Unsupported screenplay format"):
+        compile_file(source)
