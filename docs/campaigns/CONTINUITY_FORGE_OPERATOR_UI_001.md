@@ -7,8 +7,9 @@ Ship a technical/austere operator workbench for ops + producer overview: run con
 ## Status
 
 ```text
-operator_ui: PASS
+operator_ui: PASS (v1.2)
 proof_api: PASS
+project_list: PASS
 static_mount: PASS
 smoke: PASS (when API up)
 ```
@@ -21,8 +22,16 @@ smoke: PASS (when API up)
 | Tokens | `tokens.css`, `apps/web/tokens.css` |
 | Hallmark log | `.hallmark/log.json` |
 | API | `POST /v1/proof` → `ProofReceipt` |
+| Canon | `GET /v1/projects`, `GET /v1/projects/{key}/status` |
 | Serve | FastAPI static mount at `/` |
 | Local | `make ui` → http://127.0.0.1:8080/ |
+
+### v1.2 workbench actions
+
+- Bootstrap dev key / whoami
+- Compile only (no ingest)
+- Export receipt JSON + copy receipt hash
+- Load project status + list tenant projects
 
 ## Design fingerprint
 

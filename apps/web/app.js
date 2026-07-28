@@ -1,6 +1,6 @@
 /**
- * Continuity Forge · Proof Workbench
- * Primary action: POST /v1/proof → render receipt.
+ * Continuity Forge · Proof Workbench v1.2
+ * Primary: POST /v1/proof → receipt. Secondary: canon status, export, auth bootstrap.
  */
 
 const SAMPLE_SCRIPT = `Title: Continuity Sample
@@ -60,6 +60,9 @@ Then the ledger was never canonical.
 
 const $ = (id) => document.getElementById(id);
 
+/** @type {Record<string, any> | null} */
+let lastReceipt = null;
+
 const els = {
   script: $("script"),
   documentKey: $("document-key"),
@@ -70,8 +73,15 @@ const els = {
   apiKey: $("api-key"),
   btnProof: $("btn-proof"),
   btnHealth: $("btn-health"),
+  btnCompile: $("btn-compile"),
   btnSample: $("btn-sample"),
   btnClear: $("btn-clear"),
+  btnBootstrap: $("btn-bootstrap"),
+  btnWhoami: $("btn-whoami"),
+  btnExport: $("btn-export"),
+  btnCopyHash: $("btn-copy-hash"),
+  btnStatus: $("btn-status"),
+  btnList: $("btn-list"),
   runState: $("run-state"),
   runMeta: $("run-meta"),
   metaElapsed: $("meta-elapsed"),
@@ -82,6 +92,7 @@ const els = {
   chipHealth: $("chip-health"),
   chipBackend: $("chip-backend"),
   chipVersion: $("chip-version"),
+  chipTenant: $("chip-tenant"),
   receiptEmpty: $("receipt-empty"),
   receiptBody: $("receipt-body"),
   receiptClaim: $("receipt-claim"),
@@ -95,11 +106,20 @@ const els = {
   rShotsHash: $("r-shots-hash"),
   shotRows: $("shot-rows"),
   rawJson: $("raw-json"),
+  statusGrid: $("status-grid"),
+  stDoc: $("st-doc"),
+  stTitle: $("st-title"),
+  stCounts: $("st-counts"),
+  stSource: $("st-source"),
+  stState: $("st-state"),
+  stRun: $("st-run"),
+  projectListWrap: $("project-list-wrap"),
+  projectRows: $("project-rows"),
+  canonEmpty: $("canon-empty"),
 };
 
 function baseUrl() {
-  const raw = (els.apiBase.value || "").trim().replace(/\/$/, "");
-  return raw;
+  return (els.apiBase.value || "").trim().replace(/\/$/, "");
 }
 
 function headers() {
@@ -130,6 +150,25 @@ function shortHash(value) {
 
 function setText(el, value) {
   el.textContent = value == null || value === "" ? "—" : String(value);
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
+function activeDocumentKey() {
+  const raw = (els.documentKey.value || "").trim();
+  if (raw) return raw;
+  if (lastReceipt && lastReceipt.document_key) {
+    const full = String(lastReceipt.document_key);
+    const parts = full.split("::");
+    return parts.length > 1 ? parts.slice(1).join("::") : full;
+  }
+  return "";
 }
 
 async function api(path, options = {}) {
@@ -172,7 +211,21 @@ async function pingHealth() {
   }
 }
 
+async function pingWhoami() {
+  try {
+    const data = await api("/v1/whoami");
+    els.chipTenant.textContent = `tenant · ${data.tenant_id || "—"}`;
+    els.chipTenant.className = "chip chip--accent";
+    return data;
+  } catch {
+    els.chipTenant.textContent = "tenant · —";
+    els.chipTenant.className = "chip";
+    return null;
+  }
+}
+
 function renderReceipt(receipt) {
+  lastReceipt = receipt;
   els.receiptEmpty.hidden = true;
   els.receiptBody.hidden = false;
   els.runMeta.hidden = false;
@@ -235,12 +288,58 @@ function renderReceipt(receipt) {
   els.rawJson.textContent = JSON.stringify(receipt, null, 2);
 }
 
-function escapeHtml(value) {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
+function renderStatus(status) {
+  els.canonEmpty.hidden = true;
+  els.statusGrid.hidden = false;
+  setText(els.stDoc, status.document_key);
+  setText(els.stTitle, status.title);
+  setText(
+    els.stCounts,
+    `${status.scene_count ?? "—"} / ${status.shot_count ?? "—"}`,
+  );
+  setText(els.stSource, status.source_hash);
+  setText(els.stState, status.state_hash);
+  setText(els.stRun, status.last_pipeline_run_id);
+}
+
+function renderProjectList(payload) {
+  const projects = payload.projects || [];
+  els.canonEmpty.hidden = true;
+  els.projectListWrap.hidden = false;
+  els.projectRows.replaceChildren();
+  if (!projects.length) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td colspan="5">No projects for tenant ${escapeHtml(
+      payload.tenant_id || "—",
+    )}</td>`;
+    els.projectRows.appendChild(tr);
+    return;
+  }
+  for (const p of projects) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><button type="button" class="linkish" data-key="${escapeHtml(
+        p.document_key,
+      )}">${escapeHtml(p.document_key)}</button></td>
+      <td>${escapeHtml(p.title || "—")}</td>
+      <td>${escapeHtml(String(p.scene_count ?? "—"))}</td>
+      <td>${escapeHtml(String(p.shot_count ?? "—"))}</td>
+      <td title="${escapeHtml(p.state_hash || "")}">${escapeHtml(
+        shortHash(p.state_hash),
+      )}</td>
+    `;
+    const btn = tr.querySelector("button");
+    btn?.addEventListener("click", () => {
+      const full = String(p.document_key || "");
+      const parts = full.split("::");
+      els.documentKey.value = parts.length > 1 ? parts.slice(1).join("::") : full;
+      if (p.title) els.title.value = p.title;
+      loadProjectStatus().catch((err) =>
+        showAlert(err instanceof Error ? err.message : String(err)),
+      );
+    });
+    els.projectRows.appendChild(tr);
+  }
 }
 
 async function runProof() {
@@ -278,6 +377,13 @@ async function runProof() {
       "ok",
     );
     $("receipt")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    // Best-effort canon refresh (tenant key already in store).
+    loadProjectStatus().catch(() => {
+      /* status optional after proof */
+    });
+    listProjects().catch(() => {
+      /* list optional */
+    });
   } catch (err) {
     setRunState("error", "error");
     els.btnProof.dataset.state = "error";
@@ -289,6 +395,110 @@ async function runProof() {
       els.btnProof.dataset.state = "";
       els.btnProof.textContent = "Run controlled proof";
     }, 1200);
+  }
+}
+
+async function compileOnly() {
+  showAlert("");
+  const text = els.script.value.trim();
+  if (!text) {
+    showAlert("Script source is empty.");
+    return;
+  }
+  els.btnCompile.disabled = true;
+  try {
+    const doc = await api("/v1/compile", {
+      method: "POST",
+      body: JSON.stringify({
+        title: els.title.value.trim() || "Untitled",
+        text,
+        document_key: els.documentKey.value.trim() || null,
+        format: els.format.value,
+      }),
+    });
+    const scenes = (doc.scenes || []).length;
+    const coverage = doc.coverage?.ratio;
+    const diags = (doc.diagnostics || []).length;
+    showAlert(
+      `Compile ok · ${scenes} scene(s)` +
+        (coverage != null ? ` · coverage ${coverage}` : "") +
+        (diags ? ` · ${diags} diagnostic(s)` : ""),
+      diags ? "error" : "ok",
+    );
+  } catch (err) {
+    showAlert(err instanceof Error ? err.message : String(err));
+  } finally {
+    els.btnCompile.disabled = false;
+  }
+}
+
+async function loadProjectStatus() {
+  const key = activeDocumentKey();
+  if (!key) {
+    showAlert("Set document_key first.");
+    return;
+  }
+  const status = await api(`/v1/projects/${encodeURIComponent(key)}/status`);
+  renderStatus(status);
+  showAlert(`Status loaded · ${status.document_key}`, "ok");
+}
+
+async function listProjects() {
+  const payload = await api("/v1/projects");
+  renderProjectList(payload);
+  showAlert(
+    `Projects · tenant ${payload.tenant_id} · count ${(payload.projects || []).length}`,
+    "ok",
+  );
+}
+
+function exportReceipt() {
+  if (!lastReceipt) {
+    showAlert("No receipt to export.");
+    return;
+  }
+  const blob = new Blob([JSON.stringify(lastReceipt, null, 2)], {
+    type: "application/json",
+  });
+  const stem = String(lastReceipt.document_key || "proof")
+    .replaceAll("::", "__")
+    .replaceAll(/[^\w.-]+/g, "_");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `${stem}.proof-receipt.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showAlert(`Exported ${a.download}`, "ok");
+}
+
+async function copyReceiptHash() {
+  if (!lastReceipt?.receipt_hash) {
+    showAlert("No receipt hash to copy.");
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(String(lastReceipt.receipt_hash));
+    showAlert("Receipt hash copied.", "ok");
+  } catch {
+    showAlert("Clipboard unavailable — copy from the receipt panel.");
+  }
+}
+
+async function bootstrapDevKey() {
+  showAlert("");
+  try {
+    const data = await api("/v1/tenants/bootstrap-dev", { method: "POST" });
+    if (data.api_key) {
+      els.apiKey.value = data.api_key;
+      persistPrefs();
+    }
+    await pingWhoami();
+    showAlert(
+      `Dev tenant ${data.tenant_id} · key stored in field (localStorage)`,
+      "ok",
+    );
+  } catch (err) {
+    showAlert(err instanceof Error ? err.message : String(err));
   }
 }
 
@@ -335,17 +545,51 @@ function wire() {
     showAlert("");
     try {
       const data = await pingHealth();
+      await pingWhoami();
       showAlert(`health ok · backend ${data.backend} · v${data.version}`, "ok");
     } catch (err) {
       showAlert(err instanceof Error ? err.message : String(err));
     }
   });
+  els.btnCompile.addEventListener("click", compileOnly);
   els.btnSample.addEventListener("click", loadSample);
   els.btnClear.addEventListener("click", clearScript);
+  els.btnBootstrap.addEventListener("click", bootstrapDevKey);
+  els.btnWhoami.addEventListener("click", async () => {
+    showAlert("");
+    try {
+      const data = await pingWhoami();
+      if (!data) {
+        showAlert("whoami failed — set API key if auth is required.");
+        return;
+      }
+      showAlert(
+        `whoami · tenant ${data.tenant_id} · actor ${data.actor_id}`,
+        "ok",
+      );
+    } catch (err) {
+      showAlert(err instanceof Error ? err.message : String(err));
+    }
+  });
+  els.btnExport.addEventListener("click", exportReceipt);
+  els.btnCopyHash.addEventListener("click", () => {
+    copyReceiptHash().catch((err) =>
+      showAlert(err instanceof Error ? err.message : String(err)),
+    );
+  });
+  els.btnStatus.addEventListener("click", () => {
+    loadProjectStatus().catch((err) =>
+      showAlert(err instanceof Error ? err.message : String(err)),
+    );
+  });
+  els.btnList.addEventListener("click", () => {
+    listProjects().catch((err) =>
+      showAlert(err instanceof Error ? err.message : String(err)),
+    );
+  });
   els.apiBase.addEventListener("change", persistPrefs);
   els.apiKey.addEventListener("change", persistPrefs);
 
-  // Keyboard: Cmd/Ctrl+Enter runs proof
   document.addEventListener("keydown", (ev) => {
     if ((ev.metaKey || ev.ctrlKey) && ev.key === "Enter") {
       ev.preventDefault();
@@ -353,7 +597,7 @@ function wire() {
     }
   });
 
-  pingHealth().catch(() => {
+  Promise.all([pingHealth(), pingWhoami()]).catch(() => {
     /* offline until API is up */
   });
 }

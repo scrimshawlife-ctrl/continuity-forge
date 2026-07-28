@@ -24,6 +24,7 @@
 <a href="#source" id="nav-source">--source</a>
 <a href="#run" id="nav-run">--proof</a>
 <a href="#receipt" id="nav-receipt">--receipt</a>
+<a href="#canon" id="nav-canon">--canon</a>
 <a href="#health" id="nav-health">--health</a><span class="caret" aria-hidden="true">▮</span></pre>
     </header>
 
@@ -35,6 +36,7 @@
             <span class="chip" id="chip-health">health · …</span>
             <span class="chip" id="chip-backend">backend · …</span>
             <span class="chip" id="chip-version">api · …</span>
+            <span class="chip" id="chip-tenant">tenant · …</span>
           </div>
         </div>
         <p class="mast__lede">
@@ -116,6 +118,14 @@
                 spellcheck="false"
                 placeholder="Bearer token when CF_AUTH_REQUIRED=1"
               />
+              <div class="btn-row">
+                <button type="button" class="btn btn--ghost" id="btn-bootstrap">
+                  Bootstrap dev key
+                </button>
+                <button type="button" class="btn btn--ghost" id="btn-whoami">
+                  Whoami
+                </button>
+              </div>
             </div>
             <div class="field">
               <label for="script">script</label>
@@ -174,6 +184,9 @@
               <button type="button" class="btn btn--ghost" id="btn-health">
                 Ping health
               </button>
+              <button type="button" class="btn btn--ghost" id="btn-compile">
+                Compile only
+              </button>
             </div>
             <p class="field__hint">
               Primary action: proof → receipt. Fail-first repair is forced on shot 0 to
@@ -193,6 +206,14 @@
               repair actions land here.
             </div>
             <div id="receipt-body" hidden>
+              <div class="btn-row">
+                <button type="button" class="btn btn--ghost" id="btn-export">
+                  Export receipt JSON
+                </button>
+                <button type="button" class="btn btn--ghost" id="btn-copy-hash">
+                  Copy receipt hash
+                </button>
+              </div>
               <div class="receipt-meta">
                 <div class="stat">
                   <span class="stat__k">claim</span>
@@ -250,11 +271,72 @@
             </div>
           </div>
         </section>
+
+        <section class="panel panel--wide" id="canon" aria-labelledby="canon-title">
+          <div class="panel__head">
+            <h2 class="panel__title" id="canon-title">Canon</h2>
+            <span class="chip">GET /v1/projects</span>
+          </div>
+          <div class="panel__body">
+            <div class="btn-row">
+              <button type="button" class="btn btn--ghost" id="btn-status">
+                Load project status
+              </button>
+              <button type="button" class="btn btn--ghost" id="btn-list">
+                List tenant projects
+              </button>
+            </div>
+            <div class="hash-grid" id="status-grid" hidden>
+              <div class="hash-row">
+                <dt>document_key</dt>
+                <dd id="st-doc">—</dd>
+              </div>
+              <div class="hash-row">
+                <dt>title</dt>
+                <dd id="st-title">—</dd>
+              </div>
+              <div class="hash-row">
+                <dt>scenes / shots</dt>
+                <dd id="st-counts">—</dd>
+              </div>
+              <div class="hash-row">
+                <dt>source_hash</dt>
+                <dd id="st-source">—</dd>
+              </div>
+              <div class="hash-row">
+                <dt>state_hash</dt>
+                <dd id="st-state">—</dd>
+              </div>
+              <div class="hash-row">
+                <dt>last_pipeline_run_id</dt>
+                <dd id="st-run">—</dd>
+              </div>
+            </div>
+            <div class="table-wrap" id="project-list-wrap" hidden>
+              <table class="receipt">
+                <thead>
+                  <tr>
+                    <th scope="col">document_key</th>
+                    <th scope="col">title</th>
+                    <th scope="col">scenes</th>
+                    <th scope="col">shots</th>
+                    <th scope="col">state</th>
+                  </tr>
+                </thead>
+                <tbody id="project-rows"></tbody>
+              </table>
+            </div>
+            <p id="canon-empty" class="empty">
+              After proof, load status for the active document_key or list tenant-scoped
+              projects. Canon is kernel-owned; this panel is read-only.
+            </p>
+          </div>
+        </section>
       </div>
 
       <footer class="foot-dense">
         <p>
-          Continuity Forge v1.1.0 · operator workbench · Hallmark Terminal · JetBrains Mono
+          Continuity Forge v1.2.0 · operator workbench · Hallmark Terminal · JetBrains Mono
           · controlled_proof_not_production_ready · models PROPOSED only · kernel owns
           canon · local validate is CI authority when Actions billing blocks · REST
           /v1/proof · MCP operator surface separate · private research codebase.
