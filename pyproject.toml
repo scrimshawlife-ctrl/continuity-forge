@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "continuity-forge"
-version = "0.3.0"
-description = "Deterministic script-to-production compiler and continuity ledger for drift-resistant AI film generation"
+version = "0.4.0"
+description = "Deterministic script-to-production compiler, continuity ledger, and shot contracts for drift-resistant AI film generation"
 requires-python = ">=3.12"
 dependencies = [
   "pydantic>=2.8,<3",
@@ -34,6 +34,7 @@ packages = [
   "packages/production_ir/src/continuity_forge_ir",
   "packages/compiler/src/continuity_forge_compiler",
   "packages/continuity_ledger/src/continuity_forge_ledger",
+  "packages/shot_contracts/src/continuity_forge_shots",
   "packages/providers/src/continuity_forge_providers",
   "apps/api/src/continuity_forge_api",
   "apps/mcp/src/continuity_forge_mcp",
@@ -44,6 +45,7 @@ pythonpath = [
   "packages/production_ir/src",
   "packages/compiler/src",
   "packages/continuity_ledger/src",
+  "packages/shot_contracts/src",
   "packages/providers/src",
   "apps/api/src",
   "apps/mcp/src",

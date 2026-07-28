@@ -6,6 +6,7 @@ from uuid import UUID
 from continuity_forge_compiler import compile_fdx_text, compile_text
 from continuity_forge_ir import ScriptDocument
 from continuity_forge_ledger import ContinuityLedger, build_continuity_ledger
+from continuity_forge_shots import ShotContractBundle, compile_shot_contracts
 from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("Continuity Forge")
@@ -144,6 +145,52 @@ def list_setup_payoff_links(
     """List setup/payoff links derived from the continuity ledger."""
     ledger = _ledger(source, title, document_key, format, revision)
     return [link.model_dump(mode="json") for link in ledger.setup_payoff_links]
+
+
+def _shots(
+    source: str,
+    title: str,
+    document_key: str | None,
+    format: str = "fountain",
+    revision: str = "0.1.0",
+) -> ShotContractBundle:
+    document = _compile(source, title, document_key, format, revision)
+    return compile_shot_contracts(document)
+
+
+@mcp.tool()
+def build_shot_contracts(
+    source: str,
+    title: str = "Untitled",
+    document_key: str | None = None,
+    format: str = "fountain",
+    revision: str = "0.1.0",
+) -> dict[str, Any]:
+    """Compile model-neutral shot contracts from screenplay source (read-only)."""
+    return _shots(source, title, document_key, format, revision).model_dump(mode="json")
+
+
+@mcp.tool()
+def list_shot_summaries(
+    source: str,
+    title: str = "Untitled",
+    document_key: str | None = None,
+    format: str = "fountain",
+    revision: str = "0.1.0",
+) -> list[dict[str, Any]]:
+    """List compact shot-contract summaries for each scene."""
+    bundle = _shots(source, title, document_key, format, revision)
+    return [
+        {
+            "shot_id": str(contract.shot_id),
+            "scene_id": str(contract.scene_id),
+            "label": contract.label,
+            "slugline": contract.slugline,
+            "constraint_count": len(contract.constraints),
+            "required_atom_count": len(contract.required_atom_ids),
+        }
+        for contract in bundle.contracts
+    ]
 
 
 def main() -> None:
