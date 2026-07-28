@@ -257,6 +257,9 @@ def test_web_ui_is_served() -> None:
     assert "Approval queue empty" in index.text
     assert "Request approval" in index.text
     assert "Repair / rationale" in index.text
+    assert 'id="scene-nav"' in index.text
+    assert "All scenes" in index.text
+    assert 'id="shot-empty"' in index.text
     assert 'id="canon"' in index.text
     assert 'id="control"' in index.text
     assert "Acquire lease" in index.text
@@ -276,6 +279,9 @@ def test_web_ui_is_served() -> None:
     assert "repairRationaleSummary" in app_js.text
     assert "Approval queue empty" in app_js.text or "approval-empty" in app_js.text
     assert "not production ready" in app_js.text
+    assert "buildSceneIndex" in app_js.text
+    assert "setSceneFocus" in app_js.text
+    assert "scene_id" in app_js.text
 
 
 def test_health_reports_version() -> None:

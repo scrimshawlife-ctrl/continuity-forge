@@ -38,7 +38,10 @@ phase3_operator_ux: REQUIRED      # exec vs readiness, repair rationale
 
 # This campaign (Phase 4)
 long_form_campaign_doc: PASS
-feature_implementation: NOT_STARTED
+feature_implementation: IN_PROGRESS
+slice_1_scene_shot_nav: IMPLEMENTED  # apps/web scene nav + filter + URL deep-link
+slice_2_virtualized_tables: NOT_STARTED
+slice_3_dependency_invalidation: NOT_STARTED
 trivial_stubs: NONE
 ```
 

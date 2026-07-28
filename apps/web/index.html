@@ -231,6 +231,32 @@
                   <span class="stat__v" id="r-schema">—</span>
                 </div>
               </div>
+
+              <!-- Phase 4.1 scene / shot navigation (read-only) -->
+              <div class="scene-nav" id="scene-nav" hidden>
+                <div class="scene-nav__head">
+                  <span class="scene-nav__title">Scenes</span>
+                  <span class="scene-nav__hint" id="scene-nav-hint">
+                    Read-only · [ ] prev/next scene · ← → shot focus
+                  </span>
+                </div>
+                <div class="scene-nav__toolbar btn-row">
+                  <button type="button" class="btn btn--ghost" id="btn-scene-all">
+                    All scenes
+                  </button>
+                  <button type="button" class="btn btn--ghost" id="btn-scene-prev" title="Previous scene [">
+                    Prev scene
+                  </button>
+                  <button type="button" class="btn btn--ghost" id="btn-scene-next" title="Next scene ]">
+                    Next scene
+                  </button>
+                </div>
+                <ul class="scene-nav__list" id="scene-list" role="listbox" aria-label="Scenes"></ul>
+                <p class="scene-nav__focus" id="scene-focus-label" aria-live="polite">
+                  Showing all scenes
+                </p>
+              </div>
+
               <div class="table-wrap">
                 <table class="receipt">
                   <caption class="visually-hidden">Shot proof results</caption>
@@ -245,6 +271,13 @@
                   </thead>
                   <tbody id="shot-rows"></tbody>
                 </table>
+                <div id="shot-empty" class="empty empty--friendly empty--queue" hidden>
+                  <p class="empty__lead">No shots in this scene</p>
+                  <p>
+                    Select <strong>All scenes</strong> or another scene. Navigation is
+                    read-only and does not change canon.
+                  </p>
+                </div>
               </div>
               <details class="fold">
                 <summary>Technical hashes</summary>
