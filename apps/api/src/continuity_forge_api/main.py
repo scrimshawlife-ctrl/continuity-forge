@@ -31,7 +31,8 @@ from pydantic import BaseModel, Field
 
 from continuity_forge_api.auth_deps import require_principal, tenant_document_key
 
-app = FastAPI(title="Continuity Forge API", version="1.1.0")
+API_VERSION = "1.2.0"
+app = FastAPI(title="Continuity Forge API", version=API_VERSION)
 
 app.add_middleware(
     CORSMiddleware,
@@ -158,7 +159,7 @@ def _store_candidate(candidate: ArtifactCandidate) -> str | None:
 @app.get("/health")
 def health() -> dict[str, str]:
     rt = _rt()
-    return {"status": "ok", "backend": rt.backend, "version": "1.1.0"}
+    return {"status": "ok", "backend": rt.backend, "version": API_VERSION}
 
 
 @app.get("/v1/whoami")
@@ -270,6 +271,37 @@ def ingest_project(
         "project": project.model_dump(mode="json"),
         "run": run.model_dump(mode="json"),
     }
+
+
+def _project_summary(project: ProjectRecord) -> dict[str, Any]:
+    return {
+        "document_key": project.document_key,
+        "title": project.title,
+        "revision": project.revision,
+        "format": project.format,
+        "source_hash": project.source_hash,
+        "state_hash": project.state_hash,
+        "last_pipeline_run_id": (
+            str(project.last_pipeline_run_id) if project.last_pipeline_run_id else None
+        ),
+        "scene_count": len((project.production_ir or {}).get("scenes") or []),
+        "shot_count": len((project.shot_contracts or {}).get("contracts") or []),
+    }
+
+
+@app.get("/v1/projects")
+def list_projects(
+    principal: Principal = Depends(require_principal),
+) -> dict[str, Any]:
+    """List projects for the authenticated tenant (keys scoped as tenant::doc)."""
+    prefix = f"{principal.tenant_id}::"
+    projects = [
+        _project_summary(p)
+        for p in _rt().project_store.list_projects()
+        if p.document_key.startswith(prefix)
+    ]
+    projects.sort(key=lambda row: str(row["document_key"]))
+    return {"tenant_id": principal.tenant_id, "projects": projects}
 
 
 @app.get("/v1/projects/{document_key}", response_model=ProjectRecord)

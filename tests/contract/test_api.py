@@ -193,6 +193,33 @@ def test_shot_contracts_endpoint() -> None:
     assert payload["ledger_hash"]
 
 
+def test_list_projects_endpoint() -> None:
+    client = TestClient(app)
+    # Seed via proof so a tenant-scoped project exists under anonymous::
+    proof = client.post(
+        "/v1/proof",
+        json={
+            "title": "List Seed",
+            "document_key": "list-seed",
+            "text": "INT. ROOM - DAY\n\nMara enters.\n\nMARA\nGo.\n",
+            "seed": "list",
+            "actor_id": "api-list",
+        },
+    )
+    assert proof.status_code == 200
+    listed = client.get("/v1/projects")
+    assert listed.status_code == 200
+    payload = listed.json()
+    assert payload["tenant_id"] == "anonymous"
+    keys = {row["document_key"] for row in payload["projects"]}
+    assert "anonymous::list-seed" in keys
+    row = next(r for r in payload["projects"] if r["document_key"] == "anonymous::list-seed")
+    assert row["scene_count"] >= 1
+    assert row["shot_count"] >= 1
+    assert row["source_hash"]
+    assert row["state_hash"]
+
+
 def test_controlled_proof_endpoint() -> None:
     client = TestClient(app)
     response = client.post(
@@ -223,6 +250,8 @@ def test_web_ui_is_served() -> None:
     assert index.status_code == 200
     assert "Proof workbench" in index.text
     assert "Run controlled proof" in index.text
+    assert "Export receipt JSON" in index.text
+    assert 'id="canon"' in index.text
     styles = client.get("/styles.css")
     assert styles.status_code == 200
     assert "Hallmark" in styles.text
@@ -232,3 +261,9 @@ def test_web_ui_is_served() -> None:
     app_js = client.get("/app.js")
     assert app_js.status_code == 200
     assert "/v1/proof" in app_js.text
+    assert "/v1/projects" in app_js.text
+
+
+def test_health_reports_version() -> None:
+    payload = TestClient(app).get("/health").json()
+    assert payload["version"] == "1.2.0"

@@ -70,6 +70,30 @@ a:focus-visible {
   outline-offset: 2px;
 }
 
+button.linkish {
+  appearance: none;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+button.linkish:hover {
+  color: var(--color-ink);
+}
+
+button.linkish:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
 /* ── N8 Terminal command nav ── */
 .nav-term {
   position: sticky;
