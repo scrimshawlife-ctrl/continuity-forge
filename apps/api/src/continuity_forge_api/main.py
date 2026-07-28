@@ -1,4 +1,6 @@
-from continuity_forge_compiler import compile_text
+from typing import Literal
+
+from continuity_forge_compiler import compile_fdx_text, compile_text
 from continuity_forge_ir import ScriptDocument
 from fastapi import FastAPI
 from pydantic import BaseModel
@@ -11,6 +13,7 @@ class CompileRequest(BaseModel):
     text: str
     revision: str = "0.1.0"
     document_key: str | None = None
+    format: Literal["fountain", "fdx"] = "fountain"
 
 
 @app.get("/health")
@@ -20,7 +23,8 @@ def health() -> dict[str, str]:
 
 @app.post("/v1/compile", response_model=ScriptDocument)
 def compile_script(request: CompileRequest) -> ScriptDocument:
-    return compile_text(
+    compiler = compile_fdx_text if request.format == "fdx" else compile_text
+    return compiler(
         request.text,
         title=request.title,
         revision=request.revision,

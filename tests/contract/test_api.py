@@ -21,3 +21,24 @@ def test_compile_endpoint() -> None:
 
 def test_health_endpoint() -> None:
     assert TestClient(app).get("/health").json() == {"status": "ok"}
+
+
+def test_compile_endpoint_accepts_fdx() -> None:
+    source = (
+        '<FinalDraft><Content><Paragraph Type="Scene Heading"><Text>INT. LAB - DAY</Text>'
+        "</Paragraph></Content></FinalDraft>"
+    )
+    response = TestClient(app).post(
+        "/v1/compile",
+        json={"text": source, "format": "fdx", "document_key": "api-fdx"},
+    )
+    assert response.status_code == 200
+    assert response.json()["format"] == "fdx"
+
+
+def test_compile_endpoint_rejects_unknown_format() -> None:
+    response = TestClient(app).post(
+        "/v1/compile",
+        json={"text": "anything", "format": "pdf"},
+    )
+    assert response.status_code == 422

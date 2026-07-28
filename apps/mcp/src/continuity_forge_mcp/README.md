@@ -16,4 +16,4 @@ continuity-forge-mcp
 - `get_scene`: return one scene by stable identifier
 - `audit_script_coverage`: return source-accounting totals and uncovered spans
 
-All calls accept source text plus an optional `document_key`. The key identifies the logical screenplay across revisions. The server is deliberately stateless in M0. Durable project resources, authenticated mutation commands, approvals, and workflow integration remain later milestones.
+All calls accept Fountain or Final Draft XML source text, a `format` selector, and an optional `document_key`. The key identifies the logical screenplay across revisions. The server is deliberately stateless in M0. Durable project resources, authenticated mutation commands, approvals, and workflow integration remain later milestones.

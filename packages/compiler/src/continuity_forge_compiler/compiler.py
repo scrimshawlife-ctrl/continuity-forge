@@ -238,6 +238,14 @@ def compile_text(
 
 
 def compile_file(path: Path, *, document_key: str | None = None) -> ScriptDocument:
+    if path.suffix.casefold() == ".fdx":
+        from .fdx import compile_fdx_text
+
+        return compile_fdx_text(
+            path.read_text(encoding="utf-8"),
+            title=path.stem,
+            document_key=document_key or path.stem,
+        )
     return compile_text(
         path.read_text(encoding="utf-8"),
         title=path.stem,

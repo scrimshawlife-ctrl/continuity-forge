@@ -42,6 +42,7 @@ class SegmentKind(StrEnum):
     ELEMENT = "element"
     BLANK = "blank"
     COMMENT = "comment"
+    METADATA = "metadata"
 
 
 class SourceSpan(BaseModel):
@@ -148,8 +149,8 @@ class ScriptDocument(BaseModel):
 
     @model_validator(mode="after")
     def validate_document(self) -> ScriptDocument:
-        if self.format != "fountain":
-            raise ValueError("format must be 'fountain'")
+        if self.format not in {"fountain", "fdx"}:
+            raise ValueError("format must be 'fountain' or 'fdx'")
         if [scene.ordinal for scene in self.scenes] != list(range(1, len(self.scenes) + 1)):
             raise ValueError("scene ordinals must be unique and sequential")
         scene_ids = [scene.scene_id for scene in self.scenes]

@@ -22,8 +22,8 @@ Canonical architecture: [`docs/architecture/PRODUCTION_HARNESS_ARCHITECTURE.md`]
 
 ### M0 scope
 
-- Script ingestion and source hashing
-- Deterministic Fountain element classification
+- Script ingestion and source hashing for Fountain and Final Draft XML (`.fdx`)
+- Deterministic Fountain and FDX element classification
 - Scene, action, character, parenthetical, dialogue, and control-element parsing
 - Narrative atom generation with exact source spans
 - Revision-aware stable identifiers using an explicit document key
@@ -66,6 +66,7 @@ source .venv/bin/activate
 pip install -e '.[dev]'
 pytest
 python -m continuity_forge_compiler.cli compile tests/golden/fixtures/minimal.fountain --out out
+python -m continuity_forge_compiler.cli compile tests/golden/fixtures/minimal.fdx --out out
 continuity-forge-mcp
 ```
 
@@ -90,5 +91,9 @@ Every source line receives a contiguous `SourceSegment`. Narrative elements refe
 - `CF100`: no scene headings found
 - `CF101`: content before the first scene was retained in the preamble
 - `CF102`: unclosed boneyard comment
+- `FDX100`: malformed Final Draft XML
+- `FDX101`: unsupported paragraph type retained as action
+- `FDX102`: no scene headings found in the FDX document
+- `FDX103`: pre-scene FDX content retained in the preamble
 
 Diagnostics are deterministic compiler output. Documents containing error diagnostics are inspectable but must not be promoted to canonical state.

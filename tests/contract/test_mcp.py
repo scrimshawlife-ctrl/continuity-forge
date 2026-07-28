@@ -23,3 +23,13 @@ def test_mcp_diagnostics_and_coverage_tools() -> None:
     coverage = audit_script_coverage(SOURCE, document_key="mcp-test")
     assert coverage["ratio"] == 1.0
     assert coverage["uncovered_spans"] == []
+
+
+def test_mcp_compile_accepts_fdx() -> None:
+    source = (
+        '<FinalDraft><Content><Paragraph Type="Scene Heading"><Text>INT. LAB - DAY</Text>'
+        "</Paragraph></Content></FinalDraft>"
+    )
+    compiled = compile_script(source, document_key="mcp-fdx", format="fdx")
+    assert compiled["format"] == "fdx"
+    assert compiled["coverage"]["ratio"] == 1.0
