@@ -100,6 +100,10 @@ const tableView = {
 /** Last full IR document for incremental compile prior reconcile (session only). */
 let lastCompiledDocument = null;
 
+/** Last breakdown package (handoff export). */
+let lastBreakdown = null;
+let lastBreakdownMarkdown = null;
+
 const els = {
   script: $("script"),
   documentKey: $("document-key"),
@@ -112,6 +116,7 @@ const els = {
   approvalKind: $("approval-kind"),
   approvalRationale: $("approval-rationale"),
   btnProof: $("btn-proof"),
+  btnBreakdown: $("btn-breakdown"),
   btnProofSticky: $("btn-proof-sticky"),
   stickyCta: $("sticky-cta"),
   stickyHint: $("sticky-hint"),
@@ -123,6 +128,8 @@ const els = {
   btnBootstrap: $("btn-bootstrap"),
   btnWhoami: $("btn-whoami"),
   btnExport: $("btn-export"),
+  btnExportBreakdown: $("btn-export-breakdown"),
+  btnExportBreakdownMd: $("btn-export-breakdown-md"),
   btnCopyHash: $("btn-copy-hash"),
   btnStatus: $("btn-status"),
   btnList: $("btn-list"),
@@ -1582,23 +1589,209 @@ async function listProjects() {
   );
 }
 
+function downloadText(filename, text, mime) {
+  const blob = new Blob([text], { type: mime || "text/plain" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function exportStem() {
+  const key =
+    lastBreakdown?.document_key ||
+    lastReceipt?.document_key ||
+    els.documentKey?.value ||
+    "breakdown";
+  return String(key)
+    .replaceAll("::", "__")
+    .replaceAll(/[^\w.-]+/g, "_");
+}
+
 function exportReceipt() {
   if (!lastReceipt) {
     showAlert("Run a proof first, then download the receipt.");
     return;
   }
-  const blob = new Blob([JSON.stringify(lastReceipt, null, 2)], {
-    type: "application/json",
-  });
-  const stem = String(lastReceipt.document_key || "proof")
-    .replaceAll("::", "__")
-    .replaceAll(/[^\w.-]+/g, "_");
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `${stem}.proof-receipt.json`;
-  a.click();
-  URL.revokeObjectURL(a.href);
-  showAlert(`Downloaded ${a.download}`, "ok");
+  const name = `${exportStem()}.proof-receipt.json`;
+  downloadText(name, JSON.stringify(lastReceipt, null, 2), "application/json");
+  showAlert(`Downloaded ${name}`, "ok");
+}
+
+function exportBreakdownJson() {
+  if (!lastBreakdown) {
+    showAlert("Build a breakdown first, then download JSON.");
+    return;
+  }
+  const name = `${exportStem()}.breakdown.json`;
+  downloadText(name, JSON.stringify(lastBreakdown, null, 2), "application/json");
+  showAlert(`Downloaded ${name} · connector-ready · not production film`, "ok");
+}
+
+function exportBreakdownMarkdown() {
+  if (!lastBreakdownMarkdown && !lastBreakdown) {
+    showAlert("Build a breakdown first, then download Markdown.");
+    return;
+  }
+  const body =
+    lastBreakdownMarkdown ||
+    JSON.stringify(lastBreakdown, null, 2);
+  const name = `${exportStem()}.breakdown.md`;
+  downloadText(name, body, "text/markdown");
+  showAlert(`Downloaded ${name}`, "ok");
+}
+
+/**
+ * Map breakdown package into the shot table (no mock media / proof required).
+ */
+function renderBreakdown(package) {
+  lastBreakdown = package;
+  els.receiptEmpty.hidden = true;
+  els.receiptBody.hidden = false;
+  els.runMeta.hidden = false;
+  setStep(3);
+
+  if (els.receiptExec) {
+    els.receiptExec.textContent = "breakdown ok";
+    els.receiptExec.className = "chip chip--ok";
+  }
+  if (els.receiptBudget) {
+    els.receiptBudget.hidden = true;
+  }
+  if (els.receiptClaim) {
+    els.receiptClaim.hidden = false;
+    els.receiptClaim.textContent = "not production film";
+    els.receiptClaim.className = "chip chip--warn";
+  }
+  if (els.resultStack) els.resultStack.hidden = false;
+  if (els.resultBanner) {
+    els.resultBanner.hidden = false;
+    els.resultBanner.textContent =
+      `Breakdown · ${package.shot_count || 0} shots · ` +
+      `${package.entity_count || 0} entities · connector-ready JSON`;
+    els.resultBanner.className = "result-banner result-banner--exec";
+  }
+  if (els.claimPostProof) els.claimPostProof.hidden = false;
+  if (els.claimExecLabel) {
+    setText(
+      els.claimExecLabel,
+      `${package.scene_count || 0} scenes · ${package.shot_count || 0} shots`,
+    );
+  }
+  if (els.claimBudgetLabel) {
+    setText(els.claimBudgetLabel, "n/a (no media generation)");
+  }
+  if (els.rClaimCode) {
+    els.rClaimCode.textContent =
+      package.claim || "shot_breakdown_with_continuity_not_production_film";
+  }
+
+  setText(els.rClaim, package.claim || "—");
+  setText(els.rDoc, package.document_key || "—");
+  setText(els.rHash, package.package_hash || "—");
+  setText(els.rSchema, package.schema_version || "cf.breakdown.v1");
+  setText(els.rSource, package.source_hash || "—");
+  setText(els.rIr, package.production_ir_hash || "—");
+  setText(els.rLedger, package.ledger_hash || "—");
+  setText(els.rShotsHash, package.shot_contracts_hash || "—");
+
+  setText(els.metaElapsed, "—");
+  setText(els.metaBudget, "—");
+  setText(els.metaWithin, "—");
+  setText(els.metaShots, String(package.shot_count || 0));
+  if (els.metaCost) setText(els.metaCost, "—");
+  if (els.costPanel) els.costPanel.hidden = true;
+
+  // Shape shots for existing table (status = breakdown; no repair media)
+  const shots = (package.shots || []).map((s) => ({
+    shot_id: s.shot_id,
+    scene_id: s.scene_id,
+    label: s.label || s.slugline,
+    status: "breakdown",
+    attempts: 0,
+    accepted_candidate_hash: null,
+    repair_actions: [],
+    repair_rationale: s.constraints?.length
+      ? s.constraints
+          .map((c) => c.description || c.code)
+          .filter(Boolean)
+          .slice(0, 3)
+          .join("; ")
+      : s.characters_present?.length
+        ? `cast: ${s.characters_present.join(", ")}`
+        : null,
+    _breakdown: s,
+  }));
+
+  // Synthetic receipt-like object so table helpers work
+  lastReceipt = {
+    claim: package.claim,
+    document_key: package.document_key,
+    receipt_hash: package.package_hash,
+    schema_version: package.schema_version,
+    source_hash: package.source_hash,
+    production_ir_hash: package.production_ir_hash,
+    ledger_hash: package.ledger_hash,
+    shot_contracts_hash: package.shot_contracts_hash,
+    shots,
+    _kind: "breakdown",
+  };
+
+  buildSceneIndex(shots);
+  nav.focusSceneId = null;
+  nav.focusShotIndex = 0;
+  applyNavFromUrl();
+  renderSceneNav();
+  renderShotTable();
+  syncNavUrl();
+
+  els.rawJson.textContent = JSON.stringify(package, null, 2);
+}
+
+async function buildBreakdown() {
+  showAlert("");
+  const text = els.script.value.trim();
+  if (!text) {
+    showAlert("Paste or import a screenplay first.");
+    return;
+  }
+  if (els.btnBreakdown) els.btnBreakdown.disabled = true;
+  setProofButtons({ disabled: true, state: "busy", label: "Building…" });
+  try {
+    const body = {
+      title: els.title.value.trim() || "Untitled",
+      text,
+      document_key: els.documentKey.value.trim() || null,
+      format: els.format.value,
+    };
+    const package = await api("/v1/breakdown", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+    let markdown = null;
+    try {
+      const mdPayload = await api("/v1/breakdown/markdown", {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+      markdown = mdPayload.markdown || null;
+    } catch {
+      markdown = null;
+    }
+    lastBreakdownMarkdown = markdown;
+    renderBreakdown(package);
+    showAlert(
+      `Breakdown ready · ${package.shot_count} shot(s) · ` +
+        `${package.entity_count} entit(y/ies) · download JSON for connectors · not production film`,
+      "ok",
+    );
+  } catch (err) {
+    showAlert(err instanceof Error ? err.message : String(err));
+  } finally {
+    if (els.btnBreakdown) els.btnBreakdown.disabled = false;
+    setProofButtons({ disabled: false, state: "", label: "Run proof" });
+  }
 }
 
 async function copyReceiptHash() {
@@ -1743,6 +1936,13 @@ function wire() {
     }
   });
 
+  if (els.btnBreakdown) {
+    els.btnBreakdown.addEventListener("click", () => {
+      buildBreakdown().catch((err) =>
+        showAlert(err instanceof Error ? err.message : String(err)),
+      );
+    });
+  }
   els.btnProof.addEventListener("click", runProof);
   els.btnProofSticky?.addEventListener("click", runProof);
   els.btnHealth.addEventListener("click", async () => {
@@ -1784,6 +1984,12 @@ function wire() {
     }
   });
   els.btnExport.addEventListener("click", exportReceipt);
+  if (els.btnExportBreakdown) {
+    els.btnExportBreakdown.addEventListener("click", exportBreakdownJson);
+  }
+  if (els.btnExportBreakdownMd) {
+    els.btnExportBreakdownMd.addEventListener("click", exportBreakdownMarkdown);
+  }
   els.btnCopyHash.addEventListener("click", () => {
     copyReceiptHash().catch((err) =>
       showAlert(err instanceof Error ? err.message : String(err)),

@@ -149,6 +149,8 @@ After install, entry points:
 Examples:
 
 ```bash
+# Primary handoff: shot-by-shot breakdown + continuity (JSON + Markdown)
+continuity-forge breakdown tests/golden/fixtures/continuity.fountain --out out
 continuity-forge compile tests/golden/fixtures/minimal.fountain --out out
 # Optional edit-loop path: full validate + prior-ID reconcile + invalidation receipt
 continuity-forge compile tests/golden/fixtures/minimal.fountain --out out \
@@ -159,7 +161,9 @@ continuity-forge pipeline tests/golden/fixtures/continuity.fountain --out out
 continuity-forge proof tests/golden/fixtures/continuity.fountain --out out
 ```
 
-REST: default `POST /v1/compile`; optional `POST /v1/compile/incremental` (read-side, not a canon write).
+REST handoff: `POST /v1/breakdown` (JSON) · `POST /v1/breakdown/markdown`.  
+Also: `POST /v1/compile`; optional `POST /v1/compile/incremental` (read-side, not a canon write).  
+Handoff guide: [`docs/HANDOFF.md`](HANDOFF.md). Automated check: `make handoff`.
 
 Workflow progress (long-form 4.6, poll-first):
 

@@ -106,6 +106,44 @@ def shots_cmd(
     typer.echo(str(target))
 
 
+@app.command("breakdown")
+def breakdown_cmd(
+    script: Annotated[Path, typer.Argument(exists=True, dir_okay=False)],
+    out: Annotated[Path, typer.Option("--out")] = Path("out"),
+    document_key: Annotated[str | None, typer.Option("--document-key")] = None,
+    markdown: Annotated[
+        bool,
+        typer.Option(
+            "--markdown/--no-markdown",
+            help="Also write a human-readable .breakdown.md export",
+        ),
+    ] = True,
+) -> None:
+    """Build shot-by-shot breakdown with continuity (machine-readable handoff).
+
+    Writes ``*.breakdown.json`` (connector/API shape) and optional ``*.breakdown.md``.
+    Read-side only — not production film.
+    """
+    from continuity_forge_shots import breakdown_to_markdown, build_breakdown_from_text
+
+    text = script.read_text(encoding="utf-8")
+    fmt = "fdx" if script.suffix.casefold() == ".fdx" else "fountain"
+    package = build_breakdown_from_text(
+        text,
+        title=script.stem,
+        document_key=document_key or script.stem,
+        format=fmt,  # type: ignore[arg-type]
+    )
+    out.mkdir(parents=True, exist_ok=True)
+    target = out / f"{script.stem}.breakdown.json"
+    target.write_text(package.model_dump_json(indent=2), encoding="utf-8")
+    typer.echo(str(target))
+    if markdown:
+        md_path = out / f"{script.stem}.breakdown.md"
+        md_path.write_text(breakdown_to_markdown(package), encoding="utf-8")
+        typer.echo(str(md_path))
+
+
 @app.command("pipeline")
 def pipeline_cmd(
     script: Annotated[Path, typer.Argument(exists=True, dir_okay=False)],

@@ -28,7 +28,14 @@ from continuity_forge_operator import (
 from continuity_forge_providers import ArtifactCandidate
 from continuity_forge_repair import LoopResult, ProofReceipt, run_controlled_proof, run_repair_loop
 from continuity_forge_runtime import RuntimeContext, get_runtime
-from continuity_forge_shots import ShotContractBundle, compile_shot_contracts, preview_invalidation
+from continuity_forge_shots import (
+    BreakdownPackage,
+    ShotContractBundle,
+    breakdown_to_markdown,
+    build_breakdown_from_text,
+    compile_shot_contracts,
+    preview_invalidation,
+)
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -231,6 +238,43 @@ def continuity_ledger(request: CompileRequest) -> ContinuityLedger:
 @app.post("/v1/shot-contracts", response_model=ShotContractBundle)
 def shot_contracts(request: CompileRequest) -> ShotContractBundle:
     return compile_shot_contracts(_document(request))
+
+
+@app.post("/v1/breakdown", response_model=BreakdownPackage)
+def breakdown_endpoint(request: CompileRequest) -> BreakdownPackage:
+    """Paste/import screenplay → shot-by-shot breakdown with continuity.
+
+    Machine-readable handoff package for connectors and export.
+    Read-side only; not production film; no PROPOSED media elevation.
+    """
+    return build_breakdown_from_text(
+        request.text,
+        title=request.title,
+        document_key=request.document_key,
+        format=request.format,
+        revision=request.revision,
+    )
+
+
+@app.post("/v1/breakdown/markdown")
+def breakdown_markdown_endpoint(request: CompileRequest) -> dict[str, Any]:
+    """Same breakdown as POST /v1/breakdown, returned as Markdown text."""
+    package = build_breakdown_from_text(
+        request.text,
+        title=request.title,
+        document_key=request.document_key,
+        format=request.format,
+        revision=request.revision,
+    )
+    return {
+        "schema_version": package.schema_version,
+        "claim": package.claim,
+        "package_hash": package.package_hash,
+        "markdown": breakdown_to_markdown(package),
+        "shot_count": package.shot_count,
+        "scene_count": package.scene_count,
+        "entity_count": package.entity_count,
+    }
 
 
 @app.post("/v1/compile/incremental")

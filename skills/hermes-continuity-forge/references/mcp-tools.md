@@ -17,6 +17,8 @@ Source of truth: `apps/mcp/src/continuity_forge_mcp/server.py`.
 | `list_setup_payoff_links` | Setup/payoff links |
 | `build_shot_contracts` | Shot contract bundle |
 | `list_shot_summaries` | Compact shot list |
+| `build_breakdown` | **Handoff:** shot-by-shot + continuity package JSON (`cf.breakdown.v1`) |
+| `build_breakdown_markdown` | Same package as Markdown export text |
 
 Common args: `source`, `title`, `document_key`, `format` (`fountain`|`fdx`), `revision`.
 
@@ -72,6 +74,7 @@ Examples:
 
 ## REST complements (not MCP)
 
+- `POST /v1/breakdown` — **handoff** shot+continuity package; `POST /v1/breakdown/markdown`
 - `POST /v1/proof` — controlled proof receipt in one call (includes `cost_ledger` / `cost_summary`)
 - `POST /v1/compile` — default full compile; `POST /v1/compile/incremental` optional
 - `POST /v1/invalidation/preview` — stale artifact set (read-only)
