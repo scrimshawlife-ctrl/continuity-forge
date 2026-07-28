@@ -21,6 +21,7 @@ from continuity_forge_ir import (
 
 SCENE_RE = re.compile(r"^(INT\.|EXT\.|INT/EXT\.|I/E\.).+", re.IGNORECASE)
 CHARACTER_RE = re.compile(r"^[A-Z][A-Z0-9 ._()'-]{1,48}$")
+TRANSITIONS = {"CUT TO:", "FADE OUT.", "FADE IN:"}
 SUPPORTED_TEXT_SUFFIXES = {".fountain", ".txt"}
 
 
@@ -171,9 +172,6 @@ def compile_text_result(
                 )
             )
             continue
-        elif CHARACTER_RE.match(stripped) and len(stripped.split()) <= 5:
-            pending_character = (stripped, span)
-            continue
         elif pending_character is not None:
             atom_type = AtomType.DIALOGUE
             stripped = f"{pending_character[0]}: {stripped}"
@@ -184,8 +182,11 @@ def compile_text_result(
                 line_end=line_no,
             )
             pending_character = None
-        elif stripped.upper() in {"CUT TO:", "FADE OUT.", "FADE IN:"}:
+        elif stripped.upper() in TRANSITIONS:
             atom_type = AtomType.TRANSITION
+        elif CHARACTER_RE.match(stripped) and len(stripped.split()) <= 5:
+            pending_character = (stripped, span)
+            continue
         else:
             atom_type = AtomType.ACTION
 
