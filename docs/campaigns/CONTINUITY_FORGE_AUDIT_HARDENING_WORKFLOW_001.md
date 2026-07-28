@@ -56,4 +56,10 @@ workflow_authored: PASS
 validate_only_plan: PASS
 validate_only_execute_p1: PASS (canned)
 live_run: optional
+
+# Implementation scoreboard (main as of v1.4)
+phase1_trust_boundary: IMPLEMENTED
+phase2_production_ci: IMPLEMENTED
+phase3_operator_ux: IMPLEMENTED
+phase4_long_form: IMPLEMENTED  # all six slices; see CONTINUITY_FORGE_LONG_FORM_UX_001
 ```

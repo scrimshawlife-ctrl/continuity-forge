@@ -26,6 +26,7 @@ Common args: `source`, `title`, `document_key`, `format` (`fountain`|`fdx`), `re
 |------|---------|
 | `run_kernel_pipeline` | Run kernel pipeline command (mutation-style fields on command) |
 | `get_pipeline_run` | Fetch run by `run_id` |
+| `get_pipeline_run_events` | Poll ordered workflow events + progress (`after` / `last_event_id` resume). Observability only; workflow complete ≠ production ready |
 | `get_temporal_manifest` | Temporal registration contracts |
 
 ## Operator (lease + project)
@@ -71,8 +72,9 @@ Examples:
 
 ## REST complements (not MCP)
 
-- `POST /v1/proof` — controlled proof receipt in one call
+- `POST /v1/proof` — controlled proof receipt in one call (includes `cost_ledger` / `cost_summary`)
 - `POST /v1/compile` — default full compile; `POST /v1/compile/incremental` optional
 - `POST /v1/invalidation/preview` — stale artifact set (read-only)
+- `GET /v1/pipeline/runs/{run_id}/events` — poll workflow progress (same as MCP `get_pipeline_run_events`)
 - `POST /v1/approvals/request` · `POST /v1/approvals/decide`
 - `GET /v1/projects` · `GET /v1/projects/{key}/runs`

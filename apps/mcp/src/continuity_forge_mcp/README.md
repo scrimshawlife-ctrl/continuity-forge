@@ -45,7 +45,7 @@ Integration guide: [`docs/hermes/README.md`](../../../../docs/hermes/README.md).
 - `build_shot_contracts`, `list_shot_summaries`
 
 ### Durable pipeline
-- `run_kernel_pipeline`, `get_pipeline_run`, `get_temporal_manifest`
+- `run_kernel_pipeline`, `get_pipeline_run`, `get_pipeline_run_events` (poll progress), `get_temporal_manifest`
 
 ### Operator (M4)
 - `acquire_write_lease`, `release_write_lease`, `ingest_script`

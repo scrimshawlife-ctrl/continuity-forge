@@ -27,8 +27,8 @@ Do not migrate to React/Vue or invent a second film state store.
 ```text
 campaign: CONTINUITY_FORGE_LONG_FORM_UX_001
 phase: 4_long_form
-mode: docs_design
-implementation: DEFERRED
+mode: implemented
+implementation: COMPLETE
 architecture_rewrite: NOT_REQUIRED
 
 # Prerequisite scoreboard (audit phases 1–3)
@@ -452,13 +452,15 @@ make_validate: local_gate_for_slices
 
 ---
 
-## Completion receipt (docs pass)
+## Completion receipt (implementation)
 
-- **files changed:** `docs/campaigns/CONTINUITY_FORGE_LONG_FORM_UX_001.md` (created)
-- **tests added or updated:** none (docs-only)
-- **commands executed:** none required beyond authoring
-- **gates:** campaign doc exit PASS; feature implementation NOT_STARTED
-- **unresolved ambiguity:** server-side paging vs client virtualization first;
-  SSE vs poll-first for workflow events — left as design options in item 6
-- **next bounded action:** keep phases 1–3 green; implement dependency-graph
-  invalidation as first code slice when scale work is scheduled
+- **slices:** 4.1–4.6 all IMPLEMENTED with unit/contract tests + `make validate`
+- **PRs (indicative):** scene nav, virtualized tables, dependency invalidation,
+  incremental compile, budget telemetry, workflow event poll
+- **transport choice:** poll-first for workflow events (`GET .../events`); SSE deferred
+- **virtualization choice:** client-side virtual tbody with filters (server paging deferred)
+- **gates:** `make validate` green; claim banners and PROPOSED boundary retained
+- **MCP close-out:** `get_pipeline_run_events` mirrors REST poll surface
+- **explicit non-claims:** not production film; not production-validated Temporal fleet
+- **next bounded action (outside this campaign):** production stack when operators
+  need live providers / Temporal cluster / multi-tenant OAuth — still non-goals here

@@ -7,6 +7,7 @@ from continuity_forge_compiler import compile_fdx_text, compile_incremental, com
 from continuity_forge_harness import (
     PipelineCommand,
     PipelineError,
+    build_event_page,
     execute_kernel_pipeline,
     temporal_registration_manifest,
 )
@@ -290,6 +291,28 @@ def get_pipeline_run(run_id: str) -> dict[str, Any] | None:
     """Fetch a durable pipeline run by ID."""
     run = _rt().run_store.get(UUID(run_id))
     return None if run is None else run.model_dump(mode="json")
+
+
+@mcp.tool()
+def get_pipeline_run_events(
+    run_id: str,
+    after: int = 0,
+    last_event_id: str | None = None,
+) -> dict[str, Any] | None:
+    """Poll ordered workflow events for a run (observability; not film canon).
+
+    Resume with ``after`` (sequence) or ``last_event_id`` without replaying
+    mutations. Explicit: workflow complete ≠ production ready.
+    """
+    run = _rt().run_store.get(UUID(run_id))
+    if run is None:
+        return None
+    page = build_event_page(
+        run,
+        after_sequence=max(0, after),
+        last_event_id=last_event_id,
+    )
+    return page.model_dump(mode="json")
 
 
 @mcp.tool()

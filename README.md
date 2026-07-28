@@ -8,7 +8,7 @@ Continuity Forge converts a screenplay into a provenance-preserving Production I
 
 > Models generate pixels and proposals. Continuity Forge governs identity, memory, causality, approvals, and production truth.
 
-**Version 1.3.0.** Default PR gate: `scripts/validate_m0.py` via `.github/workflows/ci.yml` (`make validate`). Phase 2: packaging (`.github/workflows/ci-packaging.yml`) and Postgres/MinIO integration smoke (`.github/workflows/ci-integration.yml`) — see `docs/SETUP.md` §3.
+**Version 1.4.0.** Default PR gate: `scripts/validate_m0.py` via `.github/workflows/ci.yml` (`make validate`). Phase 2: packaging (`.github/workflows/ci-packaging.yml`) and Postgres/MinIO integration smoke (`.github/workflows/ci-integration.yml`) — see `docs/SETUP.md` §3.
 
 | Doc | Contents |
 |-----|----------|
@@ -54,11 +54,14 @@ M5 PROVIDER GATEWAY + WORKERS ........ Implemented (mock default; real providers
 M6 GENERATOR-EVALUATOR REPAIR LOOP ... Implemented (mock default)
 M7 CONTROLLED 30-60s PROOF ........... Implemented (mock media; claim controlled_proof_not_production_ready)
 POST-1.0 runtime / auth / deploy ..... Implemented; Postgres/MinIO path Integration-tested (CI smoke skeleton)
-OPERATOR UI (Hallmark) ............... Implemented (v1.3.0 UI surface)
+OPERATOR UI (Hallmark) ............... Implemented (v1.4.0 UI surface + long-form scale)
 HERMES SKILL ......................... Implemented (skills/hermes-continuity-forge)
+LONG-FORM UX (Phase 4 audit) ......... Implemented (nav, virtualize, invalidation, incremental, cost, events)
 ```
 
 Nothing in this table is **Production-validated**. Controlled proof and mock paths are not production film.
+
+**Long-form operator scale (v1.4):** scene/shot navigation, virtualized shot tables, dependency invalidation preview, optional incremental compile, run-scoped cost ledger, pollable workflow events. See [`docs/campaigns/CONTINUITY_FORGE_LONG_FORM_UX_001.md`](docs/campaigns/CONTINUITY_FORGE_LONG_FORM_UX_001.md).
 
 ---
 
@@ -185,7 +188,7 @@ Canonical mutations require schema validation, provenance, deterministic diagnos
 
 **Public research repository** ([github.com/scrimshawlife-ctrl/continuity-forge](https://github.com/scrimshawlife-ctrl/continuity-forge)). Source is published for research and collaboration; this is **not** a production-supported product release and does not imply production readiness.
 
-Package version: **1.3.0** (kept in sync with [`pyproject.toml`](pyproject.toml) `[project].version` — no bump in this docs pass).
+Package version: **1.4.0** (kept in sync with [`pyproject.toml`](pyproject.toml) `[project].version`).
 
 Controlled proof uses mock media; production providers and durability backends are optional and env-gated. See milestone labels above for Implemented vs Integration-tested vs Production-validated.
 
