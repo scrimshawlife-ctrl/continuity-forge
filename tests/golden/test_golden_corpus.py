@@ -13,6 +13,7 @@ SUPPORTED_FIXTURES = [
     "multi_scene.fountain",
     "transitions.fountain",
     "title_page.fountain",
+    "multiline_title_page.fountain",
     "unicode.fountain",
     "minimal.fdx",
 ]
@@ -116,6 +117,24 @@ def test_title_page_metadata_is_typed_and_source_covered() -> None:
     assert metadata["draft_date"].value == "July 28, 2026"
     assert metadata["title"].source_span.line_start == 1
     assert metadata["draft_date"].source_span.line_end == 4
+    assert not any(
+        diagnostic.code == "CF_PARSE_CONTENT_BEFORE_SCENE"
+        for diagnostic in result.diagnostics
+    )
+
+
+def test_multiline_title_metadata_preserves_continuations_and_spans() -> None:
+    result = compile_fixture(FIXTURES / "multiline_title_page.fountain")
+    metadata = {entry.key: entry for entry in result.document.metadata}
+
+    assert metadata["author"].value == "Mara Vale\nJonas Reed"
+    assert metadata["author"].source_span.line_start == 3
+    assert metadata["author"].source_span.line_end == 4
+    assert metadata["contact"].value == (
+        "Applied Alchemy Labs\ncontinuity@example.com"
+    )
+    assert metadata["contact"].source_span.line_start == 5
+    assert metadata["contact"].source_span.line_end == 6
     assert not any(
         diagnostic.code == "CF_PARSE_CONTENT_BEFORE_SCENE"
         for diagnostic in result.diagnostics
