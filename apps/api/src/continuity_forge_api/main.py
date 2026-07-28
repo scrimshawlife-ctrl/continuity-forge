@@ -1,10 +1,9 @@
 from typing import Any, Literal
 from uuid import UUID
 
-from continuity_forge_auth import DEFAULT_AUTH_SERVICE, Principal, bootstrap_dev_tenant
+from continuity_forge_auth import Principal, bootstrap_dev_tenant
 from continuity_forge_compiler import compile_fdx_text, compile_text
 from continuity_forge_harness import (
-    DEFAULT_RUN_STORE,
     PipelineCommand,
     PipelineError,
     WorkflowRun,
@@ -14,26 +13,26 @@ from continuity_forge_harness import (
 from continuity_forge_ir import ScriptDocument
 from continuity_forge_ledger import ContinuityLedger, build_continuity_ledger
 from continuity_forge_operator import (
-    DEFAULT_PROJECT_STORE,
     ApprovalStatus,
     MutationEnvelope,
     OperatorError,
     ProjectRecord,
     WriteLease,
 )
-from continuity_forge_providers import ArtifactCandidate, get_gateway
+from continuity_forge_providers import ArtifactCandidate
 from continuity_forge_repair import LoopResult, run_repair_loop
+from continuity_forge_runtime import RuntimeContext, get_runtime
 from continuity_forge_shots import ShotContractBundle, compile_shot_contracts
 from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel
 
-from continuity_forge_api.auth_deps import (
-    require_principal,
-    tenant_document_key,
-)
+from continuity_forge_api.auth_deps import require_principal, tenant_document_key
 
-app = FastAPI(title="Continuity Forge API", version="1.0.0")
-_gateway = get_gateway()
+app = FastAPI(title="Continuity Forge API", version="1.1.0")
+
+
+def _rt() -> RuntimeContext:
+    return get_runtime()
 
 
 class CompileRequest(BaseModel):
@@ -116,7 +115,7 @@ def _document(request: CompileRequest) -> ScriptDocument:
 
 
 def _shot(document_key: str, shot_id: str) -> dict[str, Any]:
-    project = DEFAULT_PROJECT_STORE.get_project(document_key)
+    project = _rt().project_store.get_project(document_key)
     if project is None or not project.shot_contracts:
         raise HTTPException(status_code=404, detail="project or shot contracts not found")
     contracts = project.shot_contracts.get("contracts") or []
@@ -128,9 +127,17 @@ def _shot(document_key: str, shot_id: str) -> dict[str, Any]:
     raise HTTPException(status_code=404, detail="shot not found")
 
 
+def _store_candidate(candidate: ArtifactCandidate) -> str | None:
+    sink = _rt().artifact_store
+    if sink is None:
+        return None
+    return sink.put(candidate)
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok"}
+    rt = _rt()
+    return {"status": "ok", "backend": rt.backend, "version": "1.1.0"}
 
 
 @app.get("/v1/whoami")
@@ -141,7 +148,8 @@ def whoami(principal: Principal = Depends(require_principal)) -> dict[str, Any]:
 @app.post("/v1/tenants/bootstrap-dev")
 def bootstrap_dev() -> dict[str, str]:
     """Create/reset the local dev tenant and return its API key (dev only)."""
-    tenant, key = bootstrap_dev_tenant(DEFAULT_AUTH_SERVICE)
+    rt = _rt()
+    tenant, key = bootstrap_dev_tenant(rt.auth)
     return {"tenant_id": tenant.tenant_id, "api_key": key}
 
 
@@ -163,14 +171,14 @@ def shot_contracts(request: CompileRequest) -> ShotContractBundle:
 @app.post("/v1/pipeline/runs", response_model=WorkflowRun)
 def start_pipeline_run(command: PipelineCommand) -> WorkflowRun:
     try:
-        return execute_kernel_pipeline(command, store=DEFAULT_RUN_STORE)
+        return execute_kernel_pipeline(command, store=_rt().run_store)
     except PipelineError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @app.get("/v1/pipeline/runs/{run_id}", response_model=WorkflowRun)
 def get_pipeline_run(run_id: UUID) -> WorkflowRun:
-    run = DEFAULT_RUN_STORE.get(run_id)
+    run = _rt().run_store.get(run_id)
     if run is None:
         raise HTTPException(status_code=404, detail="pipeline run not found")
     return run
@@ -188,7 +196,7 @@ def acquire_lease(
 ) -> WriteLease:
     key = tenant_document_key(principal.tenant_id, request.document_key)
     try:
-        return DEFAULT_PROJECT_STORE.acquire_lease(
+        return _rt().project_store.acquire_lease(
             key,
             request.holder or principal.actor_id,
             scope=request.scope,
@@ -206,7 +214,7 @@ def release_lease(
 ) -> dict[str, str]:
     key = tenant_document_key(principal.tenant_id, document_key)
     try:
-        DEFAULT_PROJECT_STORE.release_lease(key, holder)
+        _rt().project_store.release_lease(key, holder)
     except OperatorError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     return {"status": "released"}
@@ -226,7 +234,7 @@ def ingest_project(
         expected_state_hash=request.expected_state_hash,
     )
     try:
-        project, run = DEFAULT_PROJECT_STORE.ingest_script(
+        project, run = _rt().project_store.ingest_script(
             document_key=key,
             title=request.title,
             text=request.text,
@@ -249,7 +257,7 @@ def get_project(
     principal: Principal = Depends(require_principal),
 ) -> ProjectRecord:
     key = tenant_document_key(principal.tenant_id, document_key)
-    project = DEFAULT_PROJECT_STORE.get_project(key)
+    project = _rt().project_store.get_project(key)
     if project is None:
         raise HTTPException(status_code=404, detail="project not found")
     return project
@@ -261,7 +269,7 @@ def project_status(
     principal: Principal = Depends(require_principal),
 ) -> dict[str, Any]:
     key = tenant_document_key(principal.tenant_id, document_key)
-    payload = DEFAULT_PROJECT_STORE.resource(f"cf://projects/{key}/status")
+    payload = _rt().project_store.resource(f"cf://projects/{key}/status")
     if payload is None:
         raise HTTPException(status_code=404, detail="project not found")
     result = {str(k): v for k, v in payload.items()}
@@ -271,23 +279,27 @@ def project_status(
 
 @app.get("/v1/resources")
 def get_resource(uri: str) -> dict[str, Any]:
-    payload = DEFAULT_PROJECT_STORE.resource(uri)
+    payload = _rt().project_store.resource(uri)
     if payload is None:
         raise HTTPException(status_code=404, detail="resource not found")
     return {str(k): v for k, v in payload.items()}
 
 
 @app.post("/v1/approvals/request")
-def request_approval(request: ApprovalRequest) -> dict[str, Any]:
+def request_approval(
+    request: ApprovalRequest,
+    principal: Principal = Depends(require_principal),
+) -> dict[str, Any]:
+    key = tenant_document_key(principal.tenant_id, request.document_key)
     envelope = MutationEnvelope(
-        actor_id=request.actor_id,
+        actor_id=request.actor_id or principal.actor_id,
         authorization_scope=request.authorization_scope,
         idempotency_key=request.idempotency_key,
         rationale=request.rationale,
     )
     try:
-        record = DEFAULT_PROJECT_STORE.request_approval(
-            document_key=request.document_key,
+        record = _rt().project_store.request_approval(
+            document_key=key,
             kind=request.kind,
             envelope=envelope,
             target_ref=request.target_ref,
@@ -298,15 +310,18 @@ def request_approval(request: ApprovalRequest) -> dict[str, Any]:
 
 
 @app.post("/v1/approvals/decide")
-def decide_approval(request: ApprovalDecision) -> dict[str, Any]:
+def decide_approval(
+    request: ApprovalDecision,
+    principal: Principal = Depends(require_principal),
+) -> dict[str, Any]:
     envelope = MutationEnvelope(
-        actor_id=request.actor_id,
+        actor_id=request.actor_id or principal.actor_id,
         authorization_scope=request.authorization_scope,
         idempotency_key=request.idempotency_key,
         rationale=request.rationale,
     )
     try:
-        record = DEFAULT_PROJECT_STORE.record_approval(
+        record = _rt().project_store.record_approval(
             approval_id_value=request.approval_id,
             status=ApprovalStatus(request.status),
             envelope=envelope,
@@ -323,7 +338,9 @@ def generate_preview(
 ) -> ArtifactCandidate:
     key = tenant_document_key(principal.tenant_id, request.document_key)
     contract = _shot(key, request.shot_id)
-    return _gateway.generate_for_shot(contract, seed=request.seed)
+    candidate = _rt().gateway.generate_for_shot(contract, seed=request.seed)
+    _store_candidate(candidate)
+    return candidate
 
 
 @app.post("/v1/generate/repair-loop", response_model=LoopResult)
@@ -333,10 +350,13 @@ def generate_repair_loop(
 ) -> LoopResult:
     key = tenant_document_key(principal.tenant_id, request.document_key)
     contract = _shot(key, request.shot_id)
-    return run_repair_loop(
+    result = run_repair_loop(
         contract,
-        gateway=_gateway,
+        gateway=_rt().gateway,
         seed=request.seed,
         max_attempts=request.max_attempts,
         fail_first=request.fail_first,
     )
+    if result.accepted_candidate is not None:
+        _store_candidate(result.accepted_candidate)
+    return result

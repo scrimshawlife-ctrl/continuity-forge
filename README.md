@@ -70,24 +70,27 @@ Canonical state changes require schema validation, source provenance, determinis
 
 See `docs/campaigns/` for M0–M7 campaign specifications.
 
-## Production stack (1.0)
+## Production stack (1.1)
 
 | Capability | How |
 |------------|-----|
+| **Runtime wiring** | `continuity_forge_runtime.get_runtime()` selects memory / filesystem / Postgres + S3 from env |
 | **OpenAI / Runway workers** | `CF_PROVIDER=openai\|runway` + API keys; injectable clients in tests |
 | **HTTP gateway worker** | `CF_PROVIDER=http` + `CF_PROVIDER_HTTP_URL` |
 | **Temporal deployment** | `deploy/docker-compose.yml` (Temporal + worker + UI) |
-| **PostgreSQL stores** | `CF_DATABASE_URL` + `continuity_forge_persistence` |
-| **S3 / MinIO artifacts** | `CF_S3_*` + `S3ArtifactStore` |
-| **Multi-tenant auth** | `Authorization: Bearer <api-key>`; document keys scoped as `{tenant}/{key}` |
+| **PostgreSQL stores** | `CF_DATABASE_URL` |
+| **Filesystem durability** | `CF_STORE_ROOT=/path` |
+| **S3 / MinIO artifacts** | `CF_S3_*` (candidates stored on generate) |
+| **Multi-tenant auth** | `Authorization: Bearer <api-key>`; keys scoped as `{tenant}::{document}` |
 
 ```bash
 # offline
 continuity-forge worker-check
 continuity-forge-worker --check
 
-# full local stack
+# full local stack + smoke
 docker compose -f deploy/docker-compose.yml up --build
+bash deploy/smoke.sh
 ```
 
 See [`deploy/README.md`](deploy/README.md).

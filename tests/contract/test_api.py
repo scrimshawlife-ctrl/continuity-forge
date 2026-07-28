@@ -1,5 +1,5 @@
 from continuity_forge_api.main import app
-from continuity_forge_operator import DEFAULT_PROJECT_STORE
+from continuity_forge_runtime import get_runtime
 from fastapi.testclient import TestClient
 
 
@@ -21,7 +21,9 @@ def test_compile_endpoint() -> None:
 
 
 def test_health_endpoint() -> None:
-    assert TestClient(app).get("/health").json() == {"status": "ok"}
+    payload = TestClient(app).get("/health").json()
+    assert payload["status"] == "ok"
+    assert "backend" in payload
 
 
 def test_compile_endpoint_accepts_fdx() -> None:
@@ -120,7 +122,7 @@ def test_project_ingest_and_generate_flow() -> None:
     assert loop.status_code == 200
     assert loop.json()["status"] == "accepted_proposed"
     # Projects are tenant-scoped (anonymous::<key> when auth is off).
-    assert DEFAULT_PROJECT_STORE.get_project(f"anonymous::{key}") is not None
+    assert get_runtime().project_store.get_project(f"anonymous::{key}") is not None
 
 
 def test_pipeline_run_endpoint_is_idempotent() -> None:

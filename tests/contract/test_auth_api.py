@@ -1,12 +1,14 @@
 import os
 
 from continuity_forge_api.main import app
-from continuity_forge_auth import DEFAULT_AUTH_SERVICE, bootstrap_dev_tenant
+from continuity_forge_auth import bootstrap_dev_tenant
+from continuity_forge_runtime import get_runtime, reset_runtime
 from fastapi.testclient import TestClient
 
 
 def test_whoami_anonymous_when_auth_not_required() -> None:
     os.environ.pop("CF_AUTH_REQUIRED", None)
+    reset_runtime()
     client = TestClient(app)
     response = client.get("/v1/whoami")
     assert response.status_code == 200
@@ -16,21 +18,24 @@ def test_whoami_anonymous_when_auth_not_required() -> None:
 def test_auth_required_rejects_missing_key() -> None:
     os.environ["CF_AUTH_REQUIRED"] = "1"
     try:
+        reset_runtime()
         client = TestClient(app)
         response = client.get("/v1/whoami")
         assert response.status_code == 401
-        bootstrap_dev_tenant(DEFAULT_AUTH_SERVICE, tenant_id="dev", api_key="dev-local-key")
+        bootstrap_dev_tenant(get_runtime().auth, tenant_id="dev", api_key="dev-local-key")
         ok = client.get("/v1/whoami", headers={"Authorization": "Bearer dev-local-key"})
         assert ok.status_code == 200
         assert ok.json()["tenant_id"] == "dev"
     finally:
         os.environ.pop("CF_AUTH_REQUIRED", None)
+        reset_runtime()
 
 
 def test_tenant_scoped_ingest_isolation() -> None:
     os.environ.pop("CF_AUTH_REQUIRED", None)
-    bootstrap_dev_tenant(DEFAULT_AUTH_SERVICE, tenant_id="alpha", api_key="alpha-key")
-    bootstrap_dev_tenant(DEFAULT_AUTH_SERVICE, tenant_id="beta", api_key="beta-key")
+    reset_runtime()
+    bootstrap_dev_tenant(get_runtime().auth, tenant_id="alpha", api_key="alpha-key")
+    bootstrap_dev_tenant(get_runtime().auth, tenant_id="beta", api_key="beta-key")
     client = TestClient(app)
     # Acquire lease + ingest under alpha
     headers = {"Authorization": "Bearer alpha-key"}

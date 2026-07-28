@@ -4,24 +4,13 @@ from __future__ import annotations
 
 import os
 
-from continuity_forge_auth import (
-    DEFAULT_AUTH_SERVICE,
-    AuthError,
-    AuthService,
-    Principal,
-    bootstrap_dev_tenant,
-)
+from continuity_forge_auth import AuthError, AuthService, Principal
+from continuity_forge_runtime import get_runtime
 from fastapi import Depends, Header, HTTPException
 
 
 def get_auth_service() -> AuthService:
-    service = DEFAULT_AUTH_SERVICE
-    if (
-        os.environ.get("CF_BOOTSTRAP_DEV_TENANT", "").casefold() in {"1", "true", "yes"}
-        and not service.list_tenants()
-    ):
-        bootstrap_dev_tenant(service)
-    return service
+    return get_runtime().auth
 
 
 def auth_required() -> bool:
