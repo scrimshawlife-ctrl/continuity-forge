@@ -8,52 +8,26 @@ Continuity Forge converts a screenplay into a provenance-preserving Production I
 
 ## Architecture
 
-Continuity Forge is structured as three layers:
-
-1. **Deterministic kernel** — screenplay, Production IR, continuity state, invariants, approvals, artifact lineage, and revision impact.
-2. **Durable production harness** — retries, long-running generation, human approval waits, provider outages, cancellation, and recovery through Temporal after M0.
-3. **Bounded agentic reasoning** — model-assisted interpretation, planning, evaluation, diagnosis, and repair proposals with no direct canonical authority.
+1. **Deterministic kernel** — screenplay, Production IR, continuity state, invariants, approvals, artifact lineage.
+2. **Durable production harness** — pipeline commands, idempotency, checkpoints, Temporal adapter contracts.
+3. **Operator surface** — project store, write leases, MCP/REST resources and tools.
+4. **Mock provider gateway + repair loop** — PROPOSED candidates only; deterministic validate/repair.
+5. **Controlled proof** — end-to-end mock path on a golden continuity fixture.
 
 Canonical architecture: [`docs/architecture/PRODUCTION_HARNESS_ARCHITECTURE.md`](docs/architecture/PRODUCTION_HARNESS_ARCHITECTURE.md)
 
-## Active campaign
-
-`CONTINUITY_FORGE_DURABLE_HARNESS_001` — `M3_DURABLE_HARNESS`
-
-M0–M2 kernel stages are complete. Active work is the durable harness for compile → ledger → shot contracts.
-
-### M3 scope
-
-- Typed pipeline commands (actor, scope, idempotency, rationale, optional expected-state hash)
-- Checkpointed in-process pipeline executor
-- Temporal adapter contracts (workflow/activity names, task queue)
-- REST `/v1/pipeline/runs`, MCP pipeline tools, CLI `pipeline`
-
-Provider execution, media generation, and repair loops remain excluded.
-
-## Planned progression
+## Milestone status
 
 ```text
-M0 COMPILER SPINE (complete)
--> M1 CONTINUITY LEDGER (complete)
--> M2 SHOT CONTRACT COMPILER (complete)
--> M3 DURABLE HARNESS / TEMPORAL (active)
--> M4 MCP OPERATOR SURFACE
--> M5 PROVIDER GATEWAY + ISOLATED WORKERS
--> M6 GENERATOR-EVALUATOR REPAIR LOOP
--> M7 30-60 SECOND CONTROLLED PROOF
+M0 COMPILER SPINE .................... complete
+M1 CONTINUITY LEDGER ................. complete
+M2 SHOT CONTRACT COMPILER ............ complete
+M3 DURABLE HARNESS / TEMPORAL ........ complete (in-process + adapter contracts)
+M4 MCP OPERATOR SURFACE .............. complete
+M5 PROVIDER GATEWAY + WORKERS ........ complete (mock only)
+M6 GENERATOR-EVALUATOR REPAIR LOOP ... complete (mock only)
+M7 CONTROLLED 30-60s PROOF ........... complete (mock media; not production-ready film)
 ```
-
-## Stack
-
-- Python 3.12+
-- Pydantic v2
-- FastAPI
-- PostgreSQL later; filesystem artifacts for M0
-- TypeScript/Next.js operator surface later
-- Temporal introduced after the deterministic compiler passes M0
-- MCP for Hermes, OpenClaw, and other operator clients
-- Optional LangGraph only for bounded reasoning subgraphs
 
 ## Bootstrap
 
@@ -62,42 +36,47 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -e '.[dev]'
 make validate
-python -m continuity_forge_compiler.cli compile tests/golden/fixtures/minimal.fountain --out out
-python -m continuity_forge_compiler.cli compile tests/golden/fixtures/minimal.fdx --out out
-python -m continuity_forge_compiler.cli ledger tests/golden/fixtures/continuity.fountain --out out
-python -m continuity_forge_compiler.cli shots tests/golden/fixtures/continuity.fountain --out out
-python -m continuity_forge_compiler.cli pipeline tests/golden/fixtures/continuity.fountain --out out
+make proof
+```
+
+Useful commands:
+
+```bash
+continuity-forge compile tests/golden/fixtures/minimal.fountain --out out
+continuity-forge ledger tests/golden/fixtures/continuity.fountain --out out
+continuity-forge shots tests/golden/fixtures/continuity.fountain --out out
+continuity-forge pipeline tests/golden/fixtures/continuity.fountain --out out
+continuity-forge proof tests/golden/fixtures/continuity.fountain --out out
 continuity-forge-mcp
 ```
 
-M0 supported grammar: [`docs/compiler/M0_SUPPORTED_GRAMMAR.md`](docs/compiler/M0_SUPPORTED_GRAMMAR.md)
+## Controlled proof
 
-Canonical local/CI gate: `python scripts/validate_m0.py` (also `make validate`).
+`continuity-forge proof` runs ingest → kernel pipeline → mock generate/validate/repair for every scene master shot and writes a versioned **proof receipt**.
+
+The receipt explicitly claims `controlled_proof_not_production_ready`. It does **not** produce real video or claim feature-length readiness.
 
 ## Authority rule
 
 ```text
 SOURCE SCRIPT -> DETERMINISTIC PARSER -> VALIDATED PRODUCTION IR
-                                         ^
-                              MODEL PROPOSALS REQUIRE REVIEW
+              -> CONTINUITY LEDGER -> SHOT CONTRACTS
+              -> (mock) GENERATOR/VALIDATOR/REPAIR -> PROPOSED ARTIFACTS
 ```
 
-Canonical state changes require schema validation, source provenance, deterministic diagnostics, authorization, and an expected-state hash.
+Canonical state changes require schema validation, source provenance, deterministic diagnostics, authorization, and an expected-state hash where applicable.
 
-## Identity and provenance
+## Campaigns
 
-`document_key` is the persistent logical identity of a screenplay. The source hash identifies a specific revision. Scene IDs derive from the document key plus normalized slugline occurrence, while atom IDs derive from typed normalized content within their scene. Unrelated insertions therefore preserve unaffected IDs. Ambiguous duplicate reconciliation across substantial edits remains a future revision-matching concern.
+See `docs/campaigns/` for M0–M7 campaign specifications.
 
-Every source line receives a contiguous `SourceSegment`. Narrative elements reference atoms, while blank lines and boneyard comments are explicit trivia. Successful accounting therefore reconstructs the complete source range with a coverage ratio of `1.0`.
+## What’s next (post-1.0)
 
-## Diagnostic codes
+- Real provider SDKs behind the gateway
+- Hosted Temporal worker implementing adapter contracts
+- PostgreSQL + object storage for canon and artifacts
+- Full multi-tenant authN/Z
 
-- `CF100`: no scene headings found
-- `CF101`: content before the first scene was retained in the preamble
-- `CF102`: unclosed boneyard comment
-- `FDX100`: malformed Final Draft XML
-- `FDX101`: unsupported paragraph type retained as action
-- `FDX102`: no scene headings found in the FDX document
-- `FDX103`: pre-scene FDX content retained in the preamble
+## License / status
 
-Diagnostics are deterministic compiler output. Documents containing error diagnostics are inspectable but must not be promoted to canonical state.
+Private research codebase. Mock media path is for continuity control proofs only.

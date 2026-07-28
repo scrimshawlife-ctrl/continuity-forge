@@ -91,5 +91,22 @@ def pipeline_cmd(
     typer.echo(str(target))
 
 
+@app.command("proof")
+def proof_cmd(
+    script: Annotated[Path, typer.Argument(exists=True, dir_okay=False)],
+    out: Annotated[Path, typer.Option("--out")] = Path("out"),
+    document_key: Annotated[str | None, typer.Option("--document-key")] = None,
+    seed: Annotated[str, typer.Option("--seed")] = "proof",
+) -> None:
+    """Run the controlled M7 proof (mock media) and write a proof receipt."""
+    from continuity_forge_repair.proof import run_controlled_proof
+
+    receipt = run_controlled_proof(script, document_key=document_key, seed=seed)
+    out.mkdir(parents=True, exist_ok=True)
+    target = out / f"{script.stem}.proof-receipt.json"
+    target.write_text(receipt.model_dump_json(indent=2), encoding="utf-8")
+    typer.echo(str(target))
+
+
 if __name__ == "__main__":
     app()

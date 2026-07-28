@@ -22,24 +22,24 @@ Continuity Forge is a deterministic cinematic-production kernel surrounded by a 
 
 ## Active campaign
 
-Read `docs/campaigns/CONTINUITY_FORGE_DURABLE_HARNESS_001.md` before changing code.
+M0–M7 controlled-proof path is complete. Prefer campaign docs under `docs/campaigns/` for residual work.
 
-M0–M2 kernel stages are complete. Active work is **M3 Durable Harness / Temporal adapter**.
+Post-proof work is **real providers / Temporal worker / PostgreSQL persistence** — not mock media.
 
 ## Scope discipline
 
-Do not add generation providers, visual-bible systems, provider execution, or autonomous rewriting during M3 unless the active campaign is explicitly amended.
+Do not claim feature-length readiness. Controlled proof uses mock workers only.
 
 Do not implement a single autonomous director agent that carries the full screenplay as its private memory or sequentially generates scenes without canonical shot contracts and validation gates.
 
 ## Mutation contract
 
-Any future mutating agent or MCP command must include:
+Any mutating agent or MCP command must include:
 
 - actor identity
 - authorization scope
 - idempotency key
-- expected-state hash
+- expected-state hash (when continuing prior state)
 - command schema version
 - rationale
 

@@ -1,4 +1,5 @@
 from continuity_forge_api.main import app
+from continuity_forge_operator import DEFAULT_PROJECT_STORE
 from fastapi.testclient import TestClient
 
 
@@ -63,6 +64,62 @@ def test_continuity_ledger_endpoint() -> None:
     assert payload["entities"]
     assert payload["scene_contracts"]
     assert any(entity["kind"] == "character" for entity in payload["entities"])
+
+
+def test_project_ingest_and_generate_flow() -> None:
+    client = TestClient(app)
+    # Isolate default store side effects by using unique keys
+    key = "api-project-flow"
+    lease = client.post(
+        "/v1/projects/lease",
+        json={"document_key": key, "holder": "api"},
+    )
+    assert lease.status_code == 200
+    ingest = client.post(
+        "/v1/projects/ingest",
+        json={
+            "document_key": key,
+            "actor_id": "api",
+            "authorization_scope": "kernel:pipeline",
+            "idempotency_key": "api-ingest-1",
+            "rationale": "contract",
+            "text": "INT. ROOM - DAY\n\nMara enters with a red keycard.\n\nMARA\nGo.\n",
+        },
+    )
+    assert ingest.status_code == 200
+    status = client.get(f"/v1/projects/{key}/status")
+    assert status.status_code == 200
+    shot_id = ingest.json()["project"]["shot_contracts"]["contracts"][0]["shot_id"]
+    preview = client.post(
+        "/v1/generate/preview",
+        json={
+            "document_key": key,
+            "shot_id": shot_id,
+            "seed": "1",
+            "actor_id": "api",
+            "authorization_scope": "generation:preview",
+            "idempotency_key": "gen-1",
+            "rationale": "preview",
+        },
+    )
+    assert preview.status_code == 200
+    assert preview.json()["authority"] == "PROPOSED"
+    loop = client.post(
+        "/v1/generate/repair-loop",
+        json={
+            "document_key": key,
+            "shot_id": shot_id,
+            "seed": "1",
+            "fail_first": True,
+            "actor_id": "api",
+            "authorization_scope": "generation:repair",
+            "idempotency_key": "loop-1",
+            "rationale": "loop",
+        },
+    )
+    assert loop.status_code == 200
+    assert loop.json()["status"] == "accepted_proposed"
+    assert DEFAULT_PROJECT_STORE.get_project(key) is not None
 
 
 def test_pipeline_run_endpoint_is_idempotent() -> None:

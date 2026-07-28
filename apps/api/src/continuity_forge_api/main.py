@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 
 from continuity_forge_compiler import compile_fdx_text, compile_text
@@ -12,11 +12,22 @@ from continuity_forge_harness import (
 )
 from continuity_forge_ir import ScriptDocument
 from continuity_forge_ledger import ContinuityLedger, build_continuity_ledger
+from continuity_forge_operator import (
+    DEFAULT_PROJECT_STORE,
+    ApprovalStatus,
+    MutationEnvelope,
+    OperatorError,
+    ProjectRecord,
+    WriteLease,
+)
+from continuity_forge_providers import ArtifactCandidate, ProviderGateway
+from continuity_forge_repair import LoopResult, run_repair_loop
 from continuity_forge_shots import ShotContractBundle, compile_shot_contracts
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-app = FastAPI(title="Continuity Forge API", version="0.5.0")
+app = FastAPI(title="Continuity Forge API", version="1.0.0-rc1")
+_gateway = ProviderGateway()
 
 
 class CompileRequest(BaseModel):
@@ -27,6 +38,67 @@ class CompileRequest(BaseModel):
     format: Literal["fountain", "fdx"] = "fountain"
 
 
+class LeaseRequest(BaseModel):
+    document_key: str
+    holder: str
+    scope: str = "project"
+    ttl_seconds: int = 300
+
+
+class IngestRequest(BaseModel):
+    document_key: str
+    title: str = "Untitled"
+    text: str
+    revision: str = "0.1.0"
+    format: Literal["fountain", "fdx"] = "fountain"
+    actor_id: str
+    authorization_scope: str = "kernel:pipeline"
+    idempotency_key: str
+    rationale: str
+    expected_state_hash: str | None = None
+
+
+class ApprovalRequest(BaseModel):
+    document_key: str
+    kind: str
+    actor_id: str
+    authorization_scope: str = "approvals"
+    idempotency_key: str
+    rationale: str
+    target_ref: str | None = None
+
+
+class ApprovalDecision(BaseModel):
+    approval_id: UUID
+    status: Literal["granted", "denied"]
+    actor_id: str
+    authorization_scope: str = "approvals"
+    idempotency_key: str
+    rationale: str
+
+
+class GenerateRequest(BaseModel):
+    document_key: str
+    shot_id: str
+    seed: str = "0"
+    actor_id: str
+    authorization_scope: str = "generation:preview"
+    idempotency_key: str
+    rationale: str = "preview generation"
+
+
+class RepairLoopRequest(BaseModel):
+    document_key: str
+    shot_id: str
+    seed: str = "0"
+    max_attempts: int = 3
+    fail_first: bool = False
+    actor_id: str
+    authorization_scope: str = "generation:repair"
+    idempotency_key: str
+    rationale: str = "repair loop"
+
+
 def _document(request: CompileRequest) -> ScriptDocument:
     compiler = compile_fdx_text if request.format == "fdx" else compile_text
     return compiler(
@@ -35,6 +107,19 @@ def _document(request: CompileRequest) -> ScriptDocument:
         revision=request.revision,
         document_key=request.document_key,
     )
+
+
+def _shot(document_key: str, shot_id: str) -> dict[str, Any]:
+    project = DEFAULT_PROJECT_STORE.get_project(document_key)
+    if project is None or not project.shot_contracts:
+        raise HTTPException(status_code=404, detail="project or shot contracts not found")
+    contracts = project.shot_contracts.get("contracts") or []
+    for contract in contracts:
+        if not isinstance(contract, dict):
+            continue
+        if str(contract.get("shot_id")) == shot_id:
+            return {str(k): v for k, v in contract.items()}
+    raise HTTPException(status_code=404, detail="shot not found")
 
 
 @app.get("/health")
@@ -49,20 +134,16 @@ def compile_script(request: CompileRequest) -> ScriptDocument:
 
 @app.post("/v1/continuity-ledger", response_model=ContinuityLedger)
 def continuity_ledger(request: CompileRequest) -> ContinuityLedger:
-    """Compile source and derive a deterministic continuity ledger (read-only)."""
     return build_continuity_ledger(_document(request))
 
 
 @app.post("/v1/shot-contracts", response_model=ShotContractBundle)
 def shot_contracts(request: CompileRequest) -> ShotContractBundle:
-    """Compile source into model-neutral shot contracts (read-only)."""
-    document = _document(request)
-    return compile_shot_contracts(document)
+    return compile_shot_contracts(_document(request))
 
 
 @app.post("/v1/pipeline/runs", response_model=WorkflowRun)
 def start_pipeline_run(command: PipelineCommand) -> WorkflowRun:
-    """Execute the durable kernel pipeline (compile → ledger → shots)."""
     try:
         return execute_kernel_pipeline(command, store=DEFAULT_RUN_STORE)
     except PipelineError as exc:
@@ -79,5 +160,130 @@ def get_pipeline_run(run_id: UUID) -> WorkflowRun:
 
 @app.get("/v1/pipeline/temporal-manifest")
 def pipeline_temporal_manifest() -> dict[str, object]:
-    """Return Temporal adapter registration contracts for worker bootstrap."""
     return temporal_registration_manifest()
+
+
+@app.post("/v1/projects/lease", response_model=WriteLease)
+def acquire_lease(request: LeaseRequest) -> WriteLease:
+    try:
+        return DEFAULT_PROJECT_STORE.acquire_lease(
+            request.document_key,
+            request.holder,
+            scope=request.scope,
+            ttl_seconds=request.ttl_seconds,
+        )
+    except OperatorError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@app.delete("/v1/projects/{document_key}/lease")
+def release_lease(document_key: str, holder: str) -> dict[str, str]:
+    try:
+        DEFAULT_PROJECT_STORE.release_lease(document_key, holder)
+    except OperatorError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return {"status": "released"}
+
+
+@app.post("/v1/projects/ingest")
+def ingest_project(request: IngestRequest) -> dict[str, Any]:
+    envelope = MutationEnvelope(
+        actor_id=request.actor_id,
+        authorization_scope=request.authorization_scope,
+        idempotency_key=request.idempotency_key,
+        rationale=request.rationale,
+        expected_state_hash=request.expected_state_hash,
+    )
+    try:
+        project, run = DEFAULT_PROJECT_STORE.ingest_script(
+            document_key=request.document_key,
+            title=request.title,
+            text=request.text,
+            revision=request.revision,
+            format=request.format,
+            envelope=envelope,
+        )
+    except (OperatorError, PipelineError) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return {"project": project.model_dump(mode="json"), "run": run.model_dump(mode="json")}
+
+
+@app.get("/v1/projects/{document_key}", response_model=ProjectRecord)
+def get_project(document_key: str) -> ProjectRecord:
+    project = DEFAULT_PROJECT_STORE.get_project(document_key)
+    if project is None:
+        raise HTTPException(status_code=404, detail="project not found")
+    return project
+
+
+@app.get("/v1/projects/{document_key}/status")
+def project_status(document_key: str) -> dict[str, Any]:
+    payload = DEFAULT_PROJECT_STORE.resource(f"cf://projects/{document_key}/status")
+    if payload is None:
+        raise HTTPException(status_code=404, detail="project not found")
+    return {str(k): v for k, v in payload.items()}
+
+
+@app.get("/v1/resources")
+def get_resource(uri: str) -> dict[str, Any]:
+    payload = DEFAULT_PROJECT_STORE.resource(uri)
+    if payload is None:
+        raise HTTPException(status_code=404, detail="resource not found")
+    return {str(k): v for k, v in payload.items()}
+
+
+@app.post("/v1/approvals/request")
+def request_approval(request: ApprovalRequest) -> dict[str, Any]:
+    envelope = MutationEnvelope(
+        actor_id=request.actor_id,
+        authorization_scope=request.authorization_scope,
+        idempotency_key=request.idempotency_key,
+        rationale=request.rationale,
+    )
+    try:
+        record = DEFAULT_PROJECT_STORE.request_approval(
+            document_key=request.document_key,
+            kind=request.kind,
+            envelope=envelope,
+            target_ref=request.target_ref,
+        )
+    except OperatorError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return record.model_dump(mode="json")
+
+
+@app.post("/v1/approvals/decide")
+def decide_approval(request: ApprovalDecision) -> dict[str, Any]:
+    envelope = MutationEnvelope(
+        actor_id=request.actor_id,
+        authorization_scope=request.authorization_scope,
+        idempotency_key=request.idempotency_key,
+        rationale=request.rationale,
+    )
+    try:
+        record = DEFAULT_PROJECT_STORE.record_approval(
+            approval_id_value=request.approval_id,
+            status=ApprovalStatus(request.status),
+            envelope=envelope,
+        )
+    except OperatorError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return record.model_dump(mode="json")
+
+
+@app.post("/v1/generate/preview", response_model=ArtifactCandidate)
+def generate_preview(request: GenerateRequest) -> ArtifactCandidate:
+    contract = _shot(request.document_key, request.shot_id)
+    return _gateway.generate_for_shot(contract, seed=request.seed)
+
+
+@app.post("/v1/generate/repair-loop", response_model=LoopResult)
+def generate_repair_loop(request: RepairLoopRequest) -> LoopResult:
+    contract = _shot(request.document_key, request.shot_id)
+    return run_repair_loop(
+        contract,
+        gateway=_gateway,
+        seed=request.seed,
+        max_attempts=request.max_attempts,
+        fail_first=request.fail_first,
+    )
