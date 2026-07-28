@@ -36,7 +36,7 @@ from pydantic import BaseModel, Field
 
 from continuity_forge_api.auth_deps import require_principal, tenant_document_key
 
-API_VERSION = "1.3.0"
+API_VERSION = "1.4.0"
 app = FastAPI(title="Continuity Forge API", version=API_VERSION)
 
 app.add_middleware(

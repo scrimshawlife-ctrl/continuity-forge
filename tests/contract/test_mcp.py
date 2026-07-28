@@ -5,6 +5,7 @@ from continuity_forge_mcp.server import (
     compile_script,
     get_compile_diagnostics,
     get_pipeline_run,
+    get_pipeline_run_events,
     get_scene,
     get_temporal_manifest,
     list_entities,
@@ -94,5 +95,14 @@ def test_mcp_pipeline_tools() -> None:
     fetched = get_pipeline_run(run["run_id"])
     assert fetched is not None
     assert fetched["run_id"] == run["run_id"]
+    events = get_pipeline_run_events(run["run_id"])
+    assert events is not None
+    assert events["claim"] == "workflow_events_observability_not_canon"
+    assert events["workflow_complete_is_not_production_ready"] is True
+    assert events["events"][0]["kind"] == "run_started"
+    assert events["progress"]["percent"] == 100
+    resumed = get_pipeline_run_events(run["run_id"], last_event_id=events["events"][0]["event_id"])
+    assert resumed is not None
+    assert resumed["events"][0]["sequence"] == 2
     manifest = get_temporal_manifest()
     assert manifest["task_queue"] == "continuity-forge-kernel"

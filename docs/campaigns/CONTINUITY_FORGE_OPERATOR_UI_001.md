@@ -7,7 +7,7 @@ Ship a technical/austere operator workbench for ops + producer overview: run con
 ## Status
 
 ```text
-operator_ui: PASS (v1.3 + phase 3)
+operator_ui: PASS (v1.4 + phase 3 + long-form 4.x)
 proof_api: PASS
 project_list: PASS
 control_leases_approvals: PASS
@@ -16,6 +16,12 @@ smoke: PASS (when API up)
 phase3_exec_vs_readiness: PASS
 phase3_repair_rationale: PASS
 phase3_approval_empty: PASS
+long_form_scene_nav: PASS
+long_form_virtual_table: PASS
+long_form_stale_preview: PASS
+long_form_incremental_compile: PASS
+long_form_cost_panel: PASS
+long_form_workflow_poll: PASS
 ```
 
 ## Surface
@@ -50,6 +56,15 @@ phase3_approval_empty: PASS
 - Shot rows show validator/repair rationale when `repair_actions` present
 - Approval queue empty-state with clear next action (request approval + lease)
 - Hallmark Terminal tokens retained (no reskin)
+
+### Long-form (v1.4 / Phase 4)
+
+- Scene → shot navigator + URL deep-link
+- Virtualized shot table with status/repair filters
+- Invalidation preview stale badges
+- Advanced **Compile incremental** (session prior IR)
+- Cost ledger panel + budget chip (three-way honesty)
+- Workflow progress poll (List runs → click run); workflow complete ≠ production ready
 
 ## Design fingerprint
 
