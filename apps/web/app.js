@@ -117,6 +117,8 @@ const els = {
   approvalRationale: $("approval-rationale"),
   btnProof: $("btn-proof"),
   btnBreakdown: $("btn-breakdown"),
+  btnImport: $("btn-import"),
+  scriptFile: $("script-file"),
   btnProofSticky: $("btn-proof-sticky"),
   stickyCta: $("sticky-cta"),
   stickyHint: $("sticky-hint"),
@@ -1749,11 +1751,46 @@ function renderBreakdown(package) {
   els.rawJson.textContent = JSON.stringify(package, null, 2);
 }
 
+function stemFromFilename(name) {
+  const base = String(name || "script").split(/[/\\]/).pop() || "script";
+  return base.replace(/\.(fountain|fdx|txt)$/i, "") || "script";
+}
+
+function importScriptFile(file) {
+  if (!file) return;
+  const name = file.name || "script.fountain";
+  const lower = name.toLowerCase();
+  const isFdx = lower.endsWith(".fdx");
+  const reader = new FileReader();
+  reader.onload = () => {
+    const text = String(reader.result || "");
+    if (!text.trim()) {
+      showAlert("Imported file is empty.");
+      return;
+    }
+    els.script.value = text;
+    if (els.format) els.format.value = isFdx ? "fdx" : "fountain";
+    const stem = stemFromFilename(name);
+    if (els.title && (!els.title.value || els.title.value === "Continuity Sample")) {
+      els.title.value = stem;
+    }
+    if (els.documentKey && (!els.documentKey.value || els.documentKey.value === "continuity")) {
+      els.documentKey.value = stem.replaceAll(/[^\w.-]+/g, "-").toLowerCase();
+    }
+    showAlert(
+      `Imported ${name} · format ${isFdx ? "FDX" : "Fountain"} · click Build breakdown`,
+      "ok",
+    );
+  };
+  reader.onerror = () => showAlert("Could not read the selected file.");
+  reader.readAsText(file);
+}
+
 async function buildBreakdown() {
   showAlert("");
   const text = els.script.value.trim();
   if (!text) {
-    showAlert("Paste or import a screenplay first.");
+    showAlert("Paste a screenplay or use Import file first.");
     return;
   }
   if (els.btnBreakdown) els.btnBreakdown.disabled = true;
@@ -1941,6 +1978,27 @@ function wire() {
       buildBreakdown().catch((err) =>
         showAlert(err instanceof Error ? err.message : String(err)),
       );
+    });
+  }
+  if (els.btnImport && els.scriptFile) {
+    els.btnImport.addEventListener("click", () => els.scriptFile.click());
+    els.scriptFile.addEventListener("change", () => {
+      const file = els.scriptFile.files && els.scriptFile.files[0];
+      importScriptFile(file);
+      els.scriptFile.value = "";
+    });
+  }
+  // Drag-and-drop import onto the script field
+  if (els.script) {
+    els.script.addEventListener("dragover", (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+    });
+    els.script.addEventListener("drop", (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const file = ev.dataTransfer?.files?.[0];
+      if (file) importScriptFile(file);
     });
   }
   els.btnProof.addEventListener("click", runProof);

@@ -1,5 +1,7 @@
 from continuity_forge_mcp.server import (
     audit_script_coverage,
+    build_breakdown,
+    build_breakdown_markdown,
     build_ledger,
     build_shot_contracts,
     compile_script,
@@ -79,6 +81,26 @@ def test_mcp_shot_contract_tools() -> None:
     assert len(summaries) == 2
     assert summaries[0]["shot_id"] == bundle["contracts"][0]["shot_id"]
     assert summaries[0]["constraint_count"] >= 1
+
+
+def test_mcp_breakdown_handoff_tools() -> None:
+    source = (
+        "INT. ROOM - DAY\n\n"
+        "Mara enters holding a brass compass.\n\n"
+        "MARA\nThis is the plant.\n\n"
+        "EXT. ROOF - NIGHT\n\n"
+        "The brass compass payoff gleams.\n"
+    )
+    package = build_breakdown(source, title="MCP BD", document_key="mcp-bd")
+    assert package["schema_version"] == "cf.breakdown.v1"
+    assert package["claim"] == "shot_breakdown_with_continuity_not_production_film"
+    assert package["shot_count"] == 2
+    assert package["package_hash"]
+    assert package["shots"][0]["slugline"] == "INT. ROOM - DAY"
+    md = build_breakdown_markdown(source, title="MCP BD", document_key="mcp-bd")
+    assert md["shot_count"] == 2
+    assert "Shot-by-shot" in md["markdown"]
+    assert md["package_hash"] == package["package_hash"]
 
 
 def test_mcp_pipeline_tools() -> None:

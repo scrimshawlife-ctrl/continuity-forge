@@ -278,6 +278,9 @@ def test_web_ui_is_served() -> None:
     assert "Run a proof" in index.text or "Build breakdown" in index.text
     assert "Build breakdown" in index.text
     assert "Run proof" in index.text
+    assert "Import file" in index.text
+    assert 'id="btn-import"' in index.text
+    assert 'id="script-file"' in index.text
     assert "Download breakdown JSON" in index.text
     assert 'id="btn-breakdown"' in index.text
     assert "controlled_proof_not_production_ready" in index.text
@@ -336,6 +339,7 @@ def test_web_ui_is_served() -> None:
     assert "/v1/breakdown" in app_js.text
     assert "buildBreakdown" in app_js.text
     assert "exportBreakdownJson" in app_js.text
+    assert "importScriptFile" in app_js.text
     assert 'id="workflow-panel"' in index.text
     assert "workflow complete ≠ production ready" in index.text or (
         "workflow complete" in index.text and "production ready" in index.text
@@ -347,7 +351,7 @@ def test_web_ui_is_served() -> None:
 
 def test_health_reports_version() -> None:
     payload = TestClient(app).get("/health").json()
-    assert payload["version"] == "1.5.0"
+    assert payload["version"] == "1.5.1"
 
 
 def test_compile_incremental_endpoint() -> None:
