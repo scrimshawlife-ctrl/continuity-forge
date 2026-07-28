@@ -37,4 +37,14 @@ curl -sf "${AUTH[@]}" -X POST "$BASE/v1/generate/preview" \
   -d "{\"document_key\":\"$DOC\",\"shot_id\":\"$SHOT\",\"seed\":\"smoke\",\"actor_id\":\"smoke\",\"authorization_scope\":\"generation:preview\",\"idempotency_key\":\"smoke-gen\",\"rationale\":\"smoke\"}" \
   | python -c 'import json,sys; d=json.load(sys.stdin); print(d["authority"], d["provider"], d["content_hash"][:12])'
 
+echo "== controlled proof =="
+curl -sf "${AUTH[@]}" -X POST "$BASE/v1/proof" \
+  -H 'Content-Type: application/json' \
+  -d "{\"document_key\":\"smoke-proof\",\"title\":\"Smoke\",\"seed\":\"smoke\",\"actor_id\":\"smoke\",\"text\":\"INT. ROOM - DAY\\n\\nMara enters with a red keycard.\\n\\nMARA\\nGo.\\n\\nEXT. ALLEY - NIGHT\\n\\nThe red keycard is gone.\\n\"}" \
+  | python -c 'import json,sys; d=json.load(sys.stdin); assert d["claim"]=="controlled_proof_not_production_ready"; print(d["claim"], "shots", len(d["shots"]), "hash", d["receipt_hash"][:12])'
+
+echo "== operator UI =="
+curl -sf "$BASE/" | python -c 'import sys; t=sys.stdin.read(); assert "Proof workbench" in t; print("index ok")'
+curl -sf "$BASE/tokens.css" | python -c 'import sys; t=sys.stdin.read(); assert "--color-accent" in t; print("tokens ok")'
+
 echo "SMOKE OK"

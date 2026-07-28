@@ -23,3 +23,16 @@ def test_controlled_proof_receipt() -> None:
         s.accepted_candidate_hash for s in second.shots
     ]
     assert first.shots[0].attempts >= 2  # fail_first on first shot
+
+
+def test_controlled_proof_from_text() -> None:
+    text = FIXTURE.read_text(encoding="utf-8")
+    receipt = run_controlled_proof(
+        text=text,
+        title="Continuity Sample",
+        document_key="proof-text",
+        seed="t",
+    )
+    assert receipt.claim == "controlled_proof_not_production_ready"
+    assert receipt.document_key == "proof-text"
+    assert receipt.shots

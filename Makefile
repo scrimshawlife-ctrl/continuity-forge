@@ -1,4 +1,4 @@
-.PHONY: install validate test lint format typecheck proof
+.PHONY: install validate test lint format typecheck proof ui
 
 install:
 	python -m pip install -e '.[dev]'
@@ -8,6 +8,9 @@ validate:
 
 proof:
 	python -m continuity_forge_compiler.cli proof tests/golden/fixtures/continuity.fountain --out out
+
+ui:
+	uvicorn continuity_forge_api.main:app --reload --port 8080
 
 test:
 	python -m pytest

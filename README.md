@@ -56,6 +56,22 @@ continuity-forge-mcp
 
 The receipt explicitly claims `controlled_proof_not_production_ready`. It does **not** produce real video or claim feature-length readiness.
 
+## Operator UI (Hallmark)
+
+A technical/austere **proof workbench** lives under `apps/web/` (Terminal theme · Workbench macrostructure). Primary action: run controlled proof and read the receipt.
+
+```bash
+# from repo root, with the package installed
+uvicorn continuity_forge_api.main:app --reload --port 8080
+# open http://127.0.0.1:8080/
+```
+
+- `POST /v1/proof` — controlled proof (mock media) → `ProofReceipt`
+- Static UI served at `/` when `apps/web` is present
+- Optional `Authorization: Bearer <api-key>` when `CF_AUTH_REQUIRED=1`
+
+Design system tokens: `tokens.css` (root) and `apps/web/tokens.css`.
+
 ## Authority rule
 
 ```text

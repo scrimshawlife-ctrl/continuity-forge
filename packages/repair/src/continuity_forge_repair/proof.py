@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from continuity_forge_ir import content_hash
 from continuity_forge_operator import MutationEnvelope, ProjectStore
+from continuity_forge_providers import ProviderGateway
 from pydantic import BaseModel, Field
 
-from continuity_forge_repair import run_repair_loop
+from continuity_forge_repair.loop import run_repair_loop
 
 
 class ShotProof(BaseModel):
@@ -39,17 +40,40 @@ class ProofReceipt(BaseModel):
 
 
 def run_controlled_proof(
-    script_path: Path,
+    script_path: Path | None = None,
     *,
+    text: str | None = None,
+    title: str | None = None,
+    format: Literal["fountain", "fdx"] = "fountain",
     store: ProjectStore | None = None,
+    gateway: ProviderGateway | None = None,
     document_key: str | None = None,
     actor_id: str = "proof-operator",
     seed: str = "proof",
     budget_seconds: float = 60.0,
 ) -> ProofReceipt:
+    """Run ingest → kernel pipeline → mock generate/validate/repair for each master shot.
+
+    Provide either ``script_path`` or ``text``. Receipt claims
+    ``controlled_proof_not_production_ready`` (mock media only).
+    """
+    if text is None and script_path is None:
+        raise ValueError("script_path or text is required")
+    if text is None:
+        assert script_path is not None
+        source = script_path.read_text(encoding="utf-8")
+        key = document_key or script_path.stem
+        script_title = title or script_path.stem
+        script_format: Literal["fountain", "fdx"] = (
+            "fdx" if script_path.suffix.casefold() == ".fdx" else "fountain"
+        )
+    else:
+        source = text
+        key = document_key or "document"
+        script_title = title or key
+        script_format = format
+
     active = store or ProjectStore()
-    text = script_path.read_text(encoding="utf-8")
-    key = document_key or script_path.stem
     started = time.perf_counter()
 
     active.acquire_lease(key, actor_id, ttl_seconds=600)
@@ -57,15 +81,15 @@ def run_controlled_proof(
         envelope = MutationEnvelope(
             actor_id=actor_id,
             authorization_scope="kernel:pipeline",
-            idempotency_key=f"proof-{key}-{content_hash(text)[:12]}",
+            idempotency_key=f"proof-{key}-{content_hash(source)[:12]}",
             rationale="M7 controlled proof ingest",
         )
         project, run = active.ingest_script(
             document_key=key,
-            title=script_path.stem,
-            text=text,
+            title=script_title,
+            text=source,
             revision="0.1.0",
-            format="fdx" if script_path.suffix.casefold() == ".fdx" else "fountain",
+            format=script_format,
             envelope=envelope,
         )
     finally:
@@ -77,6 +101,7 @@ def run_controlled_proof(
         # Force one repair cycle on the first shot only for proof of loop behavior.
         result = run_repair_loop(
             contract,
+            gateway=gateway,
             seed=f"{seed}:{index}",
             fail_first=(index == 0),
         )

@@ -12,12 +12,14 @@ Services:
 
 | Service | Port | Role |
 |---------|------|------|
-| api | 8080 | FastAPI + multi-tenant auth |
+| api | 8080 | FastAPI + multi-tenant auth + operator UI (`/`) |
 | worker | — | Temporal worker (`continuity-forge-worker`) |
 | temporal | 7233 | Temporal frontend |
 | temporal-ui | 8088 | Temporal UI |
 | postgres | 5432 | Canon/run durability |
 | minio | 9000 / 9001 | S3-compatible artifacts |
+
+Operator workbench (Hallmark Terminal / Workbench): open `http://localhost:8080/` after the API is up. Primary action is `POST /v1/proof` (controlled mock proof + receipt).
 
 Dev API key (when `CF_BOOTSTRAP_DEV_TENANT=1`):
 

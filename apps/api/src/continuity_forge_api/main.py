@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Any, Literal
 from uuid import UUID
 
@@ -20,15 +21,25 @@ from continuity_forge_operator import (
     WriteLease,
 )
 from continuity_forge_providers import ArtifactCandidate
-from continuity_forge_repair import LoopResult, run_repair_loop
+from continuity_forge_repair import LoopResult, ProofReceipt, run_controlled_proof, run_repair_loop
 from continuity_forge_runtime import RuntimeContext, get_runtime
 from continuity_forge_shots import ShotContractBundle, compile_shot_contracts
 from fastapi import Depends, FastAPI, HTTPException
-from pydantic import BaseModel
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 
 from continuity_forge_api.auth_deps import require_principal, tenant_document_key
 
 app = FastAPI(title="Continuity Forge API", version="1.1.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 def _rt() -> RuntimeContext:
@@ -102,6 +113,16 @@ class RepairLoopRequest(BaseModel):
     authorization_scope: str = "generation:repair"
     idempotency_key: str
     rationale: str = "repair loop"
+
+
+class ProofRequest(BaseModel):
+    title: str = "Untitled"
+    text: str
+    document_key: str | None = None
+    format: Literal["fountain", "fdx"] = "fountain"
+    seed: str = "proof"
+    budget_seconds: float = Field(default=60.0, ge=1.0, le=600.0)
+    actor_id: str = "proof-operator"
 
 
 def _document(request: CompileRequest) -> ScriptDocument:
@@ -360,3 +381,39 @@ def generate_repair_loop(
     if result.accepted_candidate is not None:
         _store_candidate(result.accepted_candidate)
     return result
+
+
+@app.post("/v1/proof", response_model=ProofReceipt)
+def controlled_proof(
+    request: ProofRequest,
+    principal: Principal = Depends(require_principal),
+) -> ProofReceipt:
+    """Run controlled proof (mock media). Receipt claims not production-ready."""
+    raw_key = request.document_key or request.title.lower().replace(" ", "-") or "document"
+    key = tenant_document_key(principal.tenant_id, raw_key)
+    try:
+        receipt = run_controlled_proof(
+            text=request.text,
+            title=request.title,
+            format=request.format,
+            store=_rt().project_store,
+            gateway=_rt().gateway,
+            document_key=key,
+            actor_id=request.actor_id or principal.actor_id,
+            seed=request.seed,
+            budget_seconds=request.budget_seconds,
+        )
+    except (OperatorError, PipelineError, ValueError) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return receipt
+
+
+def _mount_web_ui() -> None:
+    """Serve the Hallmark operator workbench when apps/web is present."""
+    # apps/api/src/continuity_forge_api/main.py → apps/web
+    web_dir = Path(__file__).resolve().parents[3] / "web"
+    if web_dir.is_dir():
+        app.mount("/", StaticFiles(directory=str(web_dir), html=True), name="web")
+
+
+_mount_web_ui()

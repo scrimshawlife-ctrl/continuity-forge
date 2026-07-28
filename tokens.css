@@ -1,0 +1,61 @@
+/* Continuity Forge · portable Hallmark tokens (mirrors apps/web/tokens.css) */
+/* Hallmark · genre: atmospheric · macrostructure: Workbench · theme: Terminal
+ * tone: technical/austere · nav: N8 · footer: Ft4 · enrichment: none
+ */
+
+:root {
+  --color-paper: oklch(12% 0.018 145);
+  --color-paper-2: oklch(16% 0.022 145);
+  --color-paper-3: oklch(20% 0.028 145);
+  --color-paper-4: oklch(24% 0.03 145);
+  --color-ink: oklch(88% 0.05 145);
+  --color-ink-muted: oklch(62% 0.035 145);
+  --color-ink-faint: oklch(42% 0.025 145);
+  --color-accent: oklch(78% 0.18 145);
+  --color-accent-dim: oklch(55% 0.12 145);
+  --color-focus: oklch(82% 0.16 145);
+  --color-ok: oklch(74% 0.15 145);
+  --color-warn: oklch(78% 0.12 90);
+  --color-danger: oklch(68% 0.17 25);
+  --color-rule: oklch(28% 0.03 145);
+
+  --font-display: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --font-body: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --font-outlier: "JetBrains Mono", ui-monospace, monospace;
+
+  --text-xs: 0.6875rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.9375rem;
+  --text-md: 1.0625rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.5rem;
+  --text-2xl: clamp(1.5rem, 2vw + 1rem, 2rem);
+  --text-display-s: clamp(1.75rem, 2.5vw + 1rem, 2.5rem);
+
+  --space-3xs: 0.125rem;
+  --space-2xs: 0.25rem;
+  --space-xs: 0.5rem;
+  --space-sm: 0.75rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 3rem;
+  --space-3xl: 4rem;
+
+  --page-gutter: clamp(1rem, 3vw, 1.5rem);
+  --panel-gap: var(--space-md);
+  --radius-none: 0;
+  --radius-sm: 2px;
+  --rule-hair: 1px;
+  --rule-thick: 2px;
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in: cubic-bezier(0.55, 0, 1, 0.45);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast: 120ms;
+  --dur-med: 200ms;
+  --dur-slow: 320ms;
+
+  --shadow-panel: 0 0 0 1px var(--color-rule);
+  --measure: 72ch;
+}

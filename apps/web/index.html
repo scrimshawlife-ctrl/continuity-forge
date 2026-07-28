@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Continuity Forge operator workbench — run controlled proof and read the receipt."
+    />
+    <title>Continuity Forge · Proof Workbench</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <a class="visually-hidden" href="#main">Skip to workbench</a>
+
+    <header class="nav-term" role="navigation" aria-label="Primary">
+      <pre class="nav-term__line"><span class="prompt">&gt;</span> continuity-forge
+<a href="#source" id="nav-source">--source</a>
+<a href="#run" id="nav-run">--proof</a>
+<a href="#receipt" id="nav-receipt">--receipt</a>
+<a href="#health" id="nav-health">--health</a><span class="caret" aria-hidden="true">▮</span></pre>
+    </header>
+
+    <main id="main" class="shell">
+      <header class="mast">
+        <div class="mast__row">
+          <h1>Proof workbench</h1>
+          <div class="meta-strip" id="health" aria-live="polite">
+            <span class="chip" id="chip-health">health · …</span>
+            <span class="chip" id="chip-backend">backend · …</span>
+            <span class="chip" id="chip-version">api · …</span>
+          </div>
+        </div>
+        <p class="mast__lede">
+          Ingest a fountain or FDX script, run the controlled mock proof, and read the
+          versioned receipt. Models propose; the kernel owns canon. This surface does not
+          produce production film.
+        </p>
+        <div class="claim-banner" role="note">
+          <strong>Claim locked:</strong>
+          <code>controlled_proof_not_production_ready</code>
+          — mock media only · budget 60s default
+        </div>
+      </header>
+
+      <div id="alert" class="alert alert--error" hidden role="alert"></div>
+
+      <div class="workbench">
+        <section class="panel" id="source" aria-labelledby="source-title">
+          <div class="panel__head">
+            <h2 class="panel__title" id="source-title">Source</h2>
+            <span class="chip chip--accent">fountain · fdx</span>
+          </div>
+          <div class="panel__body">
+            <div class="field-row">
+              <div class="field">
+                <label for="document-key">document_key</label>
+                <input
+                  id="document-key"
+                  name="document_key"
+                  type="text"
+                  autocomplete="off"
+                  spellcheck="false"
+                  value="continuity"
+                />
+              </div>
+              <div class="field">
+                <label for="title">title</label>
+                <input id="title" name="title" type="text" value="Continuity Sample" />
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label for="format">format</label>
+                <select id="format" name="format">
+                  <option value="fountain" selected>fountain</option>
+                  <option value="fdx">fdx</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="seed">seed</label>
+                <input
+                  id="seed"
+                  name="seed"
+                  type="text"
+                  autocomplete="off"
+                  spellcheck="false"
+                  value="proof"
+                />
+              </div>
+            </div>
+            <div class="field">
+              <label for="api-base">api base</label>
+              <input
+                id="api-base"
+                name="api_base"
+                type="url"
+                spellcheck="false"
+                placeholder="(same origin)"
+              />
+              <p class="field__hint">Leave blank when the UI is served from the API host.</p>
+            </div>
+            <div class="field">
+              <label for="api-key">api key (optional)</label>
+              <input
+                id="api-key"
+                name="api_key"
+                type="password"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="Bearer token when CF_AUTH_REQUIRED=1"
+              />
+            </div>
+            <div class="field">
+              <label for="script">script</label>
+              <textarea
+                id="script"
+                name="script"
+                spellcheck="false"
+                aria-describedby="script-hint"
+              ></textarea>
+              <p class="field__hint" id="script-hint">
+                Golden continuity fixture preloaded. Kernel compiles to Production IR →
+                ledger → shot contracts.
+              </p>
+            </div>
+            <div class="btn-row">
+              <button type="button" class="btn btn--ghost" id="btn-sample">
+                Load sample
+              </button>
+              <button type="button" class="btn btn--ghost" id="btn-clear">Clear</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel" id="run" aria-labelledby="run-title">
+          <div class="panel__head">
+            <h2 class="panel__title" id="run-title">Run</h2>
+            <span class="chip">POST /v1/proof</span>
+          </div>
+          <div class="panel__body">
+            <div class="run-status" aria-live="polite">
+              <span class="run-status__label">status</span>
+              <span class="run-status__value" id="run-state" data-state="idle">idle</span>
+            </div>
+            <div class="hash-grid" id="run-meta" hidden>
+              <div class="hash-row">
+                <dt>elapsed</dt>
+                <dd id="meta-elapsed">—</dd>
+              </div>
+              <div class="hash-row">
+                <dt>budget</dt>
+                <dd id="meta-budget">—</dd>
+              </div>
+              <div class="hash-row">
+                <dt>within_budget</dt>
+                <dd id="meta-within">—</dd>
+              </div>
+              <div class="hash-row">
+                <dt>shots</dt>
+                <dd id="meta-shots">—</dd>
+              </div>
+            </div>
+            <div class="btn-row">
+              <button type="button" class="btn btn--primary" id="btn-proof">
+                Run controlled proof
+              </button>
+              <button type="button" class="btn btn--ghost" id="btn-health">
+                Ping health
+              </button>
+            </div>
+            <p class="field__hint">
+              Primary action: proof → receipt. Fail-first repair is forced on shot 0 to
+              exercise the loop. Artifacts remain PROPOSED.
+            </p>
+          </div>
+        </section>
+
+        <section class="panel panel--wide" id="receipt" aria-labelledby="receipt-title">
+          <div class="panel__head">
+            <h2 class="panel__title" id="receipt-title">Receipt</h2>
+            <span class="chip chip--warn" id="receipt-claim">no receipt</span>
+          </div>
+          <div class="panel__body">
+            <div id="receipt-empty" class="empty">
+              Run a controlled proof to populate the receipt. Hashes, shot statuses, and
+              repair actions land here.
+            </div>
+            <div id="receipt-body" hidden>
+              <div class="receipt-meta">
+                <div class="stat">
+                  <span class="stat__k">claim</span>
+                  <span class="stat__v" id="r-claim">—</span>
+                </div>
+                <div class="stat">
+                  <span class="stat__k">document_key</span>
+                  <span class="stat__v" id="r-doc">—</span>
+                </div>
+                <div class="stat">
+                  <span class="stat__k">receipt_hash</span>
+                  <span class="stat__v" id="r-hash">—</span>
+                </div>
+                <div class="stat">
+                  <span class="stat__k">schema</span>
+                  <span class="stat__v" id="r-schema">—</span>
+                </div>
+              </div>
+              <div class="hash-grid">
+                <div class="hash-row">
+                  <dt>source_hash</dt>
+                  <dd id="r-source">—</dd>
+                </div>
+                <div class="hash-row">
+                  <dt>production_ir_hash</dt>
+                  <dd id="r-ir">—</dd>
+                </div>
+                <div class="hash-row">
+                  <dt>ledger_hash</dt>
+                  <dd id="r-ledger">—</dd>
+                </div>
+                <div class="hash-row">
+                  <dt>shot_contracts_hash</dt>
+                  <dd id="r-shots-hash">—</dd>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table class="receipt">
+                  <thead>
+                    <tr>
+                      <th scope="col">label</th>
+                      <th scope="col">status</th>
+                      <th scope="col">attempts</th>
+                      <th scope="col">repair</th>
+                      <th scope="col">candidate</th>
+                    </tr>
+                  </thead>
+                  <tbody id="shot-rows"></tbody>
+                </table>
+              </div>
+              <details class="raw">
+                <summary>Raw receipt JSON</summary>
+                <pre class="raw-json" id="raw-json"></pre>
+              </details>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <footer class="foot-dense">
+        <p>
+          Continuity Forge v1.1.0 · operator workbench · Hallmark Terminal · JetBrains Mono
+          · controlled_proof_not_production_ready · models PROPOSED only · kernel owns
+          canon · local validate is CI authority when Actions billing blocks · REST
+          /v1/proof · MCP operator surface separate · private research codebase.
+        </p>
+      </footer>
+    </main>
+
+    <style>
+      .visually-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+    </style>
+    <script src="./app.js" type="module"></script>
+  </body>
+</html>
