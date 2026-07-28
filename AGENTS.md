@@ -22,11 +22,13 @@ Continuity Forge is a deterministic cinematic-production kernel surrounded by a 
 
 ## Active campaign
 
-Read `docs/campaigns/CONTINUITY_FORGE_COMPILER_FOUNDATION_001.md` before changing code.
+Read `docs/campaigns/CONTINUITY_FORGE_CONTINUITY_LEDGER_001.md` before changing code.
+
+M0 compiler spine is complete (`CONTINUITY_FORGE_COMPILER_FOUNDATION_001`). Active work is **M1 Continuity Ledger**.
 
 ## Scope discipline
 
-Do not add generation providers, visual-bible systems, timeline editing, Temporal workflows, or autonomous rewriting during M0 unless the active campaign is explicitly amended.
+Do not add generation providers, visual-bible systems, timeline editing, Temporal workflows, or autonomous rewriting during M1 unless the active campaign is explicitly amended.
 
 Do not implement a single autonomous director agent that carries the full screenplay as its private memory or sequentially generates scenes without canonical shot contracts and validation gates.
 

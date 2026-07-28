@@ -18,27 +18,25 @@ Canonical architecture: [`docs/architecture/PRODUCTION_HARNESS_ARCHITECTURE.md`]
 
 ## Active campaign
 
-`CONTINUITY_FORGE_COMPILER_FOUNDATION_001` — `M0_COMPILER_SPINE`
+`CONTINUITY_FORGE_CONTINUITY_LEDGER_001` — `M1_CONTINUITY_LEDGER`
 
-### M0 scope
+M0 compiler spine is complete. Active work derives a deterministic continuity ledger from Production IR.
 
-- Script ingestion and source hashing for Fountain and Final Draft XML (`.fdx`)
-- Deterministic Fountain and FDX element classification
-- Scene, action, character, parenthetical, dialogue, and control-element parsing
-- Narrative atom generation with exact source spans
-- Revision-aware stable identifiers using an explicit document key
-- Production IR serialization and cross-field invariant validation
-- Typed compile diagnostics
-- Complete source coverage accounting, including blanks and comments
-- Read-only REST and MCP surfaces
+### M1 scope
 
-Video generation, visual-bible generation, durable Temporal workflows, and autonomous rewriting are explicitly excluded from M0.
+- Entity registry (characters, locations, props, wardrobe, injury)
+- Presence, enter/exit, holds/wears/injured facts with atom provenance
+- Scene continuity contracts
+- Setup/payoff linking
+- Read-only REST (`POST /v1/continuity-ledger`) and MCP ledger tools
+
+Video generation, visual-bible generation, durable Temporal workflows, shot contracts, and autonomous rewriting remain excluded.
 
 ## Planned progression
 
 ```text
-M0 COMPILER SPINE
--> M1 CONTINUITY LEDGER
+M0 COMPILER SPINE (complete)
+-> M1 CONTINUITY LEDGER (active)
 -> M2 SHOT CONTRACT COMPILER
 -> M3 DURABLE HARNESS / TEMPORAL
 -> M4 MCP OPERATOR SURFACE
