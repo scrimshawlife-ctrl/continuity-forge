@@ -56,7 +56,7 @@ continuity-forge-mcp
 
 The receipt explicitly claims `controlled_proof_not_production_ready`. It does **not** produce real video or claim feature-length readiness.
 
-## Operator UI (Hallmark) · v1.2
+## Operator UI (Hallmark) · v1.3
 
 A technical/austere **proof workbench** lives under `apps/web/` (Terminal theme · Workbench macrostructure). Primary action: run controlled proof and read the receipt.
 
@@ -71,12 +71,16 @@ make ui
 | `POST /v1/proof` | Controlled proof (mock media) → `ProofReceipt` |
 | `GET /v1/projects` | Tenant-scoped project list |
 | `GET /v1/projects/{key}/status` | Canon status (scenes, shots, hashes) |
+| `GET/POST/DELETE …/lease` | Write lease inspect / acquire / release |
+| `GET …/approvals` | List approvals for a document |
+| `POST /v1/approvals/request\|decide` | Request or grant/deny |
+| `GET …/runs` | Pipeline runs for a document |
 | `POST /v1/compile` | Dry compile (used by “Compile only”) |
 | `POST /v1/tenants/bootstrap-dev` | Local dev API key |
 
 Static UI is served at `/` when `apps/web` is present. Optional `Authorization: Bearer <api-key>` when `CF_AUTH_REQUIRED=1`.
 
-Workbench extras: export receipt JSON, copy receipt hash, project list, status panel.
+Workbench: export receipt, canon status, **Control** panel (leases, approvals grant/deny, runs).
 
 Design system tokens: `tokens.css` (root) and `apps/web/tokens.css`.
 

@@ -31,7 +31,7 @@ from pydantic import BaseModel, Field
 
 from continuity_forge_api.auth_deps import require_principal, tenant_document_key
 
-API_VERSION = "1.2.0"
+API_VERSION = "1.3.0"
 app = FastAPI(title="Continuity Forge API", version=API_VERSION)
 
 app.add_middleware(
@@ -228,6 +228,22 @@ def acquire_lease(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
+@app.get("/v1/projects/{document_key}/lease")
+def get_lease(
+    document_key: str,
+    principal: Principal = Depends(require_principal),
+) -> dict[str, Any]:
+    key = tenant_document_key(principal.tenant_id, document_key)
+    lease = _rt().project_store.get_lease(key)
+    if lease is None:
+        return {"document_key": key, "active": False, "lease": None}
+    return {
+        "document_key": key,
+        "active": lease.is_active(),
+        "lease": lease.model_dump(mode="json"),
+    }
+
+
 @app.delete("/v1/projects/{document_key}/lease")
 def release_lease(
     document_key: str,
@@ -236,7 +252,7 @@ def release_lease(
 ) -> dict[str, str]:
     key = tenant_document_key(principal.tenant_id, document_key)
     try:
-        _rt().project_store.release_lease(key, holder)
+        _rt().project_store.release_lease(key, holder or principal.actor_id)
     except OperatorError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     return {"status": "released"}
@@ -328,6 +344,32 @@ def project_status(
     result = {str(k): v for k, v in payload.items()}
     result["tenant_id"] = principal.tenant_id
     return result
+
+
+@app.get("/v1/projects/{document_key}/approvals")
+def list_project_approvals(
+    document_key: str,
+    principal: Principal = Depends(require_principal),
+) -> dict[str, Any]:
+    key = tenant_document_key(principal.tenant_id, document_key)
+    records = _rt().project_store.list_approvals(key)
+    return {
+        "document_key": key,
+        "approvals": [r.model_dump(mode="json") for r in records],
+    }
+
+
+@app.get("/v1/projects/{document_key}/runs")
+def list_project_runs(
+    document_key: str,
+    principal: Principal = Depends(require_principal),
+) -> dict[str, Any]:
+    key = tenant_document_key(principal.tenant_id, document_key)
+    runs = _rt().project_store.list_runs_for_project(key)
+    return {
+        "document_key": key,
+        "runs": [r.model_dump(mode="json") for r in runs],
+    }
 
 
 @app.get("/v1/resources")

@@ -83,6 +83,11 @@ class ProjectStore:
                 raise OperatorError("only the lease holder may release the write lease")
             del self._leases[document_key]
 
+    def get_lease(self, document_key: str) -> WriteLease | None:
+        with self._lock:
+            current = self._leases.get(document_key)
+            return current.model_copy(deep=True) if current else None
+
     def _require_lease(self, document_key: str, actor_id: str) -> None:
         current = self._leases.get(document_key)
         now = utc_now()

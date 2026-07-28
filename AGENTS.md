@@ -26,7 +26,9 @@ M0–M7 controlled-proof path is complete. Prefer campaign docs under `docs/camp
 
 Post-proof work is **real providers / Temporal worker / PostgreSQL persistence** — not mock media.
 
-Operator UI: `apps/web/` (Hallmark Terminal · Workbench). Served from the API at `/`. Primary action: controlled proof + receipt via `POST /v1/proof`.
+Operator UI: `apps/web/` (Hallmark Terminal · Workbench) v1.3. Served from the API at `/`.
+Primary action: controlled proof + receipt via `POST /v1/proof`. Control panel covers
+write leases, approvals, and pipeline run listing.
 
 ## Scope discipline
 

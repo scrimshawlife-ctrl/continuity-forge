@@ -54,3 +54,7 @@ def test_write_lease_blocks_other_actor() -> None:
     store.release_lease("p2", "alice")
     lease = store.acquire_lease("p2", "bob")
     assert lease.holder == "bob"
+    assert store.get_lease("p2") is not None
+    assert store.get_lease("p2").holder == "bob"  # type: ignore[union-attr]
+    store.release_lease("p2", "bob")
+    assert store.get_lease("p2") is None

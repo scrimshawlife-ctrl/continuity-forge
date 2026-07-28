@@ -7,9 +7,10 @@ Ship a technical/austere operator workbench for ops + producer overview: run con
 ## Status
 
 ```text
-operator_ui: PASS (v1.2)
+operator_ui: PASS (v1.3)
 proof_api: PASS
 project_list: PASS
+control_leases_approvals: PASS
 static_mount: PASS
 smoke: PASS (when API up)
 ```
@@ -32,6 +33,12 @@ smoke: PASS (when API up)
 - Compile only (no ingest)
 - Export receipt JSON + copy receipt hash
 - Load project status + list tenant projects
+
+### v1.3 control surface
+
+- Acquire / release / refresh write lease
+- Request approval + grant/deny from list
+- List pipeline runs for document key
 
 ## Design fingerprint
 
