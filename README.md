@@ -70,29 +70,30 @@ Canonical state changes require schema validation, source provenance, determinis
 
 See `docs/campaigns/` for M0–M7 campaign specifications.
 
-## Post-1.0 foundations (rc3)
+## Production stack (1.0)
 
-- **Filesystem stores:** `FileRunStore`, `FileProjectStore`
-- **Artifact store:** content-addressed local blobs (`ArtifactStore`)
-- **In-process worker:** `continuity-forge worker-dry-run <script>`
-- **Temporal worker:** `continuity-forge-worker --check` (offline spec) / `--run` with `[temporal]` extra
-- **Provider registry:**
-  - `CF_PROVIDER=mock` (default)
-  - `CF_PROVIDER=http` + `CF_PROVIDER_HTTP_URL` (optional dry-run via `CF_PROVIDER_DRY_RUN=1`)
-  - `openai` / `runway` fail closed without keys / unfinished SDK
+| Capability | How |
+|------------|-----|
+| **OpenAI / Runway workers** | `CF_PROVIDER=openai\|runway` + API keys; injectable clients in tests |
+| **HTTP gateway worker** | `CF_PROVIDER=http` + `CF_PROVIDER_HTTP_URL` |
+| **Temporal deployment** | `deploy/docker-compose.yml` (Temporal + worker + UI) |
+| **PostgreSQL stores** | `CF_DATABASE_URL` + `continuity_forge_persistence` |
+| **S3 / MinIO artifacts** | `CF_S3_*` + `S3ArtifactStore` |
+| **Multi-tenant auth** | `Authorization: Bearer <api-key>`; document keys scoped as `{tenant}/{key}` |
 
 ```bash
+# offline
 continuity-forge worker-check
 continuity-forge-worker --check
+
+# full local stack
+docker compose -f deploy/docker-compose.yml up --build
 ```
 
-### Still later
+See [`deploy/README.md`](deploy/README.md).
 
-- Full OpenAI/Runway SDK adapters
-- Always-on Temporal cluster deployment
-- PostgreSQL + S3
-- Multi-tenant authN/Z
+Extras: `pip install -e '.[production]'` (temporal, postgres, s3, openai, httpx).
 
 ## License / status
 
-Private research codebase. Mock media path is for continuity control proofs only.
+Private research codebase. Controlled proof uses mock media; production providers are optional and env-gated.

@@ -119,7 +119,8 @@ def test_project_ingest_and_generate_flow() -> None:
     )
     assert loop.status_code == 200
     assert loop.json()["status"] == "accepted_proposed"
-    assert DEFAULT_PROJECT_STORE.get_project(key) is not None
+    # Projects are tenant-scoped (anonymous::<key> when auth is off).
+    assert DEFAULT_PROJECT_STORE.get_project(f"anonymous::{key}") is not None
 
 
 def test_pipeline_run_endpoint_is_idempotent() -> None:

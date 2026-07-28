@@ -61,5 +61,5 @@ def test_http_worker_posts_and_wraps_remote_payload() -> None:
 
 
 def test_openai_without_key_fails_closed() -> None:
-    with pytest.raises(RuntimeError, match="not configured"):
+    with pytest.raises(RuntimeError, match="OPENAI_API_KEY|not installed"):
         get_gateway("openai").generate_for_shot(_contract(), seed="1")

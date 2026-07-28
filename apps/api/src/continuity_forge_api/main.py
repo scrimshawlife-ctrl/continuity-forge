@@ -1,6 +1,7 @@
 from typing import Any, Literal
 from uuid import UUID
 
+from continuity_forge_auth import DEFAULT_AUTH_SERVICE, Principal, bootstrap_dev_tenant
 from continuity_forge_compiler import compile_fdx_text, compile_text
 from continuity_forge_harness import (
     DEFAULT_RUN_STORE,
@@ -20,14 +21,19 @@ from continuity_forge_operator import (
     ProjectRecord,
     WriteLease,
 )
-from continuity_forge_providers import ArtifactCandidate, ProviderGateway
+from continuity_forge_providers import ArtifactCandidate, get_gateway
 from continuity_forge_repair import LoopResult, run_repair_loop
 from continuity_forge_shots import ShotContractBundle, compile_shot_contracts
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel
 
-app = FastAPI(title="Continuity Forge API", version="1.0.0-rc1")
-_gateway = ProviderGateway()
+from continuity_forge_api.auth_deps import (
+    require_principal,
+    tenant_document_key,
+)
+
+app = FastAPI(title="Continuity Forge API", version="1.0.0")
+_gateway = get_gateway()
 
 
 class CompileRequest(BaseModel):
@@ -127,6 +133,18 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get("/v1/whoami")
+def whoami(principal: Principal = Depends(require_principal)) -> dict[str, Any]:
+    return principal.model_dump(mode="json")
+
+
+@app.post("/v1/tenants/bootstrap-dev")
+def bootstrap_dev() -> dict[str, str]:
+    """Create/reset the local dev tenant and return its API key (dev only)."""
+    tenant, key = bootstrap_dev_tenant(DEFAULT_AUTH_SERVICE)
+    return {"tenant_id": tenant.tenant_id, "api_key": key}
+
+
 @app.post("/v1/compile", response_model=ScriptDocument)
 def compile_script(request: CompileRequest) -> ScriptDocument:
     return _document(request)
@@ -164,11 +182,15 @@ def pipeline_temporal_manifest() -> dict[str, object]:
 
 
 @app.post("/v1/projects/lease", response_model=WriteLease)
-def acquire_lease(request: LeaseRequest) -> WriteLease:
+def acquire_lease(
+    request: LeaseRequest,
+    principal: Principal = Depends(require_principal),
+) -> WriteLease:
+    key = tenant_document_key(principal.tenant_id, request.document_key)
     try:
         return DEFAULT_PROJECT_STORE.acquire_lease(
-            request.document_key,
-            request.holder,
+            key,
+            request.holder or principal.actor_id,
             scope=request.scope,
             ttl_seconds=request.ttl_seconds,
         )
@@ -177,18 +199,27 @@ def acquire_lease(request: LeaseRequest) -> WriteLease:
 
 
 @app.delete("/v1/projects/{document_key}/lease")
-def release_lease(document_key: str, holder: str) -> dict[str, str]:
+def release_lease(
+    document_key: str,
+    holder: str,
+    principal: Principal = Depends(require_principal),
+) -> dict[str, str]:
+    key = tenant_document_key(principal.tenant_id, document_key)
     try:
-        DEFAULT_PROJECT_STORE.release_lease(document_key, holder)
+        DEFAULT_PROJECT_STORE.release_lease(key, holder)
     except OperatorError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     return {"status": "released"}
 
 
 @app.post("/v1/projects/ingest")
-def ingest_project(request: IngestRequest) -> dict[str, Any]:
+def ingest_project(
+    request: IngestRequest,
+    principal: Principal = Depends(require_principal),
+) -> dict[str, Any]:
+    key = tenant_document_key(principal.tenant_id, request.document_key)
     envelope = MutationEnvelope(
-        actor_id=request.actor_id,
+        actor_id=request.actor_id or principal.actor_id,
         authorization_scope=request.authorization_scope,
         idempotency_key=request.idempotency_key,
         rationale=request.rationale,
@@ -196,7 +227,7 @@ def ingest_project(request: IngestRequest) -> dict[str, Any]:
     )
     try:
         project, run = DEFAULT_PROJECT_STORE.ingest_script(
-            document_key=request.document_key,
+            document_key=key,
             title=request.title,
             text=request.text,
             revision=request.revision,
@@ -205,23 +236,37 @@ def ingest_project(request: IngestRequest) -> dict[str, Any]:
         )
     except (OperatorError, PipelineError) as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
-    return {"project": project.model_dump(mode="json"), "run": run.model_dump(mode="json")}
+    return {
+        "tenant_id": principal.tenant_id,
+        "project": project.model_dump(mode="json"),
+        "run": run.model_dump(mode="json"),
+    }
 
 
 @app.get("/v1/projects/{document_key}", response_model=ProjectRecord)
-def get_project(document_key: str) -> ProjectRecord:
-    project = DEFAULT_PROJECT_STORE.get_project(document_key)
+def get_project(
+    document_key: str,
+    principal: Principal = Depends(require_principal),
+) -> ProjectRecord:
+    key = tenant_document_key(principal.tenant_id, document_key)
+    project = DEFAULT_PROJECT_STORE.get_project(key)
     if project is None:
         raise HTTPException(status_code=404, detail="project not found")
     return project
 
 
 @app.get("/v1/projects/{document_key}/status")
-def project_status(document_key: str) -> dict[str, Any]:
-    payload = DEFAULT_PROJECT_STORE.resource(f"cf://projects/{document_key}/status")
+def project_status(
+    document_key: str,
+    principal: Principal = Depends(require_principal),
+) -> dict[str, Any]:
+    key = tenant_document_key(principal.tenant_id, document_key)
+    payload = DEFAULT_PROJECT_STORE.resource(f"cf://projects/{key}/status")
     if payload is None:
         raise HTTPException(status_code=404, detail="project not found")
-    return {str(k): v for k, v in payload.items()}
+    result = {str(k): v for k, v in payload.items()}
+    result["tenant_id"] = principal.tenant_id
+    return result
 
 
 @app.get("/v1/resources")
@@ -272,14 +317,22 @@ def decide_approval(request: ApprovalDecision) -> dict[str, Any]:
 
 
 @app.post("/v1/generate/preview", response_model=ArtifactCandidate)
-def generate_preview(request: GenerateRequest) -> ArtifactCandidate:
-    contract = _shot(request.document_key, request.shot_id)
+def generate_preview(
+    request: GenerateRequest,
+    principal: Principal = Depends(require_principal),
+) -> ArtifactCandidate:
+    key = tenant_document_key(principal.tenant_id, request.document_key)
+    contract = _shot(key, request.shot_id)
     return _gateway.generate_for_shot(contract, seed=request.seed)
 
 
 @app.post("/v1/generate/repair-loop", response_model=LoopResult)
-def generate_repair_loop(request: RepairLoopRequest) -> LoopResult:
-    contract = _shot(request.document_key, request.shot_id)
+def generate_repair_loop(
+    request: RepairLoopRequest,
+    principal: Principal = Depends(require_principal),
+) -> LoopResult:
+    key = tenant_document_key(principal.tenant_id, request.document_key)
+    contract = _shot(key, request.shot_id)
     return run_repair_loop(
         contract,
         gateway=_gateway,
