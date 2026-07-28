@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from uuid import UUID
 
 from continuity_forge_ir import (
     AtomType,
@@ -20,22 +21,80 @@ from continuity_forge_ir import (
 
 SCENE_RE = re.compile(r"^(INT\.|EXT\.|INT/EXT\.|I/E\.).+", re.IGNORECASE)
 CHARACTER_RE = re.compile(r"^[A-Z][A-Z0-9 ._()'-]{1,48}$")
+SUPPORTED_TEXT_SUFFIXES = {".fountain", ".txt"}
 
 
 def _coverage_report(text: str, atoms: list[NarrativeAtom]) -> CoverageReport:
-    covered: set[int] = set()
+    covered_character_offsets: set[int] = set()
     for atom in atoms:
-        covered.update(range(atom.source_span.start_offset, atom.source_span.end_offset))
-    non_whitespace = {index for index, char in enumerate(text) if not char.isspace()}
-    uncovered = non_whitespace - covered
-    total = len(text)
-    ratio = 1.0 if not non_whitespace else (len(non_whitespace) - len(uncovered)) / len(non_whitespace)
+        covered_character_offsets.update(
+            range(atom.source_span.start_offset, atom.source_span.end_offset)
+        )
+
+    non_whitespace_character_offsets = {
+        index for index, character in enumerate(text) if not character.isspace()
+    }
+    uncovered_character_offsets = (
+        non_whitespace_character_offsets - covered_character_offsets
+    )
+
+    covered_bytes = sum(
+        len(character.encode("utf-8"))
+        for index, character in enumerate(text)
+        if index in covered_character_offsets
+    )
+    non_whitespace_bytes = sum(
+        len(character.encode("utf-8"))
+        for index, character in enumerate(text)
+        if index in non_whitespace_character_offsets
+    )
+    uncovered_non_whitespace_bytes = sum(
+        len(character.encode("utf-8"))
+        for index, character in enumerate(text)
+        if index in uncovered_character_offsets
+    )
+    ratio = (
+        1.0
+        if non_whitespace_bytes == 0
+        else (non_whitespace_bytes - uncovered_non_whitespace_bytes) / non_whitespace_bytes
+    )
     return CoverageReport(
-        source_bytes=total,
-        covered_bytes=len(covered),
-        uncovered_non_whitespace_bytes=len(uncovered),
+        source_bytes=len(text.encode("utf-8")),
+        covered_bytes=covered_bytes,
+        uncovered_non_whitespace_bytes=uncovered_non_whitespace_bytes,
         emitted_atom_count=len(atoms),
         source_coverage_ratio=ratio,
+    )
+
+
+def _failed_result(
+    source: str,
+    *,
+    title: str,
+    revision: str,
+    source_format: str,
+    code: str,
+    message: str,
+) -> CompileResult:
+    source_hash = content_hash(source)
+    document = ScriptDocument(
+        script_id=stable_id("script", source_hash),
+        title=title,
+        format=source_format,
+        revision=revision,
+        source_hash=source_hash,
+        scenes=[],
+    )
+    return CompileResult(
+        document=document,
+        diagnostics=[
+            CompileDiagnostic(
+                code=code,
+                severity=DiagnosticSeverity.ERROR,
+                message=message,
+            )
+        ],
+        coverage=_coverage_report(source, []),
     )
 
 
@@ -52,7 +111,7 @@ def compile_text_result(
     scenes: list[SceneNode] = []
     diagnostics: list[CompileDiagnostic] = []
     current_slugline: str | None = None
-    current_scene_id = None
+    current_scene_id: UUID | None = None
     current_atoms: list[NarrativeAtom] = []
     all_atoms: list[NarrativeAtom] = []
     offset = 0
@@ -130,8 +189,9 @@ def compile_text_result(
         else:
             atom_type = AtomType.ACTION
 
-        assert current_scene_id is not None
-        atom_id = stable_id("atom", current_scene_id, len(current_atoms) + 1, atom_type, stripped)
+        atom_id = stable_id(
+            "atom", current_scene_id, len(current_atoms) + 1, atom_type, stripped
+        )
         current_atoms.append(
             NarrativeAtom(
                 atom_id=atom_id,
@@ -184,7 +244,9 @@ def compile_text_result(
     return CompileResult(document=document, diagnostics=diagnostics, coverage=coverage)
 
 
-def compile_text(text: str, *, title: str = "Untitled", revision: str = "0.1.0") -> ScriptDocument:
+def compile_text(
+    text: str, *, title: str = "Untitled", revision: str = "0.1.0"
+) -> ScriptDocument:
     return compile_text_result(text, title=title, revision=revision).document
 
 
@@ -209,8 +271,20 @@ def fdx_to_text(xml_text: str) -> str:
     return "\n".join(output).strip() + "\n"
 
 
-def compile_fdx_result(xml_text: str, *, title: str = "Untitled", revision: str = "0.1.0") -> CompileResult:
-    normalized = fdx_to_text(xml_text)
+def compile_fdx_result(
+    xml_text: str, *, title: str = "Untitled", revision: str = "0.1.0"
+) -> CompileResult:
+    try:
+        normalized = fdx_to_text(xml_text)
+    except ET.ParseError as error:
+        return _failed_result(
+            xml_text,
+            title=title,
+            revision=revision,
+            source_format="fdx",
+            code="CF_FDX_MALFORMED",
+            message=f"FDX XML could not be parsed: {error}",
+        )
     return compile_text_result(
         normalized,
         title=title,
@@ -221,6 +295,9 @@ def compile_fdx_result(xml_text: str, *, title: str = "Untitled", revision: str 
 
 def compile_file(path: Path) -> ScriptDocument:
     text = path.read_text(encoding="utf-8")
-    if path.suffix.lower() == ".fdx":
+    suffix = path.suffix.lower()
+    if suffix == ".fdx":
         return compile_fdx_result(text, title=path.stem).document
-    return compile_text(text, title=path.stem)
+    if suffix in SUPPORTED_TEXT_SUFFIXES:
+        return compile_text(text, title=path.stem)
+    raise ValueError(f"Unsupported screenplay format: {suffix or '<none>'}")
