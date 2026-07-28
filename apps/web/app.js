@@ -3,6 +3,7 @@
  * Default: paste script → Run proof → read receipt.
  * Advanced: connection, canon, leases, approvals.
  * Long-form 4.1: scene / shot navigation (read-only).
+ * Long-form 4.2: virtualized shot table + filters (presentation only).
  */
 
 const SAMPLE_SCRIPT = `Title: Continuity Sample
@@ -79,6 +80,21 @@ const nav = {
   focusShotIndex: 0,
 };
 
+/** Table view: filters + virtualization (presentation only). */
+const tableView = {
+  statusFilter: "all",
+  repairFilter: "all",
+  sort: "default",
+  /** Feature flag: when false, mount every row (short proofs). */
+  virtualEnabled: true,
+  /** Auto-enable virtualization when logical row count exceeds this. */
+  virtualThreshold: 40,
+  rowHeight: 44,
+  overscan: 8,
+  scrollTop: 0,
+  _boundScroll: false,
+};
+
 const els = {
   script: $("script"),
   documentKey: $("document-key"),
@@ -140,6 +156,13 @@ const els = {
   rShotsHash: $("r-shots-hash"),
   shotRows: $("shot-rows"),
   shotEmpty: $("shot-empty"),
+  shotTableWrap: $("shot-table-wrap"),
+  shotToolbar: $("shot-toolbar"),
+  shotToolbarMeta: $("shot-toolbar-meta"),
+  shotFilterStatus: $("shot-filter-status"),
+  shotFilterRepair: $("shot-filter-repair"),
+  shotSort: $("shot-sort"),
+  shotVirtual: $("shot-virtual"),
   sceneNav: $("scene-nav"),
   sceneList: $("scene-list"),
   sceneFocusLabel: $("scene-focus-label"),
@@ -604,10 +627,201 @@ function sceneLabelFromShot(shot, sceneId) {
   return shortHash(sceneId);
 }
 
-function filteredShots() {
+function sceneFilteredShots() {
   const shots = lastReceipt?.shots || [];
-  if (!nav.focusSceneId) return shots;
+  if (!nav.focusSceneId) return shots.slice();
   return shots.filter((s) => String(s.scene_id || "") === nav.focusSceneId);
+}
+
+/** Logical shot list: scene focus + status/repair filters + sort. */
+function logicalShots() {
+  let shots = sceneFilteredShots();
+
+  if (tableView.statusFilter === "accept") {
+    shots = shots.filter((s) => String(s.status || "").includes("accept"));
+  } else if (tableView.statusFilter === "fail") {
+    shots = shots.filter((s) => !String(s.status || "").includes("accept"));
+  }
+
+  if (tableView.repairFilter === "yes") {
+    shots = shots.filter(
+      (s) => Array.isArray(s.repair_actions) && s.repair_actions.length > 0,
+    );
+  } else if (tableView.repairFilter === "no") {
+    shots = shots.filter(
+      (s) => !Array.isArray(s.repair_actions) || s.repair_actions.length === 0,
+    );
+  }
+
+  if (tableView.sort === "label") {
+    shots.sort((a, b) =>
+      String(a.label || "").localeCompare(String(b.label || "")),
+    );
+  } else if (tableView.sort === "status") {
+    shots.sort((a, b) =>
+      String(a.status || "").localeCompare(String(b.status || "")),
+    );
+  } else if (tableView.sort === "attempts") {
+    shots.sort((a, b) => Number(b.attempts || 0) - Number(a.attempts || 0));
+  }
+
+  return shots;
+}
+
+/** @deprecated use logicalShots — kept name for call sites */
+function filteredShots() {
+  return logicalShots();
+}
+
+function useVirtualization(rowCount) {
+  if (!tableView.virtualEnabled) return false;
+  return rowCount >= tableView.virtualThreshold;
+}
+
+function buildShotRow(shot, index) {
+  const tr = document.createElement("tr");
+  if (index === nav.focusShotIndex) tr.classList.add("shot-row-focus");
+  tr.dataset.shotId = String(shot.shot_id || "");
+  tr.dataset.sceneId = String(shot.scene_id || "");
+  tr.dataset.rowIndex = String(index);
+  const status = shot.status || "";
+  const statusClass =
+    status.includes("accept") || status === "accepted_proposed"
+      ? "status-ok"
+      : status.includes("fail") || status.includes("reject")
+        ? "status-fail"
+        : "";
+  const summary = repairRationaleSummary(shot);
+  let repairCell = "—";
+  if (summary) {
+    const actionCodes = summary.actions
+      .map((a) => escapeHtml(String(a)))
+      .join(", ");
+    repairCell = `
+      <div class="repair-summary">
+        <span class="repair-summary__actions">${actionCodes}</span>
+        <span class="repair-summary__rationale">${escapeHtml(summary.rationale)}</span>
+      </div>
+    `;
+  }
+  tr.innerHTML = `
+    <td>${escapeHtml(shot.label || shortHash(shot.shot_id))}</td>
+    <td class="${statusClass}">${escapeHtml(humanStatus(status))}</td>
+    <td>${escapeHtml(String(shot.attempts ?? "—"))}</td>
+    <td>${repairCell}</td>
+    <td title="${escapeHtml(shot.accepted_candidate_hash || "")}">${escapeHtml(
+      shortHash(shot.accepted_candidate_hash),
+    )}</td>
+  `;
+  tr.addEventListener("click", () => {
+    nav.focusShotIndex = index;
+    renderShotTable();
+    syncNavUrl();
+    announceShotFocus();
+  });
+  return tr;
+}
+
+function announceShotFocus() {
+  const shots = logicalShots();
+  const shot = shots[nav.focusShotIndex];
+  if (!shot || !els.shotToolbarMeta) return;
+  // live region update is on toolbar meta
+  const mode = useVirtualization(shots.length) ? "virtual" : "full";
+  els.shotToolbarMeta.textContent = `${shots.length} row(s) · ${mode} · focus ${nav.focusShotIndex + 1}/${shots.length} · ${shot.label || shortHash(shot.shot_id)} · not production film`;
+}
+
+function updateShotToolbar(shots) {
+  if (!els.shotToolbar) return;
+  if (!lastReceipt) {
+    els.shotToolbar.hidden = true;
+    return;
+  }
+  els.shotToolbar.hidden = false;
+  if (els.shotVirtual) {
+    els.shotVirtual.checked = tableView.virtualEnabled;
+  }
+  announceShotFocus();
+  if (!shots.length && els.shotToolbarMeta) {
+    els.shotToolbarMeta.textContent = "0 rows match filters · presentation only";
+  }
+}
+
+function renderShotTableFull(shots) {
+  els.shotRows.replaceChildren();
+  shots.forEach((shot, index) => {
+    els.shotRows.appendChild(buildShotRow(shot, index));
+  });
+}
+
+function renderShotTableVirtual(shots) {
+  const wrap = els.shotTableWrap;
+  if (!wrap || !els.shotRows) {
+    renderShotTableFull(shots);
+    return;
+  }
+
+  const viewportH = wrap.clientHeight || 400;
+  const rowH = tableView.rowHeight;
+  const total = shots.length;
+  const totalH = total * rowH;
+  const scrollTop = wrap.scrollTop;
+  tableView.scrollTop = scrollTop;
+
+  let start = Math.floor(scrollTop / rowH) - tableView.overscan;
+  if (start < 0) start = 0;
+  let end = Math.ceil((scrollTop + viewportH) / rowH) + tableView.overscan;
+  if (end > total) end = total;
+
+  // Keep focused row mounted for a11y
+  if (nav.focusShotIndex >= 0 && nav.focusShotIndex < total) {
+    if (nav.focusShotIndex < start) start = nav.focusShotIndex;
+    if (nav.focusShotIndex >= end) end = nav.focusShotIndex + 1;
+  }
+
+  const topPad = start * rowH;
+  const bottomPad = Math.max(0, totalH - end * rowH);
+
+  els.shotRows.replaceChildren();
+
+  if (topPad > 0) {
+    const spacer = document.createElement("tr");
+    spacer.className = "shot-spacer shot-spacer--top";
+    spacer.setAttribute("aria-hidden", "true");
+    const td = document.createElement("td");
+    td.colSpan = 5;
+    td.style.height = `${topPad}px`;
+    spacer.appendChild(td);
+    els.shotRows.appendChild(spacer);
+  }
+
+  for (let i = start; i < end; i++) {
+    els.shotRows.appendChild(buildShotRow(shots[i], i));
+  }
+
+  if (bottomPad > 0) {
+    const spacer = document.createElement("tr");
+    spacer.className = "shot-spacer shot-spacer--bottom";
+    spacer.setAttribute("aria-hidden", "true");
+    const td = document.createElement("td");
+    td.colSpan = 5;
+    td.style.height = `${bottomPad}px`;
+    spacer.appendChild(td);
+    els.shotRows.appendChild(spacer);
+  }
+
+  if (!tableView._boundScroll) {
+    wrap.addEventListener(
+      "scroll",
+      () => {
+        if (!lastReceipt) return;
+        if (!useVirtualization(logicalShots().length)) return;
+        renderShotTable();
+      },
+      { passive: true },
+    );
+    tableView._boundScroll = true;
+  }
 }
 
 function syncNavUrl() {
@@ -691,59 +905,27 @@ function renderSceneNav() {
 
 function renderShotTable() {
   if (!els.shotRows) return;
-  const shots = filteredShots();
-  els.shotRows.replaceChildren();
+  const shots = logicalShots();
+  updateShotToolbar(shots);
 
   if (!shots.length) {
+    els.shotRows.replaceChildren();
     if (els.shotEmpty) els.shotEmpty.hidden = false;
     return;
   }
   if (els.shotEmpty) els.shotEmpty.hidden = true;
 
-  if (nav.focusShotIndex >= shots.length) nav.focusShotIndex = Math.max(0, shots.length - 1);
+  if (nav.focusShotIndex >= shots.length) {
+    nav.focusShotIndex = Math.max(0, shots.length - 1);
+  }
   if (nav.focusShotIndex < 0) nav.focusShotIndex = 0;
 
-  shots.forEach((shot, index) => {
-    const tr = document.createElement("tr");
-    if (index === nav.focusShotIndex) tr.classList.add("shot-row-focus");
-    tr.dataset.shotId = String(shot.shot_id || "");
-    tr.dataset.sceneId = String(shot.scene_id || "");
-    const status = shot.status || "";
-    const statusClass =
-      status.includes("accept") || status === "accepted_proposed"
-        ? "status-ok"
-        : status.includes("fail") || status.includes("reject")
-          ? "status-fail"
-          : "";
-    const summary = repairRationaleSummary(shot);
-    let repairCell = "—";
-    if (summary) {
-      const actionCodes = summary.actions
-        .map((a) => escapeHtml(String(a)))
-        .join(", ");
-      repairCell = `
-        <div class="repair-summary">
-          <span class="repair-summary__actions">${actionCodes}</span>
-          <span class="repair-summary__rationale">${escapeHtml(summary.rationale)}</span>
-        </div>
-      `;
-    }
-    tr.innerHTML = `
-      <td>${escapeHtml(shot.label || shortHash(shot.shot_id))}</td>
-      <td class="${statusClass}">${escapeHtml(humanStatus(status))}</td>
-      <td>${escapeHtml(String(shot.attempts ?? "—"))}</td>
-      <td>${repairCell}</td>
-      <td title="${escapeHtml(shot.accepted_candidate_hash || "")}">${escapeHtml(
-        shortHash(shot.accepted_candidate_hash),
-      )}</td>
-    `;
-    tr.addEventListener("click", () => {
-      nav.focusShotIndex = index;
-      renderShotTable();
-      syncNavUrl();
-    });
-    els.shotRows.appendChild(tr);
-  });
+  if (useVirtualization(shots.length)) {
+    renderShotTableVirtual(shots);
+  } else {
+    renderShotTableFull(shots);
+  }
+  announceShotFocus();
 }
 
 function setSceneFocus(sceneId) {
@@ -774,16 +956,29 @@ function stepScene(delta) {
 }
 
 function stepShot(delta) {
-  const shots = filteredShots();
+  const shots = logicalShots();
   if (!shots.length) return;
   nav.focusShotIndex = Math.max(
     0,
     Math.min(shots.length - 1, nav.focusShotIndex + delta),
   );
+  // Keep focused row in virtual viewport
+  if (els.shotTableWrap && useVirtualization(shots.length)) {
+    const targetTop = nav.focusShotIndex * tableView.rowHeight;
+    const viewTop = els.shotTableWrap.scrollTop;
+    const viewBottom = viewTop + els.shotTableWrap.clientHeight;
+    if (targetTop < viewTop) {
+      els.shotTableWrap.scrollTop = targetTop;
+    } else if (targetTop + tableView.rowHeight > viewBottom) {
+      els.shotTableWrap.scrollTop =
+        targetTop + tableView.rowHeight - els.shotTableWrap.clientHeight;
+    }
+  }
   renderShotTable();
   syncNavUrl();
   const row = els.shotRows?.querySelector(".shot-row-focus");
   row?.scrollIntoView({ block: "nearest" });
+  announceShotFocus();
 }
 
 function renderReceipt(receipt) {
@@ -1151,6 +1346,28 @@ function wire() {
   els.btnSceneAll?.addEventListener("click", () => setSceneFocus(null));
   els.btnScenePrev?.addEventListener("click", () => stepScene(-1));
   els.btnSceneNext?.addEventListener("click", () => stepScene(1));
+
+  const onTableControls = () => {
+    if (els.shotFilterStatus) {
+      tableView.statusFilter = els.shotFilterStatus.value || "all";
+    }
+    if (els.shotFilterRepair) {
+      tableView.repairFilter = els.shotFilterRepair.value || "all";
+    }
+    if (els.shotSort) {
+      tableView.sort = els.shotSort.value || "default";
+    }
+    if (els.shotVirtual) {
+      tableView.virtualEnabled = !!els.shotVirtual.checked;
+    }
+    nav.focusShotIndex = 0;
+    renderShotTable();
+    syncNavUrl();
+  };
+  els.shotFilterStatus?.addEventListener("change", onTableControls);
+  els.shotFilterRepair?.addEventListener("change", onTableControls);
+  els.shotSort?.addEventListener("change", onTableControls);
+  els.shotVirtual?.addEventListener("change", onTableControls);
 
   document.addEventListener("keydown", (ev) => {
     // Skip when typing in fields

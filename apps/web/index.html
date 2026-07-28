@@ -257,8 +257,56 @@
                 </p>
               </div>
 
-              <div class="table-wrap">
-                <table class="receipt">
+              <!-- Phase 4.2 table filters + virtualization controls -->
+              <div class="shot-toolbar" id="shot-toolbar" hidden>
+                <div class="field-row shot-toolbar__filters">
+                  <div class="field">
+                    <label for="shot-filter-status">Status</label>
+                    <select id="shot-filter-status">
+                      <option value="all" selected>All</option>
+                      <option value="accept">Accepted</option>
+                      <option value="fail">Failed / other</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label for="shot-filter-repair">Repair</label>
+                    <select id="shot-filter-repair">
+                      <option value="all" selected>All</option>
+                      <option value="yes">Has repair</option>
+                      <option value="no">No repair</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label for="shot-sort">Sort</label>
+                    <select id="shot-sort">
+                      <option value="default" selected>Receipt order</option>
+                      <option value="label">Label</option>
+                      <option value="status">Status</option>
+                      <option value="attempts">Attempts</option>
+                    </select>
+                  </div>
+                  <div class="field field--check">
+                    <label for="shot-virtual">
+                      <input type="checkbox" id="shot-virtual" checked />
+                      Virtualize rows
+                    </label>
+                    <p class="field__hint" id="shot-virtual-hint">
+                      Off-screen rows unmounted for large receipts. Presentation only —
+                      not production readiness.
+                    </p>
+                  </div>
+                </div>
+                <p class="shot-toolbar__meta" id="shot-toolbar-meta" aria-live="polite"></p>
+              </div>
+
+              <div
+                class="table-wrap table-wrap--shots"
+                id="shot-table-wrap"
+                tabindex="0"
+                role="region"
+                aria-label="Shot proof results"
+              >
+                <table class="receipt receipt--shots">
                   <caption class="visually-hidden">Shot proof results</caption>
                   <thead>
                     <tr>
@@ -272,10 +320,10 @@
                   <tbody id="shot-rows"></tbody>
                 </table>
                 <div id="shot-empty" class="empty empty--friendly empty--queue" hidden>
-                  <p class="empty__lead">No shots in this scene</p>
+                  <p class="empty__lead">No shots match this filter</p>
                   <p>
-                    Select <strong>All scenes</strong> or another scene. Navigation is
-                    read-only and does not change canon.
+                    Clear filters or select <strong>All scenes</strong>. Navigation and
+                    virtualization are read-only and do not change canon.
                   </p>
                 </div>
               </div>
