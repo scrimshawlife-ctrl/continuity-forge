@@ -38,18 +38,5 @@ jobs:
           python -m pip install -e '.[dev]'
           python -m pip check
 
-      - name: Ruff
-        run: python -m ruff check .
-
-      - name: Mypy
-        run: python -m mypy packages apps
-
-      - name: Tests and coverage
-        run: |
-          python -m pytest \
-            --cov=continuity_forge_ir \
-            --cov=continuity_forge_compiler \
-            --cov=continuity_forge_providers \
-            --cov=continuity_forge_api \
-            --cov=continuity_forge_mcp \
-            --cov-report=term-missing
+      - name: Validate M0
+        run: python scripts/validate_m0.py
