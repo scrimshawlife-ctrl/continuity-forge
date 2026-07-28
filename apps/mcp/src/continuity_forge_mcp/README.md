@@ -1,13 +1,19 @@
-# MCP control server
+# MCP read-only compiler server
 
-M0 exposes read and compile surfaces only:
+M0 exposes deterministic, non-persistent compiler queries over stdio using the official MCP Python SDK. No tool writes canonical state, files, databases, or workflow history.
 
-- `cf.create_project`
-- `cf.ingest_script`
-- `cf.compile_script`
-- `cf.get_compile_diagnostics`
-- `cf.list_scenes`
-- `cf.get_scene`
-- `cf.audit_script_coverage`
+## Run
 
-Mutating generation tools remain disabled until M0 exits successfully.
+```bash
+continuity-forge-mcp
+```
+
+## Tools
+
+- `compile_script`: compile supplied Fountain source into validated Production IR without persistence
+- `get_compile_diagnostics`: return typed deterministic diagnostics
+- `list_scenes`: return compact stable scene summaries
+- `get_scene`: return one scene by stable identifier
+- `audit_script_coverage`: return source-accounting totals and uncovered spans
+
+All calls accept source text plus an optional `document_key`. The key identifies the logical screenplay across revisions. The server is deliberately stateless in M0. Durable project resources, authenticated mutation commands, approvals, and workflow integration remain later milestones.
