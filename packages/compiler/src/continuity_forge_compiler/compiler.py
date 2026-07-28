@@ -14,6 +14,7 @@ from continuity_forge_ir import (
     NarrativeAtom,
     SceneNode,
     ScriptDocument,
+    ScriptMetadataEntry,
     SourceSpan,
     content_hash,
     stable_id,
@@ -21,16 +22,23 @@ from continuity_forge_ir import (
 
 SCENE_RE = re.compile(r"^(INT\.|EXT\.|INT/EXT\.|I/E\.).+", re.IGNORECASE)
 CHARACTER_RE = re.compile(r"^[A-Z][A-Z0-9 ._()'-]{1,48}$")
+METADATA_RE = re.compile(r"^([A-Za-z][A-Za-z0-9 _-]{0,48}):\s*(.+)$")
 TRANSITIONS = {"CUT TO:", "FADE OUT.", "FADE IN:"}
 SUPPORTED_TEXT_SUFFIXES = {".fountain", ".txt"}
 
 
-def _coverage_report(text: str, atoms: list[NarrativeAtom]) -> CoverageReport:
+def _coverage_report(
+    text: str,
+    atoms: list[NarrativeAtom],
+    additional_spans: list[SourceSpan] | None = None,
+) -> CoverageReport:
     covered_character_offsets: set[int] = set()
     for atom in atoms:
         covered_character_offsets.update(
             range(atom.source_span.start_offset, atom.source_span.end_offset)
         )
+    for span in additional_spans or []:
+        covered_character_offsets.update(range(span.start_offset, span.end_offset))
 
     non_whitespace_character_offsets = {
         index for index, character in enumerate(text) if not character.isspace()
@@ -110,6 +118,7 @@ def compile_text_result(
     script_id = stable_id("script", source_hash)
     lines = text.splitlines(keepends=True)
     scenes: list[SceneNode] = []
+    metadata: list[ScriptMetadataEntry] = []
     diagnostics: list[CompileDiagnostic] = []
     current_slugline: str | None = None
     current_scene_id: UUID | None = None
@@ -211,14 +220,24 @@ def compile_text_result(
             current_scene_id = stable_id("scene", script_id, len(scenes) + 1, stripped)
             emit_atom(AtomType.SCENE_HEADING, stripped, span)
         elif current_scene_id is None:
-            diagnostics.append(
-                CompileDiagnostic(
-                    code="CF_PARSE_CONTENT_BEFORE_SCENE",
-                    severity=DiagnosticSeverity.WARNING,
-                    message="Content before the first scene heading was not emitted.",
-                    source_span=span,
+            metadata_match = METADATA_RE.match(stripped)
+            if metadata_match is not None:
+                metadata.append(
+                    ScriptMetadataEntry(
+                        key=metadata_match.group(1).strip().lower().replace(" ", "_"),
+                        value=metadata_match.group(2).strip(),
+                        source_span=span,
+                    )
                 )
-            )
+            else:
+                diagnostics.append(
+                    CompileDiagnostic(
+                        code="CF_PARSE_CONTENT_BEFORE_SCENE",
+                        severity=DiagnosticSeverity.WARNING,
+                        message="Content before the first scene heading was not emitted.",
+                        source_span=span,
+                    )
+                )
         elif stripped.upper() in TRANSITIONS:
             emit_atom(AtomType.TRANSITION, stripped, span)
         elif CHARACTER_RE.match(stripped) and len(stripped.split()) <= 5:
@@ -242,9 +261,14 @@ def compile_text_result(
         format=source_format,
         revision=revision,
         source_hash=source_hash,
+        metadata=metadata,
         scenes=scenes,
     )
-    coverage = _coverage_report(text, all_atoms)
+    coverage = _coverage_report(
+        text,
+        all_atoms,
+        additional_spans=[entry.source_span for entry in metadata],
+    )
     if coverage.uncovered_non_whitespace_bytes:
         diagnostics.append(
             CompileDiagnostic(
@@ -252,7 +276,7 @@ def compile_text_result(
                 severity=DiagnosticSeverity.WARNING,
                 message=(
                     f"{coverage.uncovered_non_whitespace_bytes} non-whitespace source bytes "
-                    "were not represented by emitted atoms."
+                    "were not represented by emitted atoms or metadata."
                 ),
             )
         )
