@@ -6,12 +6,13 @@ This document defines the constructs covered by the executable M0 golden corpus.
 
 - `INT.`, `EXT.`, `INT/EXT.`, and `I/E.` scene headings
 - action paragraphs
-- uppercase character cues followed by one dialogue paragraph
+- uppercase character cues followed by a dialogue block
+- dialogue blocks containing parentheticals and multiple nonblank lines
 - uppercase dialogue text after a character cue
 - Fountain transitions `CUT TO:`, `FADE IN:`, and `FADE OUT.` when they occur after a scene heading
 - multiple scenes
 - UTF-8 screenplay text and byte-accurate source accounting
-- Final Draft XML (`.fdx`) normalization for scene heading, action, character, dialogue, and transition paragraph types
+- Final Draft XML (`.fdx`) normalization for scene heading, action, character, dialogue, parenthetical, and transition paragraph types
 
 Supported fixtures must satisfy all of the following:
 
@@ -23,17 +24,23 @@ Supported fixtures must satisfy all of the following:
 - no error-severity diagnostic
 - valid ordered source spans for every atom
 
+## Dialogue-block semantics
+
+A character cue opens a dialogue block. Every following nonblank line—including parentheticals—is accumulated into one `DIALOGUE` atom until a blank line or end of file. The atom source span begins at the character cue and ends at the last dialogue line.
+
+This preserves the performance unit as one provenance-bearing atom without requiring a separate parenthetical atom type during M0.
+
 ## Parser precedence
 
 M0 classifies nonblank screenplay lines in this order:
 
-1. scene heading
-2. dialogue when a character cue is pending
+1. active dialogue-block content
+2. scene heading
 3. transition
 4. new character cue
 5. action
 
-This ordering prevents uppercase dialogue and transition tokens from being misclassified as character cues.
+This ordering prevents uppercase dialogue, parentheticals, and transition tokens from being misclassified as character cues.
 
 ## Detected but not accepted as clean input
 
@@ -47,7 +54,6 @@ These inputs fail closed or produce typed diagnostics. They are not part of the 
 
 ## Deferred grammar
 
-- parentheticals and dialogue continuations
 - dual dialogue
 - centered text
 - lyrics
