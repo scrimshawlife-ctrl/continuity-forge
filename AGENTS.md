@@ -24,11 +24,16 @@ Continuity Forge is a deterministic cinematic-production kernel surrounded by a 
 
 M0–M7 controlled-proof path is complete. Prefer campaign docs under `docs/campaigns/` for residual work.
 
-Post-proof work is **real providers / Temporal worker / PostgreSQL persistence** — not mock media.
+Post-proof foundations (providers, Temporal, Postgres/S3, multi-tenant auth, runtime wiring)
+and operator UI v1.3 are on `main`.
 
-Operator UI: `apps/web/` (Hallmark Terminal · Workbench) v1.3. Served from the API at `/`.
-Primary action: controlled proof + receipt via `POST /v1/proof`. Control panel covers
-write leases, approvals, and pipeline run listing.
+Operator UI: `apps/web/` (Hallmark Terminal · Workbench). Served from the API at `/`.
+Default UX: script → Run proof → receipt. Advanced: leases, approvals, runs, connection.
+
+## CI
+
+GitHub Actions workflow `.github/workflows/ci.yml` runs `python scripts/validate_m0.py`
+(ruff, format, mypy, pytest). That is the merge gate. Local equivalent: `make validate`.
 
 ## Scope discipline
 

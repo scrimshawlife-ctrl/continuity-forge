@@ -1,10 +1,14 @@
 # Continuity Forge
 
+[![CI](https://github.com/scrimshawlife-ctrl/continuity-forge/actions/workflows/ci.yml/badge.svg)](https://github.com/scrimshawlife-ctrl/continuity-forge/actions/workflows/ci.yml)
+
 **A deterministic cinematic-production kernel and model-agnostic harness for drift-resistant AI film generation.**
 
 Continuity Forge converts a screenplay into a provenance-preserving Production IR, continuity ledger, scene graph, and model-neutral shot contracts. Generative models may propose or render artifacts; they do not own canonical narrative state.
 
 > Models generate pixels and proposals. Continuity Forge governs identity, memory, causality, approvals, and production truth.
+
+**Version 1.3.0.** GitHub Actions CI (`scripts/validate_m0.py`) is the merge gate. Local `make validate` matches CI.
 
 ## Architecture
 
@@ -58,7 +62,7 @@ The receipt explicitly claims `controlled_proof_not_production_ready`. It does *
 
 ## Operator UI (Hallmark) · v1.3
 
-A technical/austere **proof workbench** lives under `apps/web/` (Terminal theme · Workbench macrostructure). Primary action: run controlled proof and read the receipt.
+Proof workbench under `apps/web/` (Terminal theme). Default path: **script → Run proof → receipt**. Advanced (connection, canon, leases, approvals) is folded away.
 
 ```bash
 # from repo root, with the package installed
@@ -80,8 +84,6 @@ make ui
 
 Static UI is served at `/` when `apps/web` is present. Optional `Authorization: Bearer <api-key>` when `CF_AUTH_REQUIRED=1`.
 
-Workbench: export receipt, canon status, **Control** panel (leases, approvals grant/deny, runs).
-
 Design system tokens: `tokens.css` (root) and `apps/web/tokens.css`.
 
 ## Authority rule
@@ -98,7 +100,7 @@ Canonical state changes require schema validation, source provenance, determinis
 
 See `docs/campaigns/` for M0–M7 campaign specifications.
 
-## Production stack (1.1)
+## Production stack (1.3)
 
 | Capability | How |
 |------------|-----|
