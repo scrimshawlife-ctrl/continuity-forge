@@ -1,9 +1,12 @@
 from continuity_forge_mcp.server import (
     audit_script_coverage,
+    build_ledger,
     compile_script,
     get_compile_diagnostics,
     get_scene,
+    list_entities,
     list_scenes,
+    list_setup_payoff_links,
 )
 
 SOURCE = "INT. ROOM - DAY\n\nA lamp flickers.\n"
@@ -38,3 +41,19 @@ def test_mcp_compile_accepts_fdx() -> None:
 def test_mcp_compile_preserves_revision() -> None:
     compiled = compile_script(SOURCE, document_key="mcp-revision", revision="2.4.0")
     assert compiled["revision"] == "2.4.0"
+
+
+def test_mcp_ledger_tools() -> None:
+    source = (
+        "INT. ROOM - DAY\n\n"
+        "Mara enters holding a brass compass.\n\n"
+        "MARA\nThis is the plant.\n\n"
+        "EXT. ROOF - NIGHT\n\n"
+        "The brass compass payoff gleams.\n"
+    )
+    ledger = build_ledger(source, document_key="mcp-ledger")
+    entities = list_entities(source, document_key="mcp-ledger")
+    links = list_setup_payoff_links(source, document_key="mcp-ledger")
+    assert ledger["entities"] == entities
+    assert any(entity["kind"] == "prop" for entity in entities)
+    assert links == ledger["setup_payoff_links"]

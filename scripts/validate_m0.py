@@ -1,4 +1,4 @@
-"""Canonical local/CI gate for Continuity Forge M0."""
+"""Canonical local/CI gate for Continuity Forge kernel validation (M0+)."""
 
 from __future__ import annotations
 

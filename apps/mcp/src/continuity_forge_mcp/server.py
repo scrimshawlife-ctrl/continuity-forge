@@ -5,6 +5,7 @@ from uuid import UUID
 
 from continuity_forge_compiler import compile_fdx_text, compile_text
 from continuity_forge_ir import ScriptDocument
+from continuity_forge_ledger import ContinuityLedger, build_continuity_ledger
 from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("Continuity Forge")
@@ -19,6 +20,16 @@ def _compile(
 ) -> ScriptDocument:
     compiler = compile_fdx_text if format == "fdx" else compile_text
     return compiler(source, title=title, document_key=document_key, revision=revision)
+
+
+def _ledger(
+    source: str,
+    title: str,
+    document_key: str | None,
+    format: str = "fountain",
+    revision: str = "0.1.0",
+) -> ContinuityLedger:
+    return build_continuity_ledger(_compile(source, title, document_key, format, revision))
 
 
 @mcp.tool()
@@ -95,6 +106,44 @@ def audit_script_coverage(
 ) -> dict[str, Any]:
     """Return source-accounting totals and uncovered spans."""
     return _compile(source, title, document_key, format, revision).coverage.model_dump(mode="json")
+
+
+@mcp.tool()
+def build_ledger(
+    source: str,
+    title: str = "Untitled",
+    document_key: str | None = None,
+    format: str = "fountain",
+    revision: str = "0.1.0",
+) -> dict[str, Any]:
+    """Build a deterministic continuity ledger from screenplay source (read-only)."""
+    return _ledger(source, title, document_key, format, revision).model_dump(mode="json")
+
+
+@mcp.tool()
+def list_entities(
+    source: str,
+    title: str = "Untitled",
+    document_key: str | None = None,
+    format: str = "fountain",
+    revision: str = "0.1.0",
+) -> list[dict[str, Any]]:
+    """List continuity entities derived from the compiled screenplay."""
+    ledger = _ledger(source, title, document_key, format, revision)
+    return [entity.model_dump(mode="json") for entity in ledger.entities]
+
+
+@mcp.tool()
+def list_setup_payoff_links(
+    source: str,
+    title: str = "Untitled",
+    document_key: str | None = None,
+    format: str = "fountain",
+    revision: str = "0.1.0",
+) -> list[dict[str, Any]]:
+    """List setup/payoff links derived from the continuity ledger."""
+    ledger = _ledger(source, title, document_key, format, revision)
+    return [link.model_dump(mode="json") for link in ledger.setup_payoff_links]
 
 
 def main() -> None:
