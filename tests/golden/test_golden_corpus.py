@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from continuity_forge_compiler import compile_fdx_result, compile_text_result
-from continuity_forge_ir import DiagnosticSeverity
+from continuity_forge_ir import CompileResult, DiagnosticSeverity
 
 FIXTURES = Path(__file__).parent / "fixtures"
 SUPPORTED_FIXTURES = [
@@ -15,7 +15,7 @@ SUPPORTED_FIXTURES = [
 ]
 
 
-def compile_fixture(path: Path):  # type: ignore[no-untyped-def]
+def compile_fixture(path: Path) -> CompileResult:
     source = path.read_text(encoding="utf-8")
     if path.suffix == ".fdx":
         return compile_fdx_result(source, title=path.stem)
