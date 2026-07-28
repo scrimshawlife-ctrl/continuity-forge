@@ -5,7 +5,6 @@ from uuid import UUID
 
 from continuity_forge_compiler import compile_fdx_text, compile_text
 from continuity_forge_harness import (
-    DEFAULT_RUN_STORE,
     PipelineCommand,
     PipelineError,
     execute_kernel_pipeline,
@@ -14,16 +13,19 @@ from continuity_forge_harness import (
 from continuity_forge_ir import ScriptDocument
 from continuity_forge_ledger import ContinuityLedger, build_continuity_ledger
 from continuity_forge_operator import (
-    DEFAULT_PROJECT_STORE,
     MutationEnvelope,
     OperatorError,
 )
-from continuity_forge_providers import ProviderGateway
 from continuity_forge_repair import run_repair_loop
+from continuity_forge_runtime import RuntimeContext, get_runtime
 from continuity_forge_shots import ShotContractBundle, compile_shot_contracts
 from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("Continuity Forge")
+
+
+def _rt() -> RuntimeContext:
+    return get_runtime()
 
 
 def _compile(
@@ -234,7 +236,7 @@ def run_kernel_pipeline(
         format=format,  # type: ignore[arg-type]
     )
     try:
-        run = execute_kernel_pipeline(command, store=DEFAULT_RUN_STORE)
+        run = execute_kernel_pipeline(command, store=_rt().run_store)
     except PipelineError as exc:
         raise ValueError(str(exc)) from exc
     return run.model_dump(mode="json")
@@ -243,7 +245,7 @@ def run_kernel_pipeline(
 @mcp.tool()
 def get_pipeline_run(run_id: str) -> dict[str, Any] | None:
     """Fetch a durable pipeline run by ID."""
-    run = DEFAULT_RUN_STORE.get(UUID(run_id))
+    run = _rt().run_store.get(UUID(run_id))
     return None if run is None else run.model_dump(mode="json")
 
 
@@ -262,7 +264,7 @@ def acquire_write_lease(
 ) -> dict[str, Any]:
     """Acquire a project write lease."""
     try:
-        lease = DEFAULT_PROJECT_STORE.acquire_lease(
+        lease = _rt().project_store.acquire_lease(
             document_key, holder, scope=scope, ttl_seconds=ttl_seconds
         )
     except OperatorError as exc:
@@ -274,7 +276,7 @@ def acquire_write_lease(
 def release_write_lease(document_key: str, holder: str) -> dict[str, str]:
     """Release a project write lease."""
     try:
-        DEFAULT_PROJECT_STORE.release_lease(document_key, holder)
+        _rt().project_store.release_lease(document_key, holder)
     except OperatorError as exc:
         raise ValueError(str(exc)) from exc
     return {"status": "released"}
@@ -302,7 +304,7 @@ def ingest_script(
         expected_state_hash=expected_state_hash,
     )
     try:
-        project, run = DEFAULT_PROJECT_STORE.ingest_script(
+        project, run = _rt().project_store.ingest_script(
             document_key=document_key,
             title=title,
             text=source,
@@ -321,19 +323,19 @@ def ingest_script(
 @mcp.tool()
 def get_project_status(document_key: str) -> dict[str, Any] | None:
     """Return operator project status."""
-    return DEFAULT_PROJECT_STORE.resource(f"cf://projects/{document_key}/status")
+    return _rt().project_store.resource(f"cf://projects/{document_key}/status")
 
 
 @mcp.tool()
 def resolve_resource(uri: str) -> dict[str, Any] | None:
     """Resolve a cf:// resource URI."""
-    return DEFAULT_PROJECT_STORE.resource(uri)
+    return _rt().project_store.resource(uri)
 
 
 @mcp.tool()
 def audit_drift(document_key: str) -> list[dict[str, Any]]:
     """Return continuity drift diagnostics for a project ledger."""
-    project = DEFAULT_PROJECT_STORE.get_project(document_key)
+    project = _rt().project_store.get_project(document_key)
     if project is None or not project.continuity_ledger:
         return []
     return [
@@ -346,13 +348,13 @@ def audit_drift(document_key: str) -> list[dict[str, Any]]:
 @mcp.tool()
 def inspect_scene(document_key: str, scene_id: str) -> dict[str, Any] | None:
     """Inspect a scene manifest for a registered project."""
-    return DEFAULT_PROJECT_STORE.resource(f"cf://scenes/{scene_id}/manifest")
+    return _rt().project_store.resource(f"cf://scenes/{scene_id}/manifest")
 
 
 @mcp.tool()
 def inspect_character_state(document_key: str, character_name: str) -> dict[str, Any] | None:
     """Inspect character entity + facts from the project ledger."""
-    project = DEFAULT_PROJECT_STORE.get_project(document_key)
+    project = _rt().project_store.get_project(document_key)
     if project is None or not project.continuity_ledger:
         return None
     ledger = project.continuity_ledger
@@ -380,7 +382,7 @@ def list_pipeline_runs(document_key: str) -> list[dict[str, Any]]:
     """List durable pipeline runs for a project."""
     return [
         run.model_dump(mode="json")
-        for run in DEFAULT_PROJECT_STORE.list_runs_for_project(document_key)
+        for run in _rt().project_store.list_runs_for_project(document_key)
     ]
 
 
@@ -391,7 +393,7 @@ def queue_generation(
     seed: str = "0",
 ) -> dict[str, Any]:
     """Generate a PROPOSED mock media candidate for a shot (no canon mutation)."""
-    project = DEFAULT_PROJECT_STORE.get_project(document_key)
+    project = _rt().project_store.get_project(document_key)
     if project is None or not project.shot_contracts:
         raise ValueError("project or shot contracts not found")
     contract = next(
@@ -404,7 +406,10 @@ def queue_generation(
     )
     if contract is None:
         raise ValueError("shot not found")
-    candidate = ProviderGateway().generate_for_shot(contract, seed=seed)
+    candidate = _rt().gateway.generate_for_shot(contract, seed=seed)
+    artifact_store = _rt().artifact_store
+    if artifact_store is not None:
+        artifact_store.put(candidate)
     return candidate.model_dump(mode="json")
 
 
@@ -417,7 +422,7 @@ def run_shot_repair_loop(
     fail_first: bool = False,
 ) -> dict[str, Any]:
     """Run generate→validate→repair loop for one shot (mock worker)."""
-    project = DEFAULT_PROJECT_STORE.get_project(document_key)
+    project = _rt().project_store.get_project(document_key)
     if project is None or not project.shot_contracts:
         raise ValueError("project or shot contracts not found")
     contract = next(
@@ -430,12 +435,17 @@ def run_shot_repair_loop(
     )
     if contract is None:
         raise ValueError("shot not found")
-    return run_repair_loop(
+    result = run_repair_loop(
         contract,
+        gateway=_rt().gateway,
         seed=seed,
         max_attempts=max_attempts,
         fail_first=fail_first,
-    ).model_dump(mode="json")
+    )
+    artifact_store = _rt().artifact_store
+    if result.accepted_candidate is not None and artifact_store is not None:
+        artifact_store.put(result.accepted_candidate)
+    return result.model_dump(mode="json")
 
 
 def main() -> None:

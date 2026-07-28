@@ -2,7 +2,11 @@
 
 ```bash
 docker compose -f deploy/docker-compose.yml up --build
+# after API is healthy:
+bash deploy/smoke.sh
 ```
+
+The API selects backends via env (`CF_DATABASE_URL`, `CF_S3_*`, `CF_PROVIDER`, `CF_AUTH_REQUIRED`) through `continuity_forge_runtime.get_runtime()`.
 
 Services:
 
