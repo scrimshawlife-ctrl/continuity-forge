@@ -2,8 +2,8 @@
 
 **Goal:** A user pastes or imports a screenplay and receives a **shot-by-shot breakdown with continuity**, as **machine-readable JSON** (connectors/API) and optional **Markdown** export.
 
-**Baseline:** v1.4.0+ · Claim: `shot_breakdown_with_continuity_not_production_film`  
-This is **not** production film and does **not** generate ACCEPTED media.
+**Release:** **v1.5.0** (`git checkout v1.5.0`) · Claim: `shot_breakdown_with_continuity_not_production_film`  
+Built on frozen **v1.4.0** kernel. This is **not** production film and does **not** generate ACCEPTED media.
 
 ---
 
@@ -137,10 +137,11 @@ Unit/contract tests also cover this path under `make validate`.
 
 ## 7. Handoff checklist for a receiving team
 
-- [ ] `git checkout v1.4.0` (or newer main) · `pip install -e '.[dev]'` · `make validate`  
+- [ ] `git checkout v1.5.0` · `pip install -e '.[dev]'` · `make validate`  
 - [ ] `make handoff` green  
 - [ ] `make ui` · Build breakdown on sample · download JSON  
 - [ ] Curl `/v1/breakdown` from your integrator host  
+- [ ] Confirm `/health` reports `"version": "1.5.0"`  
 - [ ] Read claim: not production film; PROPOSED media is a separate path  
 
 ---

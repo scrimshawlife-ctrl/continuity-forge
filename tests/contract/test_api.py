@@ -347,7 +347,7 @@ def test_web_ui_is_served() -> None:
 
 def test_health_reports_version() -> None:
     payload = TestClient(app).get("/health").json()
-    assert payload["version"] == "1.4.0"
+    assert payload["version"] == "1.5.0"
 
 
 def test_compile_incremental_endpoint() -> None:
