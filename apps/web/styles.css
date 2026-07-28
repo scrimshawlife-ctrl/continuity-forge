@@ -594,6 +594,38 @@ button.linkish:focus-visible {
   overflow-wrap: anywhere;
 }
 
+.cost-panel {
+  margin: var(--space-4, 1rem) 0;
+  padding: var(--space-3, 0.75rem);
+  border: 1px solid var(--color-border, #333);
+  border-radius: var(--radius-sm, 4px);
+  background: var(--color-surface-2, transparent);
+}
+
+.cost-panel__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.cost-panel__title {
+  font-weight: 600;
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.cost-panel__hint {
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+.run-summary--cost {
+  margin-top: 0.25rem;
+}
+
 .claim-banner__v--warn {
   color: var(--color-warn);
   font-weight: 600;

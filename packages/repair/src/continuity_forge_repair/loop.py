@@ -10,8 +10,10 @@ from continuity_forge_ir import content_hash, stable_id
 from continuity_forge_providers import (
     ArtifactCandidate,
     Authority,
+    CostEvent,
     ProviderGateway,
     WorkerTask,
+    event_from_candidate,
 )
 from pydantic import BaseModel, Field
 
@@ -59,6 +61,7 @@ class LoopResult(BaseModel):
     attempts: list[LoopAttempt]
     accepted_candidate: ArtifactCandidate | None = None
     authority: Authority = Authority.PROPOSED
+    cost_events: list[CostEvent] = Field(default_factory=list)
 
 
 def validate_candidate(
@@ -146,6 +149,7 @@ def run_repair_loop(
     """
     active = gateway or ProviderGateway()
     attempts: list[LoopAttempt] = []
+    cost_events: list[CostEvent] = []
     shot_id = UUID(str(shot_contract["shot_id"]))
 
     for attempt in range(1, max_attempts + 1):
@@ -155,6 +159,14 @@ def run_repair_loop(
             seed=f"{seed}:{attempt}",
             task=WorkerTask.IMAGE,
             force_missing_entities=force_missing,
+        )
+        # Run-scoped telemetry only; never written to project canon here.
+        cost_events.append(
+            event_from_candidate(
+                candidate,
+                attempt=attempt,
+                is_retry=attempt > 1,
+            )
         )
         report = validate_candidate(shot_contract, candidate)
         repair = None if report.passed else plan_repair(report)
@@ -174,6 +186,7 @@ def run_repair_loop(
                 attempts=attempts,
                 accepted_candidate=accepted,
                 authority=Authority.PROPOSED,
+                cost_events=cost_events,
             )
 
     return LoopResult(
@@ -182,6 +195,7 @@ def run_repair_loop(
         attempts=attempts,
         accepted_candidate=None,
         authority=Authority.REJECTED,
+        cost_events=cost_events,
     )
 
 

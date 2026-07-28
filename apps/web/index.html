@@ -116,6 +116,10 @@
                 <span class="stat__k">Shots</span>
                 <span class="stat__v" id="meta-shots">—</span>
               </div>
+              <div class="stat">
+                <span class="stat__k">Est. cost</span>
+                <span class="stat__v" id="meta-cost">—</span>
+              </div>
             </div>
 
             <details class="fold" id="source-options">
@@ -169,6 +173,7 @@
             <h2 class="panel__title" id="receipt-title">Results</h2>
             <div class="panel__head-chips">
               <span class="chip chip--warn" id="receipt-exec">waiting for proof</span>
+              <span class="chip chip--warn" id="receipt-budget" hidden>budget n/a</span>
               <span class="chip chip--warn" id="receipt-claim" hidden>not production ready</span>
             </div>
           </div>
@@ -194,6 +199,10 @@
                     <span class="claim-banner__v" id="claim-exec-label">—</span>
                   </div>
                   <div class="claim-banner__row">
+                    <span class="claim-banner__k">Budget</span>
+                    <span class="claim-banner__v" id="claim-budget-label">—</span>
+                  </div>
+                  <div class="claim-banner__row">
                     <span class="claim-banner__k">Production readiness</span>
                     <span class="claim-banner__v claim-banner__v--warn">
                       not ready — mock controlled proof only
@@ -204,6 +213,35 @@
                     <code id="r-claim-code">controlled_proof_not_production_ready</code>
                   </p>
                 </div>
+              </div>
+
+              <!-- Long-form 4.5: cost / provider telemetry (run provenance only) -->
+              <div class="cost-panel" id="cost-panel" hidden>
+                <div class="cost-panel__head">
+                  <span class="cost-panel__title">Cost ledger</span>
+                  <span class="cost-panel__hint">run provenance · not billing · PROPOSED only</span>
+                </div>
+                <div class="run-summary run-summary--cost" id="cost-summary-grid">
+                  <div class="stat">
+                    <span class="stat__k">Est. cost</span>
+                    <span class="stat__v" id="cost-total">—</span>
+                  </div>
+                  <div class="stat">
+                    <span class="stat__k">Events</span>
+                    <span class="stat__v" id="cost-events">—</span>
+                  </div>
+                  <div class="stat">
+                    <span class="stat__k">Retries</span>
+                    <span class="stat__v" id="cost-retries">—</span>
+                  </div>
+                  <div class="stat">
+                    <span class="stat__k">Providers</span>
+                    <span class="stat__v" id="cost-providers">—</span>
+                  </div>
+                </div>
+                <p class="field__hint" id="cost-authority-note">
+                  Cost ledger is not project canon and does not approve spend.
+                </p>
               </div>
               <div class="btn-row">
                 <button type="button" class="btn btn--primary" id="btn-export">

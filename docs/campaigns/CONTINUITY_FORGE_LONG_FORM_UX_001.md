@@ -43,6 +43,7 @@ slice_1_scene_shot_nav: IMPLEMENTED  # apps/web scene nav + filter + URL deep-li
 slice_2_virtualized_tables: IMPLEMENTED  # virtual tbody + filters/sort + flag fallback
 slice_3_dependency_invalidation: IMPLEMENTED  # pure graph + POST /v1/invalidation/preview + UI stale column
 slice_4_incremental_compile: IMPLEMENTED  # compile_incremental + CLI/API/MCP + UI advanced + goldens
+slice_5_budget_telemetry: IMPLEMENTED  # CostEvent/Ledger/Summary + proof emit + UI burn-down chips
 trivial_stubs: NONE
 ```
 
@@ -89,8 +90,8 @@ Observed on the controlled-proof workbench (`apps/web/`):
 - Scene/shot counts appear on project status; there is no hierarchical
   scene → shot navigator for long scripts.
 - Compile/proof default is whole-document; incremental compile + invalidation preview are optional operator paths (not production film).
-- Budget is a single wall-clock comparison (`budget_seconds` / `within_budget`
-  on the proof receipt), not per-provider cost ledger or live burn-down.
+- Budget wall-clock remains on the proof receipt; cost ledger + provider traces
+  are now run-scoped telemetry (mock fixed cost; not project canon).
 - Harness stores ordered checkpoints on `WorkflowRun`; the UI does not stream
   checkpoint progress (poll/list runs only).
 
@@ -380,9 +381,9 @@ Suggested future PR order (non-binding):
 ```text
 1) dependency-graph invalidation — DONE
 2) incremental compile — DONE
-3) budget/provider telemetry schema (proof/repair emit + UI read)
+3) budget/provider telemetry schema — DONE
 4) streaming/poll workflow events (harness + API)
-5) scene/shot navigation + virtualized tables — DONE (shipped before kernel slices; stale badges + incremental now wired)
+5) scene/shot navigation + virtualized tables — DONE
 ```
 
 Kernel-first keeps the UI honest: navigation and virtualization without
@@ -415,7 +416,7 @@ scene_shot_navigation: IMPLEMENTED
 virtualized_tables: IMPLEMENTED
 dependency_graph_invalidation: IMPLEMENTED
 incremental_compile: IMPLEMENTED
-budget_provider_telemetry: NOT_STARTED
+budget_provider_telemetry: IMPLEMENTED
 streaming_workflow_state: NOT_STARTED
 make_validate: local_gate_for_slices
 ```

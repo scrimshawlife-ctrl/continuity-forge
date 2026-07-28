@@ -138,6 +138,7 @@ const els = {
   metaBudget: $("meta-budget"),
   metaWithin: $("meta-within"),
   metaShots: $("meta-shots"),
+  metaCost: $("meta-cost"),
   alert: $("alert"),
   chipHealth: $("chip-health"),
   chipBackend: $("chip-backend"),
@@ -146,11 +147,19 @@ const els = {
   receiptEmpty: $("receipt-empty"),
   receiptBody: $("receipt-body"),
   receiptExec: $("receipt-exec"),
+  receiptBudget: $("receipt-budget"),
   receiptClaim: $("receipt-claim"),
   resultStack: $("result-stack"),
   resultBanner: $("result-banner"),
   claimPostProof: $("claim-post-proof"),
   claimExecLabel: $("claim-exec-label"),
+  claimBudgetLabel: $("claim-budget-label"),
+  costPanel: $("cost-panel"),
+  costTotal: $("cost-total"),
+  costEvents: $("cost-events"),
+  costRetries: $("cost-retries"),
+  costProviders: $("cost-providers"),
+  costAuthorityNote: $("cost-authority-note"),
   rClaimCode: $("r-claim-code"),
   rClaim: $("r-claim"),
   rDoc: $("r-doc"),
@@ -1045,6 +1054,48 @@ function stepShot(delta) {
   announceShotFocus();
 }
 
+function formatUsd(value) {
+  if (value == null || Number.isNaN(Number(value))) return "—";
+  return `$${Number(value).toFixed(4)}`;
+}
+
+function renderCostPanel(receipt) {
+  const summary = receipt.cost_summary;
+  const ledger = receipt.cost_ledger;
+  if (!summary && !ledger) {
+    if (els.costPanel) els.costPanel.hidden = true;
+    if (els.metaCost) setText(els.metaCost, "—");
+    return;
+  }
+  if (els.costPanel) els.costPanel.hidden = false;
+  const total = summary?.total_estimated_cost ?? 0;
+  const events = summary?.event_count ?? (ledger?.events || []).length;
+  const retries = summary?.retry_event_count ?? 0;
+  const byProvider = summary?.by_provider || {};
+  const providerLabel =
+    Object.keys(byProvider).length > 0
+      ? Object.entries(byProvider)
+          .map(([k, v]) => `${k}×${v}`)
+          .join(" · ")
+      : "—";
+  setText(els.costTotal, formatUsd(total));
+  setText(els.costEvents, String(events));
+  setText(
+    els.costRetries,
+    `${retries}` +
+      (summary?.retry_estimated_cost != null
+        ? ` (${formatUsd(summary.retry_estimated_cost)})`
+        : ""),
+  );
+  setText(els.costProviders, providerLabel);
+  if (els.metaCost) setText(els.metaCost, formatUsd(total));
+  if (els.costAuthorityNote) {
+    els.costAuthorityNote.textContent =
+      summary?.authority_note ||
+      "Cost ledger is run provenance only · not project canon · not production film";
+  }
+}
+
 function renderReceipt(receipt) {
   lastReceipt = receipt;
   els.receiptEmpty.hidden = true;
@@ -1064,10 +1115,23 @@ function renderReceipt(receipt) {
         ? "over budget"
         : "budget n/a";
 
-  // Separate execution success from production readiness.
+  // Three-way honesty: execution · budget · production readiness.
   if (els.receiptExec) {
     els.receiptExec.textContent = "execution ok";
     els.receiptExec.className = "chip chip--ok";
+  }
+  if (els.receiptBudget) {
+    els.receiptBudget.hidden = false;
+    if (receipt.within_budget === false) {
+      els.receiptBudget.textContent = "over budget";
+      els.receiptBudget.className = "chip chip--danger";
+    } else if (receipt.within_budget === true) {
+      els.receiptBudget.textContent = "within budget";
+      els.receiptBudget.className = "chip chip--ok";
+    } else {
+      els.receiptBudget.textContent = "budget n/a";
+      els.receiptBudget.className = "chip chip--warn";
+    }
   }
   if (els.receiptClaim) {
     els.receiptClaim.hidden = false;
@@ -1091,6 +1155,23 @@ function renderReceipt(receipt) {
       els.claimExecLabel,
       `${accepted}/${shots.length} accepted · ${onTime}`,
     );
+  }
+  if (els.claimBudgetLabel) {
+    const summary = receipt.cost_summary || {};
+    const total =
+      summary.total_estimated_cost != null
+        ? `$${Number(summary.total_estimated_cost).toFixed(4)}`
+        : "—";
+    const budgetText =
+      receipt.within_budget === false
+        ? `over budget · est. ${total}`
+        : receipt.within_budget === true
+          ? `within budget · est. ${total}`
+          : `budget n/a · est. ${total}`;
+    setText(els.claimBudgetLabel, budgetText);
+    els.claimBudgetLabel.className =
+      "claim-banner__v" +
+      (receipt.within_budget === false ? " claim-banner__v--warn" : "");
   }
   if (els.rClaimCode) {
     els.rClaimCode.textContent = claim;
@@ -1123,6 +1204,8 @@ function renderReceipt(receipt) {
         : "—",
   );
   setText(els.metaShots, String(shots.length));
+
+  renderCostPanel(receipt);
 
   buildSceneIndex(shots);
   // Preserve URL focus if present; otherwise show all scenes
