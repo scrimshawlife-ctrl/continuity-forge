@@ -8,13 +8,14 @@ Continuity Forge converts a screenplay into a provenance-preserving Production I
 
 > Models generate pixels and proposals. Continuity Forge governs identity, memory, causality, approvals, and production truth.
 
-**Version 1.4.0** — frozen baseline tag **`v1.4.0`** (mock controlled-proof operator kernel).  
-Default PR gate: `scripts/validate_m0.py` via `.github/workflows/ci.yml` (`make validate`). Phase 2: packaging (`.github/workflows/ci-packaging.yml`) and Postgres/MinIO integration smoke (`.github/workflows/ci-integration.yml`) — see `docs/SETUP.md` §3.
+**Version 1.5.0** — handoff tag **`v1.5.0`** (shot breakdown + continuity export).  
+Baseline freeze remains **`v1.4.0`**. Default PR gate: `scripts/validate_m0.py` via `.github/workflows/ci.yml` (`make validate`). Phase 2: packaging + Postgres/MinIO smoke — see `docs/SETUP.md` §3.
 
 | Doc | Contents |
 |-----|----------|
 | **[docs/HANDOFF.md](docs/HANDOFF.md)** | **Working product path:** paste script → shot breakdown + continuity → JSON/API |
-| **[docs/releases/1.4.0.md](docs/releases/1.4.0.md)** | **Baseline freeze notes** (what works / non-claims / support policy) |
+| **[docs/releases/1.5.0.md](docs/releases/1.5.0.md)** | **Handoff release notes** (breakdown package + harness) |
+| **[docs/releases/1.4.0.md](docs/releases/1.4.0.md)** | **Baseline freeze** (pre-handoff kernel) |
 | **[docs/SETUP.md](docs/SETUP.md)** | Full install, env, UI, MCP, Docker |
 | **[docs/hermes/README.md](docs/hermes/README.md)** | Hermes skill + MCP integration |
 | **[skills/hermes-continuity-forge/](skills/hermes-continuity-forge/)** | Ready-to-install Hermes operator skill |
@@ -57,22 +58,26 @@ M5 PROVIDER GATEWAY + WORKERS ........ Implemented (mock default; real providers
 M6 GENERATOR-EVALUATOR REPAIR LOOP ... Implemented (mock default)
 M7 CONTROLLED 30-60s PROOF ........... Implemented (mock media; claim controlled_proof_not_production_ready)
 POST-1.0 runtime / auth / deploy ..... Implemented; Postgres/MinIO path Integration-tested (CI smoke skeleton)
-OPERATOR UI (Hallmark) ............... Implemented (v1.4.0 UI surface + long-form scale)
+OPERATOR UI (Hallmark) ............... Implemented (v1.5 handoff CTA + long-form scale)
 HERMES SKILL ......................... Implemented (skills/hermes-continuity-forge)
 LONG-FORM UX (Phase 4 audit) ......... Implemented (nav, virtualize, invalidation, incremental, cost, events)
+HANDOFF BREAKDOWN .................... Implemented (cf.breakdown.v1 JSON/MD + make handoff)
 ```
 
 Nothing in this table is **Production-validated**. Controlled proof and mock paths are not production film.
 
 **Long-form operator scale (v1.4):** scene/shot navigation, virtualized shot tables, dependency invalidation preview, optional incremental compile, run-scoped cost ledger, pollable workflow events. See [`docs/campaigns/CONTINUITY_FORGE_LONG_FORM_UX_001.md`](docs/campaigns/CONTINUITY_FORGE_LONG_FORM_UX_001.md).
 
+**Handoff (v1.5):** paste/import → shot-by-shot + continuity → connector JSON. See [`docs/HANDOFF.md`](docs/HANDOFF.md).
+
 **Pin a known-good tree:**
 
 ```bash
-git checkout v1.4.0   # baseline freeze — see docs/releases/1.4.0.md
+git checkout v1.5.0   # handoff release — see docs/releases/1.5.0.md
+git checkout v1.4.0   # baseline freeze only — see docs/releases/1.4.0.md
 ```
 
-Forward development continues on `main` (1.5+). Patch-only fixes for the freeze story use `1.4.x`.
+Forward work continues on `main` (1.6+). `1.5.x` = handoff bugfixes; `1.4.x` = freeze-story patches only.
 
 ---
 
@@ -212,7 +217,7 @@ Canonical mutations require schema validation, provenance, deterministic diagnos
 
 **Public research repository** ([github.com/scrimshawlife-ctrl/continuity-forge](https://github.com/scrimshawlife-ctrl/continuity-forge)). Source is published for research and collaboration; this is **not** a production-supported product release and does not imply production readiness.
 
-Package version: **1.4.0** (kept in sync with [`pyproject.toml`](pyproject.toml) `[project].version`).
+Package version: **1.5.0** (kept in sync with [`pyproject.toml`](pyproject.toml) `[project].version`).
 
 Controlled proof uses mock media; production providers and durability backends are optional and env-gated. See milestone labels above for Implemented vs Integration-tested vs Production-validated.
 
