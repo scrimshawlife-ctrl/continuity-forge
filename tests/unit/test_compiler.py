@@ -118,3 +118,50 @@ def test_document_schema_rejects_non_contiguous_segments() -> None:
     payload["source_segments"][0]["source_span"]["start_offset"] = 1
     with pytest.raises(ValueError, match="contiguous partition"):
         ScriptDocument.model_validate(payload)
+
+
+def test_untitled_sources_without_document_key_do_not_share_script_ids() -> None:
+    first = compile_text("INT. ROOM - DAY\n\nOne.\n")
+    second = compile_text("INT. ROOM - DAY\n\nTwo.\n")
+    assert first.title == second.title == "Untitled"
+    assert first.script_id != second.script_id
+    assert first.scenes[0].scene_id != second.scenes[0].scene_id
+
+
+def test_document_key_keeps_script_identity_across_content_revisions() -> None:
+    first = compile_text("INT. ROOM - DAY\n\nOne.\n", document_key="stable-doc")
+    second = compile_text("INT. ROOM - DAY\n\nTwo.\n", document_key="stable-doc")
+    assert first.script_id == second.script_id
+
+
+def test_live_text_after_inline_boneyard_is_compiled() -> None:
+    document = compile_text(
+        "/* note */ INT. ROOM - DAY\n\nA lamp flickers.\n",
+        document_key="inline-boneyard",
+    )
+    assert document.scenes[0].slugline == "INT. ROOM - DAY"
+    assert document.scenes[0].atoms[1].text == "A lamp flickers."
+    assert document.coverage.ratio == 1.0
+    assert any(segment.kind.value == "comment" for segment in document.source_segments)
+
+
+def test_live_text_after_multiline_boneyard_terminator_is_compiled() -> None:
+    document = compile_text(
+        "/* start\nend */ Action after comment.\n\nINT. ROOM - DAY\n",
+        document_key="multiline-boneyard",
+    )
+    assert document.preamble[0].type == AtomType.ACTION
+    assert document.preamble[0].text == "Action after comment."
+    assert document.scenes[0].slugline == "INT. ROOM - DAY"
+    assert document.diagnostics[0].code == "CF101"
+
+
+def test_document_schema_rejects_coverage_totals_that_ignore_segments() -> None:
+    document = compile_text("INT. A - DAY\n", document_key="coverage-mismatch")
+    payload = document.model_dump()
+    payload["coverage"]["accounted_characters"] = 0
+    payload["coverage"]["element_characters"] = 0
+    payload["coverage"]["trivia_characters"] = 0
+    payload["coverage"]["ratio"] = 0.0
+    with pytest.raises(ValueError, match="coverage accounted characters"):
+        ScriptDocument.model_validate(payload)

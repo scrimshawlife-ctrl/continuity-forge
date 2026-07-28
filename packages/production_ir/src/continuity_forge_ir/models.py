@@ -169,14 +169,27 @@ class ScriptDocument(BaseModel):
             raise ValueError("source segments must reference document atoms")
 
         cursor = 0
+        element_characters = 0
+        trivia_characters = 0
         for segment in self.source_segments:
             if segment.source_span.start_offset != cursor:
                 raise ValueError("source segments must form a contiguous partition")
+            width = segment.source_span.end_offset - segment.source_span.start_offset
             cursor = segment.source_span.end_offset
+            if segment.kind == SegmentKind.ELEMENT:
+                element_characters += width
+            else:
+                trivia_characters += width
         if cursor != self.source_length:
             raise ValueError("source segments must cover the complete source")
         if self.coverage.source_characters != self.source_length:
             raise ValueError("coverage source length must match the document")
+        if self.coverage.accounted_characters != cursor:
+            raise ValueError("coverage accounted characters must equal source segment total")
+        if self.coverage.element_characters != element_characters:
+            raise ValueError("coverage element characters must match element segments")
+        if self.coverage.trivia_characters != trivia_characters:
+            raise ValueError("coverage trivia characters must match non-element segments")
         return self
 
 

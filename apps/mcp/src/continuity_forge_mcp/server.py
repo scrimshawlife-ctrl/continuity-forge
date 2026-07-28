@@ -11,10 +11,14 @@ mcp = FastMCP("Continuity Forge")
 
 
 def _compile(
-    source: str, title: str, document_key: str | None, format: str = "fountain"
+    source: str,
+    title: str,
+    document_key: str | None,
+    format: str = "fountain",
+    revision: str = "0.1.0",
 ) -> ScriptDocument:
     compiler = compile_fdx_text if format == "fdx" else compile_text
-    return compiler(source, title=title, document_key=document_key)
+    return compiler(source, title=title, document_key=document_key, revision=revision)
 
 
 @mcp.tool()
@@ -23,9 +27,10 @@ def compile_script(
     title: str = "Untitled",
     document_key: str | None = None,
     format: str = "fountain",
+    revision: str = "0.1.0",
 ) -> dict[str, Any]:
     """Compile Fountain or Final Draft XML without mutating canonical state."""
-    return _compile(source, title, document_key, format).model_dump(mode="json")
+    return _compile(source, title, document_key, format, revision).model_dump(mode="json")
 
 
 @mcp.tool()
@@ -34,9 +39,10 @@ def get_compile_diagnostics(
     title: str = "Untitled",
     document_key: str | None = None,
     format: str = "fountain",
+    revision: str = "0.1.0",
 ) -> list[dict[str, Any]]:
     """Return deterministic diagnostics for screenplay source."""
-    document = _compile(source, title, document_key, format)
+    document = _compile(source, title, document_key, format, revision)
     return [item.model_dump(mode="json") for item in document.diagnostics]
 
 
@@ -46,9 +52,10 @@ def list_scenes(
     title: str = "Untitled",
     document_key: str | None = None,
     format: str = "fountain",
+    revision: str = "0.1.0",
 ) -> list[dict[str, Any]]:
     """List compiled scenes and their stable identifiers."""
-    document = _compile(source, title, document_key, format)
+    document = _compile(source, title, document_key, format, revision)
     return [
         {
             "scene_id": str(scene.scene_id),
@@ -67,10 +74,11 @@ def get_scene(
     title: str = "Untitled",
     document_key: str | None = None,
     format: str = "fountain",
+    revision: str = "0.1.0",
 ) -> dict[str, Any] | None:
     """Get one compiled scene by stable identifier."""
     requested = UUID(scene_id)
-    document = _compile(source, title, document_key, format)
+    document = _compile(source, title, document_key, format, revision)
     return next(
         (scene.model_dump(mode="json") for scene in document.scenes if scene.scene_id == requested),
         None,
@@ -83,9 +91,10 @@ def audit_script_coverage(
     title: str = "Untitled",
     document_key: str | None = None,
     format: str = "fountain",
+    revision: str = "0.1.0",
 ) -> dict[str, Any]:
     """Return source-accounting totals and uncovered spans."""
-    return _compile(source, title, document_key, format).coverage.model_dump(mode="json")
+    return _compile(source, title, document_key, format, revision).coverage.model_dump(mode="json")
 
 
 def main() -> None:

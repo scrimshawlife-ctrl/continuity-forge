@@ -64,7 +64,8 @@ def compile_fdx_text(
 ) -> ScriptDocument:
     """Compile Final Draft XML into provenance-complete Production IR."""
     source_hash = content_hash(text)
-    script_id = stable_id("script", _normalized(document_key or title))
+    identity = _normalized(document_key) if document_key is not None else source_hash
+    script_id = stable_id("script", identity)
     diagnostics: list[CompileDiagnostic] = []
     scenes: list[SceneNode] = []
     preamble: list[NarrativeAtom] = []

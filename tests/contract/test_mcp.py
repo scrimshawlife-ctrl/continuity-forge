@@ -33,3 +33,8 @@ def test_mcp_compile_accepts_fdx() -> None:
     compiled = compile_script(source, document_key="mcp-fdx", format="fdx")
     assert compiled["format"] == "fdx"
     assert compiled["coverage"]["ratio"] == 1.0
+
+
+def test_mcp_compile_preserves_revision() -> None:
+    compiled = compile_script(SOURCE, document_key="mcp-revision", revision="2.4.0")
+    assert compiled["revision"] == "2.4.0"
