@@ -10,7 +10,8 @@ This document defines the constructs covered by the executable M0 golden corpus.
 - dialogue blocks containing parentheticals and multiple nonblank lines
 - uppercase dialogue text after a character cue
 - Fountain transitions `CUT TO:`, `FADE IN:`, and `FADE OUT.` when they occur after a scene heading
-- single-line Fountain title-page metadata entries in `Key: Value` form
+- Fountain title-page metadata entries in `Key: Value` form
+- indented continuation lines attached to the preceding metadata entry
 - multiple scenes
 - UTF-8 screenplay text and byte-accurate source accounting
 - Final Draft XML (`.fdx`) normalization for scene heading, action, character, dialogue, parenthetical, and transition paragraph types
@@ -27,11 +28,13 @@ Supported fixtures must satisfy all of the following:
 
 ## Title-page metadata semantics
 
-Before the first scene heading, a nonblank line matching `Key: Value` is compiled into a `ScriptMetadataEntry` with a normalized lowercase key, preserved value, and exact source span.
+Before the first scene heading, a nonblank line matching `Key: Value` opens a `ScriptMetadataEntry` with a normalized lowercase key, preserved value, and exact source span.
 
-Metadata remains separate from narrative atoms and does not receive a synthetic scene ID. Its source spans participate in coverage accounting, so a valid title page does not create silent omissions.
+Subsequent indented nonblank lines extend that entry. Continuation text is newline-joined in source order, and the entry source span expands through the final continuation line. A blank line closes the active metadata entry.
 
-Multiline or indented continuation values remain deferred.
+Metadata remains separate from narrative atoms and does not receive a synthetic scene ID. Its source spans participate in coverage accounting, so valid title-page blocks do not create silent omissions.
+
+Unindented pre-scene text that does not match `Key: Value` remains diagnostic input.
 
 ## Dialogue-block semantics
 
@@ -45,10 +48,11 @@ M0 classifies nonblank screenplay lines in this order:
 
 1. active dialogue-block content
 2. scene heading
-3. pre-scene `Key: Value` metadata
-4. transition
-5. new character cue
-6. action
+3. indented continuation of active pre-scene metadata
+4. new pre-scene `Key: Value` metadata
+5. transition
+6. new character cue
+7. action
 
 This ordering prevents uppercase dialogue, parentheticals, transitions, and title-page metadata from being misclassified.
 
@@ -64,7 +68,6 @@ These inputs fail closed or produce typed diagnostics. They are not part of the 
 
 ## Deferred grammar
 
-- multiline title-page metadata values
 - dual dialogue
 - centered text
 - lyrics
