@@ -44,7 +44,7 @@ class InProcessWorker:
 def try_build_temporal_worker_note() -> dict[str, Any]:
     """Return bootstrap notes; real temporalio worker is optional at install time."""
     try:
-        import temporalio  # type: ignore[import-not-found]
+        import temporalio  # type: ignore[import-not-found,unused-ignore]
     except ImportError:
         return {
             "temporalio_installed": False,

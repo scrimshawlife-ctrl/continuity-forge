@@ -1,6 +1,10 @@
 # Mutation contract & write leases
 
-## Envelope fields (required on mutating paths)
+## Universal write contract: `MutationEnvelope`
+
+`MutationEnvelope` is the **universal write contract** for Continuity Forge.
+Every mutating API and MCP path must construct or accept it (or equivalent
+shared fields validated through it).
 
 | Field | Rule |
 |-------|------|
@@ -8,8 +12,15 @@
 | `authorization_scope` | e.g. `kernel:pipeline`, `approvals`, `generation:repair` |
 | `idempotency_key` | Unique per logical intent; retries reuse the same key |
 | `rationale` | Why this mutation is happening (audit trail) |
-| `expected_state_hash` | Required when updating existing project state |
+| `expected_state_hash` | Required when updating existing **project** state — must equal `ProjectRecord.state_hash` / status `state_hash` |
 | `command_schema_version` | Defaulted by models (e.g. `m4.operator.v1`) |
+
+### Hash domains (do not mix)
+
+| Domain | Field source | Enforced by |
+|--------|--------------|-------------|
+| Project state | status / `ProjectRecord.state_hash` | `ProjectStore` on re-ingest |
+| Pipeline shots | prior run `shot_contracts_hash` | `PipelineCommand` on direct pipeline runs |
 
 ## Write lease
 
@@ -22,17 +33,18 @@ acquire_write_lease(document_key, holder=actor_id, ttl_seconds=600)
 - Only the **holder** may mutate while the lease is active.
 - Another actor receives a conflict error — surface it; do not spin forever.
 - Always release on completion or failure when you acquired the lease.
+- Two distinct holders cannot hold the same document lease concurrently.
 
 ## What needs a lease
 
-- `ingest_script` (MCP)
+- `ingest_script` (MCP) / `POST /v1/projects/ingest`
 - Approval request/decide (REST; actor must hold lease)
 - Any future canon-writing tool
 
 ## What does not need a lease
 
 - `compile_script`, ledger/shots builders on raw source
-- `queue_generation` / `run_shot_repair_loop` (PROPOSED only; still no silent canon)
+- `queue_generation` / `run_shot_repair_loop` (PROPOSED only; still carry MutationEnvelope fields for audit; no silent canon)
 - Pure reads: status, resources, diagnostics
 
 ## Controlled proof
@@ -45,3 +57,4 @@ CLI / REST proof runners acquire and release leases internally. When assembling 
 - Reusing idempotency keys for different intents
 - Mutating without rationale
 - Claiming PROPOSED artifacts are final
+- Providers importing persistence repositories (architecture boundary)

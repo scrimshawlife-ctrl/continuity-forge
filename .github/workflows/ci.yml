@@ -1,3 +1,5 @@
+# Default fast PR / merge gate.
+# Phase 2: packaging → ci-packaging.yml; Postgres/MinIO → ci-integration.yml.
 name: CI
 
 on:
@@ -14,6 +16,7 @@ concurrency:
 
 jobs:
   python:
+    name: validate_m0
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -38,5 +41,5 @@ jobs:
           python -m pip install -e '.[dev]'
           python -m pip check
 
-      - name: Validate M0
+      - name: Validate M0 (fast gate)
         run: python scripts/validate_m0.py

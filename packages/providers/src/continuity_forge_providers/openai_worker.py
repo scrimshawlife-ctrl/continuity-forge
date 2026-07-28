@@ -19,7 +19,7 @@ class SdkOpenAIClient:
 
     def __init__(self, api_key: str | None = None) -> None:
         try:
-            from openai import OpenAI  # type: ignore[import-not-found]
+            from openai import OpenAI  # type: ignore[import-not-found,unused-ignore]
         except ImportError as exc:  # pragma: no cover
             raise RuntimeError(
                 "openai package not installed. pip install 'continuity-forge[openai]'"
@@ -31,11 +31,13 @@ class SdkOpenAIClient:
 
     def generate_image(self, *, prompt: str, seed: str) -> dict[str, Any]:
         # Images API ignores seed on many models; we keep seed in provenance only.
+        # size is env-driven; SDK types are Literal — cast via Any for env flexibility
+        size: Any = os.environ.get("CF_OPENAI_IMAGE_SIZE", "1024x1024")
         result = self._client.images.generate(
             model=os.environ.get("CF_OPENAI_IMAGE_MODEL", "dall-e-3"),
             prompt=prompt[:3900],
             n=1,
-            size=os.environ.get("CF_OPENAI_IMAGE_SIZE", "1024x1024"),
+            size=size,
         )
         data = result.data[0] if result.data else None
         url = getattr(data, "url", None) if data is not None else None

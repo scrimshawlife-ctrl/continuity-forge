@@ -83,6 +83,8 @@ services:
       AWS_ACCESS_KEY_ID: minioadmin
       AWS_SECRET_ACCESS_KEY: minioadmin
       CF_PROVIDER: mock
+      # Local/dev smoke only — never set in real production (see deploy/README.md).
+      # Blocked automatically if CF_ENV/ENVIRONMENT is production|prod.
       CF_BOOTSTRAP_DEV_TENANT: "1"
       CF_STORE_ROOT: /data/cf
     volumes:

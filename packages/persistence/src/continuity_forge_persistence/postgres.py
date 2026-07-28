@@ -22,7 +22,7 @@ from continuity_forge_operator import (
 
 def _connect(dsn: str | None = None) -> Any:
     try:
-        import psycopg  # type: ignore[import-not-found]
+        import psycopg  # type: ignore[import-not-found,unused-ignore]
     except ImportError as exc:  # pragma: no cover
         raise RuntimeError(
             "psycopg not installed. pip install 'continuity-forge[postgres]'"

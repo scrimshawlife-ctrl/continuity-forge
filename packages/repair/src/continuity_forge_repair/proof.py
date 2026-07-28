@@ -78,11 +78,14 @@ def run_controlled_proof(
 
     active.acquire_lease(key, actor_id, ttl_seconds=600)
     try:
-        envelope = MutationEnvelope(
+        prior = active.get_project(key)
+        expected = prior.state_hash if prior is not None else None
+        envelope = MutationEnvelope.from_parts(
             actor_id=actor_id,
             authorization_scope="kernel:pipeline",
             idempotency_key=f"proof-{key}-{content_hash(source)[:12]}",
             rationale="M7 controlled proof ingest",
+            expected_state_hash=expected,
         )
         project, run = active.ingest_script(
             document_key=key,

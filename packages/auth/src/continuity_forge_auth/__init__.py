@@ -3,6 +3,7 @@ from .service import (
     DEFAULT_AUTH_SERVICE,
     AuthError,
     AuthService,
+    bootstrap_dev_allowed,
     bootstrap_dev_tenant,
 )
 
@@ -12,6 +13,7 @@ __all__ = [
     "AuthService",
     "Principal",
     "Tenant",
+    "bootstrap_dev_allowed",
     "bootstrap_dev_tenant",
     "hash_api_key",
 ]

@@ -40,13 +40,83 @@ Extras are optional; mock providers and in-memory stores work without them.
 
 ## 3. Validate (CI parity)
 
+### Fast gate (default PR / merge check)
+
 ```bash
 make validate
 # same as: python scripts/validate_m0.py
 # gates: ruff · ruff format · mypy · pytest
 ```
 
-GitHub Actions runs the same script (merge gate).
+GitHub Actions workflow [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
+runs the same script. **This is the default PR check** — keep it green before merge.
+
+### Packaging gate (Phase 2)
+
+Separate workflow: [`.github/workflows/ci-packaging.yml`](../.github/workflows/ci-packaging.yml).
+
+Proves the distributable is installable outside an editable checkout:
+
+1. `python -m build` → wheel + sdist under `dist/`
+2. Install the wheel into a **clean** virtualenv
+3. `continuity-forge --help`
+4. Import smoke for all shipped packages (`continuity_forge_*` kernel + API/MCP)
+
+Local reproduction:
+
+```bash
+python -m pip install 'build>=1.2,<2'
+python -m build
+python -m venv .venv-package
+source .venv-package/bin/activate
+python -m pip install --upgrade pip
+python -m pip install dist/continuity_forge-*.whl
+continuity-forge --help
+python -c "import continuity_forge_compiler, continuity_forge_api, continuity_forge_mcp"
+```
+
+Packaging runs on `main` pushes, PRs, and `workflow_dispatch`. It is **not** a
+replacement for the fast `validate_m0` gate; treat it as a packaging/installability
+check (required for release paths; optional-to-require for everyday PR merge policy).
+
+### Integration gate (Phase 2 skeleton) — Postgres + MinIO
+
+Separate workflow: [`.github/workflows/ci-integration.yml`](../.github/workflows/ci-integration.yml).
+
+Proves optional durability backends respond under CI:
+
+| Piece | Detail |
+|-------|--------|
+| Services | `postgres:16`, `bitnami/minio` (S3-compatible) |
+| Install | `pip install -e '.[dev,production]'` |
+| Env | `CF_DATABASE_URL`, `CF_S3_ENDPOINT`, `CF_S3_BUCKET`, `CF_S3_ACCESS_KEY`, `CF_S3_SECRET_KEY` |
+| Tests | `tests/integration/test_postgres_minio_smoke.py` |
+
+Smoke coverage (minimal):
+
+1. **Postgres** — `PostgresRunStore` put + rehydrate/get of a `WorkflowRun`
+2. **MinIO** — `S3ArtifactStore` put/get of a mock `ArtifactCandidate`
+
+**Local behavior:** the same file is **skip-friendly**. Without `CF_DATABASE_URL` /
+`CF_S3_*`, without `psycopg`/`boto3`, or when services are down, tests call
+`pytest.skip` (they do not fail). Safe under `make validate` / default pytest.
+
+Local reproduction (Docker services from deploy compose, or any Postgres 16 + MinIO):
+
+```bash
+pip install -e '.[dev,production]'
+export CF_DATABASE_URL=postgresql://continuity:continuity@localhost:5432/continuity_forge
+export CF_S3_ENDPOINT=http://127.0.0.1:9000
+export CF_S3_BUCKET=continuity-forge
+export CF_S3_ACCESS_KEY=minioadmin
+export CF_S3_SECRET_KEY=minioadmin
+# optional: docker compose -f deploy/docker-compose.yml up -d postgres minio minio-init
+make test-integration
+# same as: python -m pytest tests/integration/test_postgres_minio_smoke.py -v
+```
+
+Integration runs on `main` pushes, PRs, and `workflow_dispatch`. It is a Phase 2
+skeleton for production-shaped backends — not a substitute for the fast gate.
 
 Quick proof on golden fixture:
 
@@ -101,20 +171,27 @@ By default auth is **off** (`CF_AUTH_REQUIRED` unset → anonymous principal).
 
 ```bash
 export CF_AUTH_REQUIRED=1
-export CF_BOOTSTRAP_DEV_TENANT=1   # when using durable stores / compose
+export CF_BOOTSTRAP_DEV_TENANT=1   # local/dev only — never in production
 # then either:
 curl -s -X POST http://127.0.0.1:8080/v1/tenants/bootstrap-dev
 # or use UI Advanced → Get local dev key
 ```
 
+`POST /v1/tenants/bootstrap-dev` returns **403** unless `CF_BOOTSTRAP_DEV_TENANT`
+is truthy. It is **always disabled** when `CF_ENV` or `ENVIRONMENT` is
+`production` / `prod`, even if the bootstrap flag is set.
+
 Document keys are tenant-scoped as `{tenant}::{document}` (never use `/` in keys).
+Tenant A cannot read or write Tenant B's document keys; foreign prefixes are
+re-scoped under the caller's tenant.
 
 ### Useful env
 
 | Variable | Purpose |
 |----------|---------|
 | `CF_AUTH_REQUIRED` | `1` to require Bearer API keys |
-| `CF_BOOTSTRAP_DEV_TENANT` | Seed local `dev` tenant |
+| `CF_BOOTSTRAP_DEV_TENANT` | Seed local `dev` tenant / enable bootstrap-dev route (**local only**) |
+| `CF_ENV` / `ENVIRONMENT` | Set `production`/`prod` to force-disable bootstrap-dev |
 | `CF_STORE_ROOT` | Filesystem durability root |
 | `CF_DATABASE_URL` | Postgres stores |
 | `CF_S3_*` / MinIO | Artifact candidates |

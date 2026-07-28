@@ -1,4 +1,4 @@
-.PHONY: install install-prod validate test lint format typecheck proof ui mcp
+.PHONY: install install-prod validate validate-repo test lint format typecheck coverage-floors proof ui mcp
 
 install:
 	python -m pip install -e '.[dev]'
@@ -6,8 +6,17 @@ install:
 install-prod:
 	python -m pip install -e '.[production]'
 
+# Fast/local merge gate (ruff + mypy + pytest + critical coverage floors)
 validate:
 	python scripts/validate_m0.py
+
+# Durable Phase 2+ gate (same suite; explicit name for production CI docs)
+validate-repo:
+	python scripts/validate_repo.py
+
+# Per-path critical coverage floors only (requires prior pytest --cov / .coverage)
+coverage-floors:
+	python scripts/validate_repo.py --floors-only
 
 proof:
 	python -m continuity_forge_compiler.cli proof tests/golden/fixtures/continuity.fountain --out out

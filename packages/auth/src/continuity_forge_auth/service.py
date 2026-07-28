@@ -3,10 +3,25 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from threading import RLock
 
 from .models import Principal, Tenant, hash_api_key
+
+
+def bootstrap_dev_allowed() -> bool:
+    """Return True only when local dev bootstrap is explicitly enabled.
+
+    Guard rails:
+    - ``CF_BOOTSTRAP_DEV_TENANT`` must be truthy (``1`` / ``true`` / ``yes``).
+    - ``CF_ENV`` / ``ENVIRONMENT`` of ``production`` or ``prod`` always disables
+      bootstrap, even if the flag is set (must never ship to production configs).
+    """
+    env = (os.environ.get("CF_ENV") or os.environ.get("ENVIRONMENT") or "").casefold()
+    if env in {"production", "prod"}:
+        return False
+    return os.environ.get("CF_BOOTSTRAP_DEV_TENANT", "").casefold() in {"1", "true", "yes"}
 
 
 class AuthError(RuntimeError):
@@ -88,7 +103,11 @@ def bootstrap_dev_tenant(
     tenant_id: str = "dev",
     api_key: str = "dev-local-key",
 ) -> tuple[Tenant, str]:
-    """Create a development tenant + raw API key (returned once)."""
+    """Create a development tenant + raw API key (returned once).
+
+    Callers that expose this over the network must gate with
+    :func:`bootstrap_dev_allowed` first.
+    """
     active = service or DEFAULT_AUTH_SERVICE
     tenant = Tenant(tenant_id=tenant_id, name="Development", api_key_hashes=[hash_api_key(api_key)])
     active.upsert_tenant(tenant)

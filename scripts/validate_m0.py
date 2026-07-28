@@ -1,4 +1,9 @@
-"""Canonical local/CI gate for Continuity Forge kernel validation (M0+)."""
+"""Canonical local/CI gate for Continuity Forge kernel validation (M0+).
+
+Includes Phase 2 per-path coverage floors for critical modules (via
+``scripts/validate_repo.py --floors-only`` after pytest collects coverage).
+There is no arbitrary global coverage percentage.
+"""
 
 from __future__ import annotations
 
@@ -29,6 +34,15 @@ GATES = (
             "--cov=packages",
             "--cov=apps",
             "--cov-report=term-missing",
+            # No global --cov-fail-under. Critical paths are checked next.
+        ),
+    ),
+    Gate(
+        "coverage-floors",
+        (
+            sys.executable,
+            str(ROOT / "scripts" / "validate_repo.py"),
+            "--floors-only",
         ),
     ),
 )

@@ -7,7 +7,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
 
-from continuity_forge_auth import DEFAULT_AUTH_SERVICE, AuthService, bootstrap_dev_tenant
+from continuity_forge_auth import (
+    DEFAULT_AUTH_SERVICE,
+    AuthService,
+    bootstrap_dev_allowed,
+    bootstrap_dev_tenant,
+)
 from continuity_forge_harness import DEFAULT_RUN_STORE, FileRunStore, RunStore
 from continuity_forge_operator import DEFAULT_PROJECT_STORE, FileProjectStore, ProjectStore
 from continuity_forge_providers import (
@@ -29,10 +34,6 @@ class RuntimeContext:
     auth: AuthService
     artifact_store: ArtifactSink | None
     backend: str
-
-
-def _truthy(name: str) -> bool:
-    return os.environ.get(name, "").casefold() in {"1", "true", "yes"}
 
 
 def build_runtime() -> RuntimeContext:
@@ -77,11 +78,11 @@ def build_runtime() -> RuntimeContext:
     if store_root:
         auth_path = Path(store_root) / "auth.json"
         auth.load(auth_path)
-        # Persist any bootstrap into the same file.
-        if _truthy("CF_BOOTSTRAP_DEV_TENANT") and not auth.list_tenants():
+        # Persist any bootstrap into the same file (local/dev only; see bootstrap_dev_allowed).
+        if bootstrap_dev_allowed() and not auth.list_tenants():
             bootstrap_dev_tenant(auth)
             auth.save(auth_path)
-    elif _truthy("CF_BOOTSTRAP_DEV_TENANT") and not auth.list_tenants():
+    elif bootstrap_dev_allowed() and not auth.list_tenants():
         bootstrap_dev_tenant(auth)
 
     gateway = get_gateway(os.environ.get("CF_PROVIDER"))

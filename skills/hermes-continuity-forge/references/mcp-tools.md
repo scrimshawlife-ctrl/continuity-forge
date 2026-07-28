@@ -54,6 +54,8 @@ Common args: `source`, `title`, `document_key`, `format` (`fountain`|`fdx`), `re
 | `run_shot_repair_loop` | generate → validate → repair; `fail_first` forces first-shot repair demo |
 
 Args: `document_key`, `shot_id`, `seed`, optional `max_attempts`, `fail_first`.
+Also carry MutationEnvelope audit fields (defaults provided): `actor_id`,
+`authorization_scope`, `idempotency_key`, `rationale`. Output remains PROPOSED.
 
 ## Resources (`resolve_resource`)
 

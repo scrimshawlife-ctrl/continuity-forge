@@ -42,6 +42,13 @@ def tenant_document_key(tenant_id: str, document_key: str) -> str:
     """Scope document keys per tenant to enforce isolation.
 
     Uses '::' (not '/') so keys remain single path segments in REST routes.
+
+    Isolation rules:
+    - Logical keys (e.g. ``script-1``) become ``{tenant_id}::script-1``.
+    - Keys already scoped to *this* tenant are returned unchanged.
+    - Keys that look like another tenant's scoped key (contain ``::`` but do
+      not start with this tenant's prefix) are re-scoped under the caller's
+      tenant, so tenant A can never address tenant B's storage namespace.
     """
     prefix = f"{tenant_id}::"
     if document_key.startswith(prefix):
