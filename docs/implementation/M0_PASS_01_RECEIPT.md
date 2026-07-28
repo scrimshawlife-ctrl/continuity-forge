@@ -2,52 +2,57 @@
 
 Campaign: `CONTINUITY_FORGE_COMPILER_FOUNDATION_001`
 Issue: #1
+PR: #2
 
-## Validated implementation target
-
-This pass advances the compiler spine with:
+## Implemented
 
 - typed diagnostic codes and severities
-- validated source-span ordering
 - explicit `CompileResult` and `CoverageReport` contracts
-- orphan character-cue, empty-scene, missing-scene, malformed-FDX, unsupported-format, and source-coverage diagnostics
-- FDX XML normalization into the canonical screenplay compiler
-- explicit non-whitespace source coverage and silent-omission accounting
-- golden-corpus determinism assertions across Fountain and FDX
+- deterministic Fountain compilation with stable IDs
+- FDX XML normalization through the canonical compiler path
+- malformed FDX fail-closed result using `CF_FDX_MALFORMED`
+- source coverage measured in UTF-8 bytes
+- unsupported file formats rejected rather than silently parsed
+- API source format constrained to `fountain | fdx`
+- API contract migrated from `ScriptDocument` to `CompileResult`
+- package-path divergence repaired so canonical IR remains under `packages/production_ir`
+- duplicate `packages/ir` implementation removed
 
-## Local validation receipt
+## Static gate audit
 
 ```yaml
 branch: codex/m0-diagnostics-fdx-coverage
-pytest: PASS
-tests_passed: 9
-deterministic_recompile: PASS
-source_span_validation: PASS
-fdx_ingestion: PASS
-malformed_fdx_failure: PASS
-silent_omission_gate: PASS
+head: b0539d6bf9dba1060167845275ac5c9fd9abbdd8
+mergeable: true
+mypy_type_gap_current_scene_id: repaired
+malformed_fdx_exception_escape: repaired
+unsupported_api_format_fallback: repaired
+api_contract_envelope_mismatch: repaired
+utf8_coverage_accounting: repaired
+package_path_divergence: repaired
 media_generation_added: false
 ```
 
-## Required implementation files
+## CI state
 
-- `packages/production_ir/src/continuity_forge_ir/models.py`
-- `packages/production_ir/src/continuity_forge_ir/__init__.py`
-- `packages/compiler/src/continuity_forge_compiler/compiler.py`
-- `packages/compiler/src/continuity_forge_compiler/__init__.py`
-- `tests/unit/test_compiler.py`
-- `tests/golden/fixtures/minimal.fdx`
-- `tests/golden/test_golden_corpus.py`
+GitHub-hosted jobs are currently terminating before checkout and expose zero executed steps. This is classified separately from repository code status until runner allocation or account-level Actions configuration is restored.
 
-## Acceptance gates
+The workflow now emits explicit environment, install, lint, typing, test, and coverage steps when a runner begins execution.
 
-- `pytest` passes with at least nine tests.
-- Recompiling identical source yields byte-equivalent Production IR.
-- Supported golden fixtures report zero silent omissions.
-- Malformed FDX produces a typed error rather than an exception escape.
-- Unsupported formats fail closed.
-- No image, video, voice, or autonomous rewriting capability is introduced.
+## Acceptance gates remaining
 
-## Next bounded action
+- GitHub runner executes checkout and exposes step logs.
+- Ruff passes.
+- Mypy strict passes.
+- Pytest and coverage pass.
+- Full golden corpus reaches zero silent omissions for supported constructs.
+- Read-only MCP surface is implemented and contract-tested.
 
-Implement this receipt on the current branch, preserve the public API compatibility of `compile_text()` and `compile_file()`, then update this receipt with the final commit SHA and CI result.
+## Scope exclusions preserved
+
+- image or video generation
+- voice generation
+- visual-bible generation
+- autonomous adaptation or rewriting
+- direct agent database mutation
+- feature-length readiness claims
