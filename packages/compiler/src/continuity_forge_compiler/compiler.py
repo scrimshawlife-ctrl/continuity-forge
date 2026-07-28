@@ -117,9 +117,59 @@ def compile_text_result(
     all_atoms: list[NarrativeAtom] = []
     offset = 0
     pending_character: tuple[str, SourceSpan] | None = None
+    dialogue_parts: list[str] = []
+    dialogue_end_offset = 0
+    dialogue_end_line = 0
+
+    def emit_atom(atom_type: AtomType, atom_text: str, span: SourceSpan) -> None:
+        if current_scene_id is None:
+            raise RuntimeError("cannot emit atom without an active scene")
+        atom_id = stable_id(
+            "atom", current_scene_id, len(current_atoms) + 1, atom_type, atom_text
+        )
+        current_atoms.append(
+            NarrativeAtom(
+                atom_id=atom_id,
+                scene_id=current_scene_id,
+                type=atom_type,
+                text=atom_text,
+                source_span=span,
+            )
+        )
+
+    def flush_dialogue() -> None:
+        nonlocal pending_character, dialogue_parts, dialogue_end_offset, dialogue_end_line
+        if pending_character is None:
+            return
+        if not dialogue_parts:
+            diagnostics.append(
+                CompileDiagnostic(
+                    code="CF_PARSE_ORPHAN_CHARACTER",
+                    severity=DiagnosticSeverity.WARNING,
+                    message=f"Character cue '{pending_character[0]}' has no dialogue.",
+                    source_span=pending_character[1],
+                )
+            )
+        else:
+            span = SourceSpan(
+                start_offset=pending_character[1].start_offset,
+                end_offset=dialogue_end_offset,
+                line_start=pending_character[1].line_start,
+                line_end=dialogue_end_line,
+            )
+            emit_atom(
+                AtomType.DIALOGUE,
+                f"{pending_character[0]}: " + "\n".join(dialogue_parts),
+                span,
+            )
+        pending_character = None
+        dialogue_parts = []
+        dialogue_end_offset = 0
+        dialogue_end_line = 0
 
     def flush_scene() -> None:
         nonlocal current_atoms, current_slugline, current_scene_id
+        flush_dialogue()
         if current_slugline is None or current_scene_id is None:
             return
         scenes.append(
@@ -144,24 +194,22 @@ def compile_text_result(
             line_start=line_no,
             line_end=line_no,
         )
+
         if not stripped:
-            if pending_character is not None:
-                diagnostics.append(
-                    CompileDiagnostic(
-                        code="CF_PARSE_ORPHAN_CHARACTER",
-                        severity=DiagnosticSeverity.WARNING,
-                        message=f"Character cue '{pending_character[0]}' has no dialogue.",
-                        source_span=pending_character[1],
-                    )
-                )
-            pending_character = None
+            flush_dialogue()
+            continue
+
+        if pending_character is not None:
+            dialogue_parts.append(stripped)
+            dialogue_end_offset = line_end
+            dialogue_end_line = line_no
             continue
 
         if SCENE_RE.match(stripped):
             flush_scene()
             current_slugline = stripped
             current_scene_id = stable_id("scene", script_id, len(scenes) + 1, stripped)
-            atom_type = AtomType.SCENE_HEADING
+            emit_atom(AtomType.SCENE_HEADING, stripped, span)
         elif current_scene_id is None:
             diagnostics.append(
                 CompileDiagnostic(
@@ -171,47 +219,13 @@ def compile_text_result(
                     source_span=span,
                 )
             )
-            continue
-        elif pending_character is not None:
-            atom_type = AtomType.DIALOGUE
-            stripped = f"{pending_character[0]}: {stripped}"
-            span = SourceSpan(
-                start_offset=pending_character[1].start_offset,
-                end_offset=line_end,
-                line_start=pending_character[1].line_start,
-                line_end=line_no,
-            )
-            pending_character = None
         elif stripped.upper() in TRANSITIONS:
-            atom_type = AtomType.TRANSITION
+            emit_atom(AtomType.TRANSITION, stripped, span)
         elif CHARACTER_RE.match(stripped) and len(stripped.split()) <= 5:
             pending_character = (stripped, span)
-            continue
         else:
-            atom_type = AtomType.ACTION
+            emit_atom(AtomType.ACTION, stripped, span)
 
-        atom_id = stable_id(
-            "atom", current_scene_id, len(current_atoms) + 1, atom_type, stripped
-        )
-        current_atoms.append(
-            NarrativeAtom(
-                atom_id=atom_id,
-                scene_id=current_scene_id,
-                type=atom_type,
-                text=stripped,
-                source_span=span,
-            )
-        )
-
-    if pending_character is not None:
-        diagnostics.append(
-            CompileDiagnostic(
-                code="CF_PARSE_ORPHAN_CHARACTER",
-                severity=DiagnosticSeverity.WARNING,
-                message=f"Character cue '{pending_character[0]}' has no dialogue.",
-                source_span=pending_character[1],
-            )
-        )
     flush_scene()
     if not scenes:
         diagnostics.append(
@@ -263,7 +277,7 @@ def fdx_to_text(xml_text: str) -> str:
             output.append(text)
         elif paragraph_type == "Character":
             output.extend(["", text])
-        elif paragraph_type == "Dialogue":
+        elif paragraph_type in {"Dialogue", "Parenthetical"}:
             output.append(text)
         elif paragraph_type == "Transition":
             output.extend(["", text])
