@@ -13,6 +13,7 @@ Default PR gate: `scripts/validate_m0.py` via `.github/workflows/ci.yml` (`make 
 
 | Doc | Contents |
 |-----|----------|
+| **[docs/HANDOFF.md](docs/HANDOFF.md)** | **Working product path:** paste script → shot breakdown + continuity → JSON/API |
 | **[docs/releases/1.4.0.md](docs/releases/1.4.0.md)** | **Baseline freeze notes** (what works / non-claims / support policy) |
 | **[docs/SETUP.md](docs/SETUP.md)** | Full install, env, UI, MCP, Docker |
 | **[docs/hermes/README.md](docs/hermes/README.md)** | Hermes skill + MCP integration |
@@ -87,8 +88,21 @@ source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -U pip
 pip install -e '.[dev]'            # or: make install
 make validate                      # ruff + mypy + pytest (CI parity)
+make handoff                       # automated paste→breakdown→export/API checks
+make breakdown                     # sample shot breakdown + continuity → out/
 make proof                         # golden controlled proof → out/
 ```
+
+**Handoff (shot breakdown + continuity):** paste a script in the UI (**Build breakdown**), or:
+
+```bash
+continuity-forge breakdown tests/golden/fixtures/continuity.fountain --out out
+# → out/continuity.breakdown.json  (machine-readable)
+# → out/continuity.breakdown.md    (text export)
+# REST: POST /v1/breakdown  ·  MCP: build_breakdown
+```
+
+See **[docs/HANDOFF.md](docs/HANDOFF.md)**.
 
 Production extras (Temporal, Postgres, S3, OpenAI, HTTP worker):
 

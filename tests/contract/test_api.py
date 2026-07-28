@@ -275,9 +275,11 @@ def test_web_ui_is_served() -> None:
     client = TestClient(app)
     index = client.get("/")
     assert index.status_code == 200
-    assert "Run a proof" in index.text
+    assert "Run a proof" in index.text or "Build breakdown" in index.text
+    assert "Build breakdown" in index.text
     assert "Run proof" in index.text
-    assert "Download receipt" in index.text
+    assert "Download breakdown JSON" in index.text
+    assert 'id="btn-breakdown"' in index.text
     assert "controlled_proof_not_production_ready" in index.text
     assert 'id="claim-post-proof"' in index.text
     assert "not ready — mock controlled proof only" in index.text
@@ -331,6 +333,9 @@ def test_web_ui_is_served() -> None:
     assert "renderCostPanel" in app_js.text
     assert "over budget" in app_js.text
     assert "cost_summary" in app_js.text
+    assert "/v1/breakdown" in app_js.text
+    assert "buildBreakdown" in app_js.text
+    assert "exportBreakdownJson" in app_js.text
     assert 'id="workflow-panel"' in index.text
     assert "workflow complete ≠ production ready" in index.text or (
         "workflow complete" in index.text and "production ready" in index.text

@@ -43,6 +43,7 @@ Integration guide: [`docs/hermes/README.md`](../../../../docs/hermes/README.md).
 - `get_compile_diagnostics`, `list_scenes`, `get_scene`, `audit_script_coverage`
 - `build_ledger`, `list_entities`, `list_setup_payoff_links`
 - `build_shot_contracts`, `list_shot_summaries`
+- `build_breakdown`, `build_breakdown_markdown` — handoff: shots + continuity JSON/MD
 
 ### Durable pipeline
 - `run_kernel_pipeline`, `get_pipeline_run`, `get_pipeline_run_events` (poll progress), `get_temporal_manifest`

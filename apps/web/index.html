@@ -90,7 +90,20 @@
             </div>
 
             <div class="primary-actions">
-              <button type="button" class="btn btn--primary btn--xl" id="btn-proof">
+              <button
+                type="button"
+                class="btn btn--primary btn--xl"
+                id="btn-breakdown"
+                title="Paste script → shot-by-shot breakdown with continuity (exportable JSON)"
+              >
+                Build breakdown
+              </button>
+              <button
+                type="button"
+                class="btn btn--ghost btn--xl"
+                id="btn-proof"
+                title="Mock controlled proof (not production film)"
+              >
                 Run proof
               </button>
               <button type="button" class="btn btn--ghost" id="btn-sample">
@@ -98,6 +111,11 @@
               </button>
               <button type="button" class="btn btn--ghost" id="btn-clear">Clear</button>
             </div>
+            <p class="field__hint" id="breakdown-hint">
+              <strong>Handoff path:</strong> paste or edit the script →
+              <strong>Build breakdown</strong> → download JSON (or Markdown) for
+              connectors. Shot list + continuity entities. Not production film.
+            </p>
 
             <div class="run-summary" id="run-meta" hidden aria-live="polite">
               <div class="stat">
@@ -244,8 +262,14 @@
                 </p>
               </div>
               <div class="btn-row">
-                <button type="button" class="btn btn--primary" id="btn-export">
-                  Download receipt
+                <button type="button" class="btn btn--primary" id="btn-export-breakdown">
+                  Download breakdown JSON
+                </button>
+                <button type="button" class="btn btn--ghost" id="btn-export-breakdown-md">
+                  Download breakdown MD
+                </button>
+                <button type="button" class="btn btn--ghost" id="btn-export">
+                  Download proof receipt
                 </button>
                 <button type="button" class="btn btn--ghost" id="btn-copy-hash">
                   Copy receipt hash

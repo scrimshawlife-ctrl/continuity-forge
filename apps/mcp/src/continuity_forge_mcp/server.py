@@ -19,7 +19,12 @@ from continuity_forge_operator import (
 )
 from continuity_forge_repair import run_repair_loop
 from continuity_forge_runtime import RuntimeContext, get_runtime
-from continuity_forge_shots import ShotContractBundle, compile_shot_contracts
+from continuity_forge_shots import (
+    ShotContractBundle,
+    breakdown_to_markdown,
+    build_breakdown_from_text,
+    compile_shot_contracts,
+)
 from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("Continuity Forge")
@@ -242,6 +247,54 @@ def list_shot_summaries(
         }
         for contract in bundle.contracts
     ]
+
+
+@mcp.tool()
+def build_breakdown(
+    source: str,
+    title: str = "Untitled",
+    document_key: str | None = None,
+    format: str = "fountain",
+    revision: str = "0.1.0",
+) -> dict[str, Any]:
+    """Paste/import screenplay → shot-by-shot breakdown with continuity (JSON).
+
+    Machine-readable handoff for connectors. Read-side only; not production film.
+    """
+    return build_breakdown_from_text(
+        source,
+        title=title,
+        document_key=document_key,
+        format=format,  # type: ignore[arg-type]
+        revision=revision,
+    ).model_dump(mode="json")
+
+
+@mcp.tool()
+def build_breakdown_markdown(
+    source: str,
+    title: str = "Untitled",
+    document_key: str | None = None,
+    format: str = "fountain",
+    revision: str = "0.1.0",
+) -> dict[str, Any]:
+    """Same as build_breakdown, returned as Markdown text for export/chat."""
+    package = build_breakdown_from_text(
+        source,
+        title=title,
+        document_key=document_key,
+        format=format,  # type: ignore[arg-type]
+        revision=revision,
+    )
+    return {
+        "schema_version": package.schema_version,
+        "claim": package.claim,
+        "package_hash": package.package_hash,
+        "markdown": breakdown_to_markdown(package),
+        "shot_count": package.shot_count,
+        "scene_count": package.scene_count,
+        "entity_count": package.entity_count,
+    }
 
 
 @mcp.tool()

@@ -1,4 +1,4 @@
-.PHONY: install install-prod validate validate-repo test lint format typecheck coverage-floors proof ui mcp
+.PHONY: install install-prod validate validate-repo test lint format typecheck coverage-floors proof handoff ui mcp breakdown
 
 install:
 	python -m pip install -e '.[dev]'
@@ -20,6 +20,13 @@ coverage-floors:
 
 proof:
 	python -m continuity_forge_compiler.cli proof tests/golden/fixtures/continuity.fountain --out out
+
+# Handoff path: paste/import → shot breakdown + continuity (kernel + API + CLI)
+handoff:
+	python scripts/handoff_harness.py
+
+breakdown:
+	python -m continuity_forge_compiler.cli breakdown tests/golden/fixtures/continuity.fountain --out out
 
 ui:
 	uvicorn continuity_forge_api.main:app --reload --port 8080
