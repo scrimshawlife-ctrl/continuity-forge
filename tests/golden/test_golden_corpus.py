@@ -9,6 +9,7 @@ FIXTURES = Path(__file__).parent / "fixtures"
 SUPPORTED_FIXTURES = [
     "minimal.fountain",
     "dialogue.fountain",
+    "parenthetical_dialogue.fountain",
     "multi_scene.fountain",
     "transitions.fountain",
     "unicode.fountain",
@@ -82,3 +83,23 @@ def test_transition_fixture_preserves_transition_and_uppercase_dialogue() -> Non
         diagnostic.code == "CF_PARSE_ORPHAN_CHARACTER"
         for diagnostic in result.diagnostics
     )
+
+
+def test_parenthetical_and_multiline_dialogue_are_one_atom() -> None:
+    result = compile_fixture(FIXTURES / "parenthetical_dialogue.fountain")
+    dialogue_atoms = [
+        atom
+        for scene in result.document.scenes
+        for atom in scene.atoms
+        if atom.type == AtomType.DIALOGUE
+    ]
+
+    assert len(dialogue_atoms) == 2
+    assert dialogue_atoms[0].text == (
+        "MARA: (quietly)\n"
+        "The key was never in the drawer.\n"
+        "It was under the floor."
+    )
+    assert dialogue_atoms[0].source_span.line_start == 3
+    assert dialogue_atoms[0].source_span.line_end == 6
+    assert dialogue_atoms[1].text == "JONAS: I know."
