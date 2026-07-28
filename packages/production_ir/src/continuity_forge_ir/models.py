@@ -23,11 +23,24 @@ class CoverageStatus(StrEnum):
     WAIVED = "waived"
 
 
+class DiagnosticSeverity(StrEnum):
+    INFO = "info"
+    WARNING = "warning"
+    ERROR = "error"
+
+
 class SourceSpan(BaseModel):
     start_offset: Annotated[int, Field(ge=0)]
     end_offset: Annotated[int, Field(ge=0)]
     line_start: Annotated[int, Field(ge=1)]
     line_end: Annotated[int, Field(ge=1)]
+
+
+class CompileDiagnostic(BaseModel):
+    code: str
+    severity: DiagnosticSeverity
+    message: str
+    source_span: SourceSpan | None = None
 
 
 class NarrativeAtom(BaseModel):
@@ -54,6 +67,20 @@ class ScriptDocument(BaseModel):
     revision: str
     source_hash: str
     scenes: list[SceneNode]
+
+
+class CoverageReport(BaseModel):
+    source_bytes: Annotated[int, Field(ge=0)]
+    covered_bytes: Annotated[int, Field(ge=0)]
+    uncovered_non_whitespace_bytes: Annotated[int, Field(ge=0)]
+    emitted_atom_count: Annotated[int, Field(ge=0)]
+    source_coverage_ratio: Annotated[float, Field(ge=0.0, le=1.0)]
+
+
+class CompileResult(BaseModel):
+    document: ScriptDocument
+    diagnostics: list[CompileDiagnostic]
+    coverage: CoverageReport
 
 
 def content_hash(text: str) -> str:
