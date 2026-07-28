@@ -1,4 +1,4 @@
-"""Provider registry — mock default, fail-closed real slots."""
+"""Provider registry — mock default, fail-closed real slots, HTTP gateway."""
 
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ from .contracts import (
     ProviderGateway,
     WorkerTask,
 )
+from .http_worker import HttpMediaWorker
 
 
 class UnconfiguredRealWorker:
@@ -32,16 +33,29 @@ class UnconfiguredRealWorker:
         task: WorkerTask,
         seed: str,
     ) -> ArtifactCandidate:
+        if not os.environ.get(self.env_var):
+            raise RuntimeError(
+                f"Provider '{self.name}' is not configured. "
+                f"Set {self.env_var} or use provider=mock."
+            )
+        # Credential present but SDK not wired yet — still fail closed with guidance.
         raise RuntimeError(
-            f"Provider '{self.name}' is not configured. Set {self.env_var} or use provider=mock."
+            f"Provider '{self.name}' credentials detected via {self.env_var}, "
+            "but the SDK adapter is not implemented yet. Use provider=http with "
+            "CF_PROVIDER_HTTP_URL for a custom gateway, or provider=mock."
         )
 
 
-_REGISTRY: dict[str, MediaWorker] = {
-    "mock": MockMediaWorker(),
-    "openai": UnconfiguredRealWorker("openai", "OPENAI_API_KEY"),
-    "runway": UnconfiguredRealWorker("runway", "RUNWAY_API_KEY"),
-}
+def _build_registry() -> dict[str, MediaWorker]:
+    return {
+        "mock": MockMediaWorker(),
+        "http": HttpMediaWorker(),
+        "openai": UnconfiguredRealWorker("openai", "OPENAI_API_KEY"),
+        "runway": UnconfiguredRealWorker("runway", "RUNWAY_API_KEY"),
+    }
+
+
+_REGISTRY: dict[str, MediaWorker] = _build_registry()
 
 
 def list_providers() -> list[str]:
@@ -52,6 +66,9 @@ def get_worker(name: str | None = None) -> MediaWorker:
     selected = (name or os.environ.get("CF_PROVIDER") or "mock").casefold()
     if selected not in _REGISTRY:
         raise KeyError(f"unknown provider '{selected}'; known={list_providers()}")
+    # Rebuild http worker each time so env changes apply.
+    if selected == "http":
+        return HttpMediaWorker()
     return _REGISTRY[selected]
 
 
