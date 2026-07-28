@@ -1,0 +1,52 @@
+# Continuity Forge Temporal worker (optional bare-metal unit)
+#
+# Requires a reachable Temporal frontend (CF_TEMPORAL_HOST) and production extras:
+#   pip install -e '.[production]'
+#
+# Install:
+#   sudo cp deploy/linux/continuity-forge-worker.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now continuity-forge-worker
+
+[Unit]
+Description=Continuity Forge Temporal kernel worker
+Documentation=https://github.com/scrimshawlife-ctrl/continuity-forge/blob/main/docs/LINUX.md
+After=network-online.target
+Wants=network-online.target
+# After=continuity-forge-api.service  # optional ordering only; worker is independent
+
+[Service]
+Type=simple
+User=continuity-forge
+Group=continuity-forge
+WorkingDirectory=/opt/continuity-forge
+
+EnvironmentFile=-/etc/continuity-forge/continuity-forge.env
+Environment=PYTHONUNBUFFERED=1
+
+# Host/namespace/task queue from env (see continuity-forge.env.example)
+ExecStart=/bin/bash -c 'exec /opt/continuity-forge/.venv/bin/continuity-forge-worker \
+  --host "${CF_TEMPORAL_HOST:-127.0.0.1:7233}" \
+  --namespace "${CF_TEMPORAL_NAMESPACE:-default}" \
+  --task-queue "${CF_TEMPORAL_TASK_QUEUE:-continuity-forge-kernel}"'
+
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=60
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/continuity-forge /opt/continuity-forge
+LockPersonality=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+SystemCallArchitectures=native
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=continuity-forge-worker
+
+[Install]
+WantedBy=multi-user.target

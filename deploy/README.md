@@ -1,6 +1,7 @@
 # Production-shaped local stack
 
-Prerequisites and non-Docker install: **[docs/SETUP.md](../docs/SETUP.md)**.
+Prerequisites and general install: **[docs/SETUP.md](../docs/SETUP.md)**.  
+**Bare-metal Linux (systemd, no Docker):** **[docs/LINUX.md](../docs/LINUX.md)** · units under [`linux/`](linux/).
 
 ## CI gates (install vs runtime)
 

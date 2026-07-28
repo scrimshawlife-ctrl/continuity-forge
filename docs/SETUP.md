@@ -1,8 +1,14 @@
 # Continuity Forge — Install & Setup
 
-Complete install paths for kernel, operator UI, MCP (Hermes), and production-shaped Docker.
+Complete install paths for kernel, operator UI, MCP (Hermes), production-shaped Docker,
+and **bare-metal Linux** (systemd).
 
 **Requirements:** Python **3.12+**, `pip`, git. Docker optional (full stack).
+
+| Guide | When |
+|-------|------|
+| This file | Dev laptop, general env, MCP, Docker smoke |
+| **[LINUX.md](LINUX.md)** | Native Linux server: systemd units, env file, no Docker required |
 
 ---
 
