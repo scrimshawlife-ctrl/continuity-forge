@@ -35,27 +35,30 @@ TIME_SUFFIX_RE = re.compile(
     re.IGNORECASE,
 )
 CHARACTER_EXTENSION_RE = re.compile(r"\s*\([^)]*\)\s*$")
-ENTER_RE = re.compile(
-    r"\b([A-Z][a-z]+|[A-Z]{2,})\s+(re-?enters|enters)\b",
-    re.IGNORECASE,
-)
-EXIT_RE = re.compile(
-    r"\b([A-Z][a-z]+|[A-Z]{2,})\s+exits\b",
-    re.IGNORECASE,
-)
-ABSENT_RE = re.compile(
-    r"\b(gone|vanished|missing|no longer|disappeared)\b",
+# Case-sensitive on the actor token so "and exits" is not a character cue.
+ENTER_RE = re.compile(r"\b([A-Z][a-z]+|[A-Z]{2,})\s+(?:re-?enters|enters)\b")
+# Allow short intervening action between the actor and "exits".
+EXIT_RE = re.compile(r"\b([A-Z][a-z]+|[A-Z]{2,})\b(?:[^.\n]{0,60}?)\bexits\b")
+NAME_STOPWORDS = frozenset({"and", "then", "but", "the", "she", "he", "they", "who", "as"})
+TRANSITIONISH_NAME_RE = re.compile(
+    r"^(?:BACK TO|CUT TO|FADE (?:IN|OUT)|DISSOLVE TO|SMASH CUT)\b",
     re.IGNORECASE,
 )
 PLANT_RE = re.compile(r"\bplant\b", re.IGNORECASE)
 PAYOFF_RE = re.compile(r"\bpayoff\b", re.IGNORECASE)
 
-# Ordered longest-first so multiword phrases win over substrings.
+# Canonical tracked lexicon: patterns may match short forms; names are canonical.
 TRACKED_ITEMS: tuple[tuple[EntityKind, str, re.Pattern[str]], ...] = (
-    (EntityKind.PROP, "red keycard", re.compile(r"\bred\s+keycard\b", re.IGNORECASE)),
-    (EntityKind.PROP, "brass compass", re.compile(r"\bbrass\s+compass\b", re.IGNORECASE)),
-    (EntityKind.PROP, "keycard", re.compile(r"\bkeycard\b", re.IGNORECASE)),
-    (EntityKind.PROP, "compass", re.compile(r"\bcompass\b", re.IGNORECASE)),
+    (
+        EntityKind.PROP,
+        "red keycard",
+        re.compile(r"\bred\s+keycard\b|\bkeycard\b", re.IGNORECASE),
+    ),
+    (
+        EntityKind.PROP,
+        "brass compass",
+        re.compile(r"\bbrass\s+compass\b|\bcompass\b", re.IGNORECASE),
+    ),
     (EntityKind.WARDROBE, "jacket", re.compile(r"\bjacket\b", re.IGNORECASE)),
     (
         EntityKind.INJURY,
@@ -93,6 +96,36 @@ def _location_from_slugline(slugline: str) -> str:
     return remainder or slugline
 
 
+def _item_absent(name: str, text: str) -> bool:
+    short = re.escape(name.split()[-1])
+    return bool(
+        re.search(
+            rf"\b{re.escape(name)}\b[^.]*\b(gone|vanished|missing)\b|"
+            rf"\b(gone|vanished|missing)\b[^.]*\b{re.escape(name)}\b|"
+            rf"\bno\s+{short}\b|"
+            rf"\b{short}\b[^.]*\b(gone|vanished|missing)\b|"
+            rf"\b(gone|vanished|missing)\b[^.]*\b{short}\b",
+            text,
+            re.IGNORECASE,
+        )
+    )
+
+
+def _resolve_character_name(
+    who: str, known: dict[str, UUID], entities: dict[tuple[EntityKind, str], Entity]
+) -> str:
+    """Prefer an existing character entity's display name when casings differ."""
+    norm = _normalized(who)
+    if norm in known:
+        for (kind, key), entity in entities.items():
+            if kind == EntityKind.CHARACTER and key == norm:
+                return entity.name
+    # Prefer uppercase cue style for all-caps names under 3 tokens.
+    if who.isupper() or who.islower():
+        return who.upper() if len(who.split()) <= 3 else who.title()
+    return who
+
+
 def build_continuity_ledger(document: ScriptDocument) -> ContinuityLedger:
     """Derive a continuity ledger from a validated Production IR document."""
     entities: dict[tuple[EntityKind, str], Entity] = {}
@@ -100,6 +133,7 @@ def build_continuity_ledger(document: ScriptDocument) -> ContinuityLedger:
     diagnostics: list[CompileDiagnostic] = []
     scene_fact_ids: dict[UUID, list[UUID]] = defaultdict(list)
     character_names: dict[str, UUID] = {}
+    scene_ordinals = {scene.scene_id: scene.ordinal for scene in document.scenes}
 
     def ensure_entity(
         kind: EntityKind,
@@ -165,12 +199,15 @@ def build_continuity_ledger(document: ScriptDocument) -> ContinuityLedger:
             scene_fact_ids[scene_id].append(fact.fact_id)
         return fact
 
-    # Character entities from cues.
+    # Character entities from cues first (deterministic identity anchors).
     for scene in document.scenes:
         for atom in scene.atoms:
             if atom.type != AtomType.CHARACTER:
                 continue
             base = _character_base_name(atom.text)
+            if TRANSITIONISH_NAME_RE.match(base):
+                # Fountain uppercase transitions are sometimes tokenized as cues.
+                continue
             entity = ensure_entity(
                 EntityKind.CHARACTER, base, scene_id=scene.scene_id, alias=atom.text
             )
@@ -203,7 +240,11 @@ def build_continuity_ledger(document: ScriptDocument) -> ContinuityLedger:
         for atom in scene.atoms:
             if atom.type == AtomType.CHARACTER:
                 base = _character_base_name(atom.text)
-                present.add(character_names[_normalized(base)])
+                if TRANSITIONISH_NAME_RE.match(base):
+                    continue
+                entity_id = character_names.get(_normalized(base))
+                if entity_id is not None:
+                    present.add(entity_id)
                 continue
 
             if atom.type not in {
@@ -218,13 +259,18 @@ def build_continuity_ledger(document: ScriptDocument) -> ContinuityLedger:
             atom_present_props: list[Entity] = []
 
             for match in ENTER_RE.finditer(text):
-                who = match.group(1)
+                raw_who = match.group(1)
+                if _normalized(raw_who) in NAME_STOPWORDS:
+                    continue
+                who = _resolve_character_name(raw_who, character_names, entities)
                 entity = ensure_entity(
                     EntityKind.CHARACTER,
-                    who.title() if who.islower() else who,
+                    who,
                     scene_id=scene.scene_id,
+                    alias=raw_who,
                 )
                 character_names[_normalized(entity.name)] = entity.entity_id
+                character_names[_normalized(raw_who)] = entity.entity_id
                 present.add(entity.entity_id)
                 entries.add(entity.entity_id)
                 add_fact(
@@ -237,13 +283,18 @@ def build_continuity_ledger(document: ScriptDocument) -> ContinuityLedger:
                 )
 
             for match in EXIT_RE.finditer(text):
-                who = match.group(1)
+                raw_who = match.group(1)
+                if _normalized(raw_who) in NAME_STOPWORDS:
+                    continue
+                who = _resolve_character_name(raw_who, character_names, entities)
                 entity = ensure_entity(
                     EntityKind.CHARACTER,
-                    who.title() if who.islower() else who,
+                    who,
                     scene_id=scene.scene_id,
+                    alias=raw_who,
                 )
                 character_names[_normalized(entity.name)] = entity.entity_id
+                character_names[_normalized(raw_who)] = entity.entity_id
                 present.add(entity.entity_id)
                 exits.add(entity.entity_id)
                 add_fact(
@@ -258,27 +309,10 @@ def build_continuity_ledger(document: ScriptDocument) -> ContinuityLedger:
             for kind, name, pattern in TRACKED_ITEMS:
                 if not pattern.search(text):
                     continue
-                # Skip short form if long form also matches in same atom.
-                if name in {"keycard", "compass"}:
-                    long_form = f"red {name}" if name == "keycard" else f"brass {name}"
-                    long_pat = next(p for _k, n, p in TRACKED_ITEMS if n == long_form)
-                    if long_pat.search(text):
-                        continue
-
                 entity = ensure_entity(kind, name, scene_id=scene.scene_id)
-                short = re.escape(name.split()[-1])
-                item_absent = bool(
-                    re.search(
-                        rf"\b{re.escape(name)}\b[^.]*\b(gone|vanished|missing)\b|"
-                        rf"\b(gone|vanished|missing)\b[^.]*\b{re.escape(name)}\b|"
-                        rf"\bno\s+{short}\b",
-                        text,
-                        re.IGNORECASE,
-                    )
-                )
                 if kind == EntityKind.PROP:
                     props.add(entity.entity_id)
-                    if item_absent:
+                    if _item_absent(name, text):
                         fact_kind = FactKind.ABSENT
                         value = f"{name} absent"
                     else:
@@ -359,38 +393,8 @@ def build_continuity_ledger(document: ScriptDocument) -> ContinuityLedger:
             )
         )
 
-    # Deterministic setup/payoff links: same entity, setup scene before payoff scene.
-    links: list[SetupPayoffLink] = []
-    used_payoffs: set[UUID] = set()
-    for plant in plant_facts:
-        for payoff in payoff_facts:
-            if payoff.fact_id in used_payoffs:
-                continue
-            if plant.subject_entity_id != payoff.subject_entity_id:
-                continue
-            if plant.scene_id is None or payoff.scene_id is None:
-                continue
-            plant_ord = next(c.ordinal for c in scene_contracts if c.scene_id == plant.scene_id)
-            payoff_ord = next(c.ordinal for c in scene_contracts if c.scene_id == payoff.scene_id)
-            if payoff_ord < plant_ord:
-                continue
-            links.append(
-                SetupPayoffLink(
-                    link_id=stable_id(
-                        "setup_payoff",
-                        document.script_id,
-                        plant.fact_id,
-                        payoff.fact_id,
-                    ),
-                    entity_id=plant.subject_entity_id,
-                    setup_fact_id=plant.fact_id,
-                    payoff_fact_id=payoff.fact_id,
-                    setup_scene_id=plant.scene_id,
-                    payoff_scene_id=payoff.scene_id,
-                )
-            )
-            used_payoffs.add(payoff.fact_id)
-            break
+    links = _link_setup_payoff(document.script_id, plant_facts, payoff_facts, scene_contracts)
+    diagnostics.extend(_drift_diagnostics(facts, entities, scene_ordinals))
 
     if not any(entity.kind == EntityKind.CHARACTER for entity in entities.values()):
         diagnostics.append(
@@ -401,12 +405,12 @@ def build_continuity_ledger(document: ScriptDocument) -> ContinuityLedger:
             )
         )
 
-    # Stable ordering for deterministic serialization.
     ordered_entities = sorted(entities.values(), key=lambda e: (e.kind.value, e.normalized_name))
     ordered_facts = sorted(
         facts, key=lambda f: (str(f.scene_id), f.kind.value, f.value, str(f.fact_id))
     )
     ordered_links = sorted(links, key=lambda link: str(link.link_id))
+    ordered_diagnostics = sorted(diagnostics, key=lambda d: (d.code, d.message))
 
     return ContinuityLedger(
         script_id=document.script_id,
@@ -416,5 +420,138 @@ def build_continuity_ledger(document: ScriptDocument) -> ContinuityLedger:
         facts=ordered_facts,
         scene_contracts=scene_contracts,
         setup_payoff_links=ordered_links,
-        diagnostics=diagnostics,
+        diagnostics=ordered_diagnostics,
     )
+
+
+def _link_setup_payoff(
+    script_id: UUID,
+    plant_facts: list[ContinuityFact],
+    payoff_facts: list[ContinuityFact],
+    scene_contracts: list[SceneContinuityContract],
+) -> list[SetupPayoffLink]:
+    links: list[SetupPayoffLink] = []
+    used_payoffs: set[UUID] = set()
+    ordinal = {contract.scene_id: contract.ordinal for contract in scene_contracts}
+    for plant in plant_facts:
+        for payoff in payoff_facts:
+            if payoff.fact_id in used_payoffs:
+                continue
+            if plant.subject_entity_id != payoff.subject_entity_id:
+                continue
+            if plant.scene_id is None or payoff.scene_id is None:
+                continue
+            if ordinal[payoff.scene_id] < ordinal[plant.scene_id]:
+                continue
+            links.append(
+                SetupPayoffLink(
+                    link_id=stable_id("setup_payoff", script_id, plant.fact_id, payoff.fact_id),
+                    entity_id=plant.subject_entity_id,
+                    setup_fact_id=plant.fact_id,
+                    payoff_fact_id=payoff.fact_id,
+                    setup_scene_id=plant.scene_id,
+                    payoff_scene_id=payoff.scene_id,
+                )
+            )
+            used_payoffs.add(payoff.fact_id)
+            break
+    return links
+
+
+def _drift_diagnostics(
+    facts: list[ContinuityFact],
+    entities: dict[tuple[EntityKind, str], Entity],
+    scene_ordinals: dict[UUID, int],
+) -> list[CompileDiagnostic]:
+    """Emit typed warnings when prop/wardrobe/injury state changes across scenes."""
+    by_id = {entity.entity_id: entity for entity in entities.values()}
+    diagnostics: list[CompileDiagnostic] = []
+
+    def ordered(entity_id: UUID, kinds: set[FactKind]) -> list[ContinuityFact]:
+        selected = [
+            fact
+            for fact in facts
+            if fact.subject_entity_id == entity_id
+            and fact.kind in kinds
+            and fact.scene_id is not None
+        ]
+        return sorted(
+            selected,
+            key=lambda fact: (
+                scene_ordinals.get(fact.scene_id, 10**9) if fact.scene_id else 10**9,
+                fact.value,
+            ),
+        )
+
+    for entity in by_id.values():
+        if entity.kind == EntityKind.PROP:
+            timeline = ordered(entity.entity_id, {FactKind.HOLDS, FactKind.ABSENT})
+            saw_present = False
+            for fact in timeline:
+                if fact.kind == FactKind.HOLDS:
+                    saw_present = True
+                elif fact.kind == FactKind.ABSENT and saw_present:
+                    diagnostics.append(
+                        CompileDiagnostic(
+                            code="CL201",
+                            severity=DiagnosticSeverity.WARNING,
+                            message=(
+                                f"Prop state drift for '{entity.name}': previously present, "
+                                f"later marked absent ({fact.value})."
+                            ),
+                            source_span=fact.source_span,
+                        )
+                    )
+                    break
+
+        if entity.kind == EntityKind.WARDROBE:
+            states = [
+                fact.value.split(":", 1)[-1]
+                for fact in ordered(entity.entity_id, {FactKind.WEARS})
+                if ":" in fact.value
+            ]
+            unique = list(dict.fromkeys(states))
+            if len(unique) >= 2:
+                first = next(
+                    fact
+                    for fact in ordered(entity.entity_id, {FactKind.WEARS})
+                    if ":" in fact.value
+                )
+                diagnostics.append(
+                    CompileDiagnostic(
+                        code="CL202",
+                        severity=DiagnosticSeverity.WARNING,
+                        message=(
+                            f"Wardrobe state drift for '{entity.name}': "
+                            + " -> ".join(unique)
+                            + "."
+                        ),
+                        source_span=first.source_span,
+                    )
+                )
+
+        if entity.kind == EntityKind.INJURY:
+            states = [
+                fact.value.split(":", 1)[-1]
+                for fact in ordered(entity.entity_id, {FactKind.INJURED})
+                if ":" in fact.value
+            ]
+            unique = list(dict.fromkeys(states))
+            if len(unique) >= 2:
+                first = next(
+                    fact
+                    for fact in ordered(entity.entity_id, {FactKind.INJURED})
+                    if ":" in fact.value
+                )
+                diagnostics.append(
+                    CompileDiagnostic(
+                        code="CL203",
+                        severity=DiagnosticSeverity.INFO,
+                        message=(
+                            f"Injury progression for '{entity.name}': " + " -> ".join(unique) + "."
+                        ),
+                        source_span=first.source_span,
+                    )
+                )
+
+    return diagnostics

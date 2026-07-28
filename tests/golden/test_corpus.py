@@ -169,3 +169,16 @@ def test_unicode_fixture_preserves_non_ascii_provenance() -> None:
     assert "確認ハッシュ" in blob
     assert document.source_length == len(source)
     assert document.coverage.accounted_characters == len(source)
+
+
+def test_continuity_fixture_builds_complete_ledger() -> None:
+    from continuity_forge_ledger import EntityKind, FactKind, build_continuity_ledger
+
+    document = compile_file(FIXTURES / "continuity.fountain")
+    ledger = build_continuity_ledger(document)
+    assert ledger.script_id == document.script_id
+    assert len(ledger.scene_contracts) == len(document.scenes)
+    assert any(entity.kind == EntityKind.PROP for entity in ledger.entities)
+    assert any(fact.kind == FactKind.ENTERS for fact in ledger.facts)
+    assert ledger.setup_payoff_links
+    assert all(fact.atom_ids for fact in ledger.facts)
