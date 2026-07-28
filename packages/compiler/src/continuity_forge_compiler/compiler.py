@@ -46,7 +46,6 @@ def _coverage_report(
     uncovered_character_offsets = (
         non_whitespace_character_offsets - covered_character_offsets
     )
-
     covered_bytes = sum(
         len(character.encode("utf-8"))
         for index, character in enumerate(text)
@@ -129,6 +128,7 @@ def compile_text_result(
     dialogue_parts: list[str] = []
     dialogue_end_offset = 0
     dialogue_end_line = 0
+    pending_metadata_index: int | None = None
 
     def emit_atom(atom_type: AtomType, atom_text: str, span: SourceSpan) -> None:
         if current_scene_id is None:
@@ -206,6 +206,8 @@ def compile_text_result(
 
         if not stripped:
             flush_dialogue()
+            if current_scene_id is None:
+                pending_metadata_index = None
             continue
 
         if pending_character is not None:
@@ -215,11 +217,28 @@ def compile_text_result(
             continue
 
         if SCENE_RE.match(stripped):
+            pending_metadata_index = None
             flush_scene()
             current_slugline = stripped
             current_scene_id = stable_id("scene", script_id, len(scenes) + 1, stripped)
             emit_atom(AtomType.SCENE_HEADING, stripped, span)
         elif current_scene_id is None:
+            is_indented = bool(raw_line[:1].isspace())
+            if is_indented and pending_metadata_index is not None:
+                entry = metadata[pending_metadata_index]
+                metadata[pending_metadata_index] = entry.model_copy(
+                    update={
+                        "value": f"{entry.value}\n{stripped}",
+                        "source_span": SourceSpan(
+                            start_offset=entry.source_span.start_offset,
+                            end_offset=line_end,
+                            line_start=entry.source_span.line_start,
+                            line_end=line_no,
+                        ),
+                    }
+                )
+                continue
+
             metadata_match = METADATA_RE.match(stripped)
             if metadata_match is not None:
                 metadata.append(
@@ -229,7 +248,9 @@ def compile_text_result(
                         source_span=span,
                     )
                 )
+                pending_metadata_index = len(metadata) - 1
             else:
+                pending_metadata_index = None
                 diagnostics.append(
                     CompileDiagnostic(
                         code="CF_PARSE_CONTENT_BEFORE_SCENE",
@@ -294,19 +315,21 @@ def fdx_to_text(xml_text: str) -> str:
     output: list[str] = []
     for paragraph in root.findall(".//Paragraph"):
         paragraph_type = paragraph.attrib.get("Type", "Action")
-        text = "".join(node.text or "" for node in paragraph.findall(".//Text")).strip()
-        if not text:
+        paragraph_text = "".join(
+            node.text or "" for node in paragraph.findall(".//Text")
+        ).strip()
+        if not paragraph_text:
             continue
         if paragraph_type == "Scene Heading":
-            output.append(text)
+            output.append(paragraph_text)
         elif paragraph_type == "Character":
-            output.extend(["", text])
+            output.extend(["", paragraph_text])
         elif paragraph_type in {"Dialogue", "Parenthetical"}:
-            output.append(text)
+            output.append(paragraph_text)
         elif paragraph_type == "Transition":
-            output.extend(["", text])
+            output.extend(["", paragraph_text])
         else:
-            output.extend(["", text])
+            output.extend(["", paragraph_text])
     return "\n".join(output).strip() + "\n"
 
 
