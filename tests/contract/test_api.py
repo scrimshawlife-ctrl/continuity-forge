@@ -2,6 +2,27 @@ from continuity_forge_api.main import app
 from continuity_forge_runtime import get_runtime
 from fastapi.testclient import TestClient
 
+CONTINUITY_SAMPLE = """Title: Continuity Sample
+
+INT. SAFEHOUSE - NIGHT
+
+Mara enters with a red keycard.
+
+MARA
+If the jacket changes, the timeline is lying.
+
+INT. ALLEY - CONTINUOUS
+
+Mara still wears the jacket. The red keycard remains.
+
+MARA
+Keep rolling.
+
+INT. SAFEHOUSE - LATER
+
+Mara re-enters. The red keycard is gone.
+"""
+
 
 def test_compile_endpoint() -> None:
     client = TestClient(app)
@@ -170,3 +191,44 @@ def test_shot_contracts_endpoint() -> None:
     assert payload["contracts"][0]["required_atom_ids"]
     assert payload["contracts"][0]["start_state_hash"]
     assert payload["ledger_hash"]
+
+
+def test_controlled_proof_endpoint() -> None:
+    client = TestClient(app)
+    response = client.post(
+        "/v1/proof",
+        json={
+            "title": "Continuity Sample",
+            "document_key": "api-proof-ui",
+            "text": CONTINUITY_SAMPLE,
+            "seed": "ui-contract",
+            "budget_seconds": 60,
+            "actor_id": "api-proof",
+        },
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["schema_version"] == "m7.proof.v1"
+    assert payload["claim"] == "controlled_proof_not_production_ready"
+    assert payload["receipt_hash"]
+    assert payload["within_budget"] is True
+    assert payload["shots"]
+    assert payload["shots"][0]["attempts"] >= 2
+    assert "anonymous::api-proof-ui" in payload["document_key"]
+
+
+def test_web_ui_is_served() -> None:
+    client = TestClient(app)
+    index = client.get("/")
+    assert index.status_code == 200
+    assert "Proof workbench" in index.text
+    assert "Run controlled proof" in index.text
+    styles = client.get("/styles.css")
+    assert styles.status_code == 200
+    assert "Hallmark" in styles.text
+    tokens = client.get("/tokens.css")
+    assert tokens.status_code == 200
+    assert "--color-accent" in tokens.text
+    app_js = client.get("/app.js")
+    assert app_js.status_code == 200
+    assert "/v1/proof" in app_js.text
