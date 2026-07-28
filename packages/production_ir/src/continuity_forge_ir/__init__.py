@@ -1,6 +1,10 @@
 from .models import (
     AtomType,
+    CompileDiagnostic,
+    CompileResult,
+    CoverageReport,
     CoverageStatus,
+    DiagnosticSeverity,
     NarrativeAtom,
     SceneNode,
     ScriptDocument,
@@ -11,7 +15,11 @@ from .models import (
 
 __all__ = [
     "AtomType",
+    "CompileDiagnostic",
+    "CompileResult",
+    "CoverageReport",
     "CoverageStatus",
+    "DiagnosticSeverity",
     "NarrativeAtom",
     "SceneNode",
     "ScriptDocument",
