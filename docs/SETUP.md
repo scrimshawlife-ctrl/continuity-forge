@@ -158,6 +158,20 @@ continuity-forge proof tests/golden/fixtures/continuity.fountain --out out
 
 REST: default `POST /v1/compile`; optional `POST /v1/compile/incremental` (read-side, not a canon write).
 
+Workflow progress (long-form 4.6, poll-first):
+
+```bash
+# After POST /v1/pipeline/runs → use run_id
+curl -s "http://127.0.0.1:8080/v1/pipeline/runs/{run_id}/events"
+# Resume without replaying mutations:
+curl -s "http://127.0.0.1:8080/v1/pipeline/runs/{run_id}/events?after=2"
+curl -s "http://127.0.0.1:8080/v1/pipeline/runs/{run_id}/events?last_event_id=..."
+```
+
+Events are observability only (`workflow_events_observability_not_canon`).
+**Workflow complete ≠ production ready.** SSE is not required for the first slice.
+
+
 ---
 
 ## 5. Operator UI + REST API

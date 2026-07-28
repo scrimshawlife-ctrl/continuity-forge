@@ -139,6 +139,17 @@ const els = {
   metaWithin: $("meta-within"),
   metaShots: $("meta-shots"),
   metaCost: $("meta-cost"),
+  workflowPanel: $("workflow-panel"),
+  workflowStepLabel: $("workflow-step-label"),
+  workflowPercent: $("workflow-percent"),
+  workflowBar: $("workflow-bar"),
+  workflowFill: $("workflow-fill"),
+  workflowRunId: $("workflow-run-id"),
+  workflowStatus: $("workflow-status"),
+  workflowLastOk: $("workflow-last-ok"),
+  workflowError: $("workflow-error"),
+  workflowEvents: $("workflow-events"),
+  workflowHint: $("workflow-hint"),
   alert: $("alert"),
   chipHealth: $("chip-health"),
   chipBackend: $("chip-backend"),
@@ -504,6 +515,122 @@ function renderApprovals(payload) {
   }
 }
 
+/** Poll cursor for workflow events (resume without re-mutation). */
+const workflowPoll = {
+  runId: null,
+  afterSequence: 0,
+  lastEventId: null,
+  events: [],
+  timer: null,
+};
+
+function stopWorkflowPoll() {
+  if (workflowPoll.timer) {
+    window.clearInterval(workflowPoll.timer);
+    workflowPoll.timer = null;
+  }
+}
+
+function renderWorkflowProgress(page) {
+  if (!els.workflowPanel) return;
+  els.workflowPanel.hidden = false;
+  const progress = page.progress || {};
+  const percent = Number(progress.percent || 0);
+  const label =
+    progress.current_label ||
+    progress.current_step ||
+    page.status ||
+    "—";
+  setText(els.workflowStepLabel, label);
+  setText(els.workflowPercent, `${percent}%`);
+  if (els.workflowFill) {
+    els.workflowFill.style.width = `${Math.max(0, Math.min(100, percent))}%`;
+    els.workflowFill.classList.toggle(
+      "workflow-progress__fill--fail",
+      page.status === "failed",
+    );
+  }
+  if (els.workflowBar) {
+    els.workflowBar.setAttribute("aria-valuenow", String(percent));
+  }
+  setText(els.workflowRunId, shortHash(page.run_id || workflowPoll.runId));
+  setText(els.workflowStatus, page.status || progress.run_status || "—");
+  setText(
+    els.workflowLastOk,
+    progress.last_successful_checkpoint || "—",
+  );
+  const err =
+    progress.error_message ||
+    (progress.error_code ? progress.error_code : null);
+  setText(els.workflowError, err || "—");
+  if (els.workflowHint) {
+    els.workflowHint.textContent =
+      "Workflow complete ≠ production ready · poll observability · not film canon";
+  }
+  if (els.workflowEvents) {
+    els.workflowEvents.replaceChildren();
+    const list = workflowPoll.events;
+    for (const ev of list) {
+      const li = document.createElement("li");
+      const step = ev.label || ev.step || ev.kind || "event";
+      li.textContent = `${ev.sequence}. ${ev.kind} · ${step}` +
+        (ev.status ? ` · ${ev.status}` : "");
+      els.workflowEvents.appendChild(li);
+    }
+  }
+}
+
+async function pollWorkflowEvents(runId, { reset = false } = {}) {
+  if (!runId) return;
+  if (reset) {
+    workflowPoll.runId = runId;
+    workflowPoll.afterSequence = 0;
+    workflowPoll.lastEventId = null;
+    workflowPoll.events = [];
+  }
+  const params = new URLSearchParams();
+  if (workflowPoll.lastEventId) {
+    params.set("last_event_id", workflowPoll.lastEventId);
+  } else if (workflowPoll.afterSequence > 0) {
+    params.set("after", String(workflowPoll.afterSequence));
+  }
+  const qs = params.toString() ? `?${params}` : "";
+  const page = await api(
+    `/v1/pipeline/runs/${encodeURIComponent(runId)}/events${qs}`,
+  );
+  const batch = page.events || [];
+  for (const ev of batch) {
+    workflowPoll.events.push(ev);
+  }
+  if (page.last_event_id) {
+    workflowPoll.lastEventId = page.last_event_id;
+  }
+  if (page.next_after_sequence != null) {
+    workflowPoll.afterSequence = page.next_after_sequence;
+  }
+  renderWorkflowProgress(page);
+  const terminal =
+    page.status === "completed" ||
+    page.status === "failed" ||
+    page.status === "cancelled";
+  if (terminal) {
+    stopWorkflowPoll();
+  }
+  return page;
+}
+
+function startWorkflowPoll(runId) {
+  stopWorkflowPoll();
+  pollWorkflowEvents(runId, { reset: true }).catch((err) =>
+    showAlert(err instanceof Error ? err.message : String(err)),
+  );
+  // Short polls for in-process runs that may already be complete on first hit.
+  workflowPoll.timer = window.setInterval(() => {
+    if (!workflowPoll.runId) return;
+    pollWorkflowEvents(workflowPoll.runId).catch(() => stopWorkflowPoll());
+  }, 1500);
+}
+
 function renderRuns(payload) {
   showControl();
   els.runListWrap.hidden = false;
@@ -519,6 +646,9 @@ function renderRuns(payload) {
   }
   for (const r of rows) {
     const tr = document.createElement("tr");
+    tr.className = "run-row";
+    tr.tabIndex = 0;
+    tr.title = "Click to poll workflow events";
     const status = r.status || "—";
     const created = r.created_at || r.started_at || "—";
     const idem = r.command?.idempotency_key || "—";
@@ -528,6 +658,26 @@ function renderRuns(payload) {
       <td>${escapeHtml(idem)}</td>
       <td>${escapeHtml(created)}</td>
     `;
+    const open = () => {
+      els.runRows.querySelectorAll(".run-row-active").forEach((el) => {
+        el.classList.remove("run-row-active");
+      });
+      tr.classList.add("run-row-active");
+      if (r.run_id) {
+        startWorkflowPoll(r.run_id);
+        showAlert(
+          `Polling workflow events · ${shortHash(r.run_id)} · not production ready`,
+          "ok",
+        );
+      }
+    };
+    tr.addEventListener("click", open);
+    tr.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter" || ev.key === " ") {
+        ev.preventDefault();
+        open();
+      }
+    });
     els.runRows.appendChild(tr);
   }
 }

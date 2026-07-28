@@ -639,6 +639,53 @@
                     <tbody id="run-rows"></tbody>
                   </table>
                 </div>
+                <!-- Long-form 4.6: poll workflow events (not production film) -->
+                <div class="workflow-panel" id="workflow-panel" hidden>
+                  <div class="workflow-panel__head">
+                    <span class="workflow-panel__title">Workflow progress</span>
+                    <span class="chip chip--warn" id="workflow-claim-chip">
+                      workflow complete ≠ production ready
+                    </span>
+                  </div>
+                  <p class="field__hint" id="workflow-hint">
+                    Poll-only observability. Mutations still use lease + idempotency.
+                  </p>
+                  <div class="workflow-progress" aria-live="polite">
+                    <div class="workflow-progress__meta">
+                      <span id="workflow-step-label">—</span>
+                      <span id="workflow-percent">0%</span>
+                    </div>
+                    <div
+                      class="workflow-progress__bar"
+                      role="progressbar"
+                      aria-valuemin="0"
+                      aria-valuemax="100"
+                      aria-valuenow="0"
+                      id="workflow-bar"
+                    >
+                      <div class="workflow-progress__fill" id="workflow-fill"></div>
+                    </div>
+                    <div class="hash-grid" id="workflow-meta-grid">
+                      <div class="hash-row">
+                        <dt>Run</dt>
+                        <dd id="workflow-run-id">—</dd>
+                      </div>
+                      <div class="hash-row">
+                        <dt>Status</dt>
+                        <dd id="workflow-status">—</dd>
+                      </div>
+                      <div class="hash-row">
+                        <dt>Last ok checkpoint</dt>
+                        <dd id="workflow-last-ok">—</dd>
+                      </div>
+                      <div class="hash-row">
+                        <dt>Error</dt>
+                        <dd id="workflow-error">—</dd>
+                      </div>
+                    </div>
+                    <ol class="workflow-events" id="workflow-events"></ol>
+                  </div>
+                </div>
                 <p id="control-empty" class="empty">
                   Leases gate mutations. Approvals need an active lease by the same actor.
                 </p>

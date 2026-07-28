@@ -12,6 +12,7 @@ from continuity_forge_harness import (
     PipelineCommand,
     PipelineError,
     WorkflowRun,
+    build_event_page,
     execute_kernel_pipeline,
     temporal_registration_manifest,
 )
@@ -312,6 +313,30 @@ def get_pipeline_run(run_id: UUID) -> WorkflowRun:
     if run is None:
         raise HTTPException(status_code=404, detail="pipeline run not found")
     return run
+
+
+@app.get("/v1/pipeline/runs/{run_id}/events")
+def get_pipeline_run_events(
+    run_id: UUID,
+    after: int = 0,
+    last_event_id: str | None = None,
+) -> dict[str, Any]:
+    """Poll workflow events for a run (observability; not film canon).
+
+    Transport is **poll-first**. Clients resume with ``after`` (sequence) or
+    ``last_event_id`` without replaying mutations. SSE may be added later.
+
+    Explicit: workflow complete ≠ production ready.
+    """
+    run = _rt().run_store.get(run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="pipeline run not found")
+    page = build_event_page(
+        run,
+        after_sequence=max(0, after),
+        last_event_id=last_event_id,
+    )
+    return page.model_dump(mode="json")
 
 
 @app.get("/v1/pipeline/temporal-manifest")
