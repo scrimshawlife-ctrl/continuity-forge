@@ -188,3 +188,17 @@ Canonical mutations require schema validation, provenance, deterministic diagnos
 Package version: **1.3.0** (kept in sync with [`pyproject.toml`](pyproject.toml) `[project].version` — no bump in this docs pass).
 
 Controlled proof uses mock media; production providers and durability backends are optional and env-gated. See milestone labels above for Implemented vs Integration-tested vs Production-validated.
+
+## Narrative Engineering Companion Skill
+
+In addition to the operator skill (`hermes-continuity-forge`), this repo ships **`skills/scriptwriting/`** — a production-grade narrative engineering system (premise → characters → structure → scene contracts → anti-slop → production handoff).
+
+Use `scriptwriting` for creative development and structural work. Handoff approved material to Continuity Forge (via CLI or MCP) for canonical ledger, IR, and shot contracts.
+
+See `skills/scriptwriting/SKILL.md` and `skills/scriptwriting/references/continuity-forge-integration.md`.
+
+Install both:
+```bash
+cp -R skills/scriptwriting ~/.hermes/skills/
+cp -R skills/hermes-continuity-forge ~/.hermes/skills/
+```
