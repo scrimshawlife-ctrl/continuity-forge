@@ -65,6 +65,7 @@ pip install -e '.[dev]'
 make validate
 python -m continuity_forge_compiler.cli compile tests/golden/fixtures/minimal.fountain --out out
 python -m continuity_forge_compiler.cli compile tests/golden/fixtures/minimal.fdx --out out
+python -m continuity_forge_compiler.cli ledger tests/golden/fixtures/continuity.fountain --out out
 continuity-forge-mcp
 ```
 

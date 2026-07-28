@@ -25,10 +25,12 @@ def test_ledger_registers_characters_locations_props_wardrobe_injury() -> None:
     assert "mara" in by_kind[EntityKind.CHARACTER]
     assert "eli" in by_kind[EntityKind.CHARACTER]
     assert any("safehouse" in name for name in by_kind[EntityKind.LOCATION])
-    assert "red keycard" in by_kind[EntityKind.PROP] or "keycard" in by_kind[EntityKind.PROP]
-    assert "brass compass" in by_kind[EntityKind.PROP] or "compass" in by_kind[EntityKind.PROP]
+    assert "red keycard" in by_kind[EntityKind.PROP]
+    assert "brass compass" in by_kind[EntityKind.PROP]
+    assert "keycard" not in by_kind[EntityKind.PROP]
+    assert "compass" not in by_kind[EntityKind.PROP]
     assert "jacket" in by_kind[EntityKind.WARDROBE]
-    assert any("forearm" in name or "cut" in name for name in by_kind[EntityKind.INJURY])
+    assert "forearm cut" in by_kind[EntityKind.INJURY]
 
 
 def test_ledger_records_enter_exit_and_scene_contracts() -> None:
@@ -87,3 +89,23 @@ def test_entity_ids_stable_across_rebuild() -> None:
     assert {entity.entity_id for entity in first.entities} == {
         entity.entity_id for entity in second.entities
     }
+
+
+def test_ledger_emits_drift_diagnostics() -> None:
+    document = compile_file(FIXTURES / "continuity.fountain")
+    ledger = build_continuity_ledger(document)
+    codes = {item.code for item in ledger.diagnostics}
+    assert "CL201" in codes  # prop present -> absent
+    assert "CL202" in codes  # wardrobe state change
+    assert "CL203" in codes  # injury progression
+
+
+def test_character_enter_aliases_to_cue_entity() -> None:
+    document = compile_text(
+        "INT. ROOM - DAY\n\nMara enters with a red keycard.\n\nMARA\nLocked.\n",
+        document_key="alias",
+    )
+    ledger = build_continuity_ledger(document)
+    characters = [entity for entity in ledger.entities if entity.kind == EntityKind.CHARACTER]
+    assert len(characters) == 1
+    assert characters[0].normalized_name == "mara"
