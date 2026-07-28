@@ -109,6 +109,21 @@ def proof_cmd(
     typer.echo(str(target))
 
 
+@app.command("worker-check")
+def worker_check_cmd(
+    host: Annotated[str | None, typer.Option("--host")] = None,
+    namespace: Annotated[str | None, typer.Option("--namespace")] = None,
+    task_queue: Annotated[str | None, typer.Option("--task-queue")] = None,
+) -> None:
+    """Print Temporal worker registration spec without connecting to a cluster."""
+    from continuity_forge_harness import build_worker_spec, try_build_temporal_worker_note
+
+    spec = build_worker_spec(task_queue=task_queue, target_host=host, namespace=namespace)
+    typer.echo(
+        json.dumps({"spec": spec.as_dict(), "temporal": try_build_temporal_worker_note()}, indent=2)
+    )
+
+
 @app.command("worker-dry-run")
 def worker_dry_run_cmd(
     script: Annotated[Path, typer.Argument(exists=True, dir_okay=False)],

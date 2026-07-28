@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "continuity-forge"
-version = "1.0.0rc2"
+version = "1.0.0rc3"
 description = "Deterministic cinematic-production kernel and durable harness for drift-resistant AI film generation"
 requires-python = ">=3.12"
 dependencies = [
@@ -31,6 +31,7 @@ temporal = [
 [project.scripts]
 continuity-forge = "continuity_forge_compiler.cli:app"
 continuity-forge-mcp = "continuity_forge_mcp.server:main"
+continuity-forge-worker = "continuity_forge_harness.temporal_runtime:worker_main"
 
 [tool.hatch.build.targets.wheel]
 packages = [

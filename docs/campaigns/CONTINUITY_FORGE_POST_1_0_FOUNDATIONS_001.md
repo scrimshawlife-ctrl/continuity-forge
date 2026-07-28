@@ -12,6 +12,9 @@ run offline without a cluster.
 2. Provider registry (`mock` default; fail-closed real slots)
 3. Temporal activities as pure callables + optional `temporalio` worker entrypoint
 4. CLI hooks for persistence root and worker dry-run
+5. Content-addressed `ArtifactStore`
+6. HTTP provider worker (`CF_PROVIDER=http`) with dry-run default
+7. `continuity-forge-worker --check` offline registration spec
 
 ## Exit gate
 
@@ -19,6 +22,9 @@ run offline without a cluster.
 file_store_roundtrip: PASS
 provider_registry_mock_default: PASS
 temporal_activities_offline: PASS
+artifact_store_roundtrip: PASS
+http_worker_injectable_transport: PASS
+worker_check_cli: PASS
 make_validate: PASS
 ```
 
