@@ -41,7 +41,7 @@ long_form_campaign_doc: PASS
 feature_implementation: IN_PROGRESS
 slice_1_scene_shot_nav: IMPLEMENTED  # apps/web scene nav + filter + URL deep-link
 slice_2_virtualized_tables: IMPLEMENTED  # virtual tbody + filters/sort + flag fallback
-slice_3_dependency_invalidation: NOT_STARTED
+slice_3_dependency_invalidation: IMPLEMENTED  # pure graph + POST /v1/invalidation/preview + UI stale column
 trivial_stubs: NONE
 ```
 

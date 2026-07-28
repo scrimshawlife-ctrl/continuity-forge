@@ -263,6 +263,8 @@ def test_web_ui_is_served() -> None:
     assert 'id="shot-virtual"' in index.text
     assert "Virtualize rows" in index.text
     assert 'id="shot-filter-status"' in index.text
+    assert "Preview stale" in index.text
+    assert ">Stale<" in index.text or "Stale</th>" in index.text
     assert 'id="canon"' in index.text
     assert 'id="control"' in index.text
     assert "Acquire lease" in index.text
@@ -294,6 +296,33 @@ def test_web_ui_is_served() -> None:
 def test_health_reports_version() -> None:
     payload = TestClient(app).get("/health").json()
     assert payload["version"] == "1.3.0"
+
+
+def test_invalidation_preview_endpoint() -> None:
+    client = TestClient(app)
+    source = CONTINUITY_SAMPLE
+    # Compile once to learn a scene id via shot contracts
+    shots = client.post(
+        "/v1/shot-contracts",
+        json={"title": "Inv", "document_key": "inv-prev", "text": source},
+    )
+    assert shots.status_code == 200
+    scene_id = shots.json()["contracts"][0]["scene_id"]
+    response = client.post(
+        "/v1/invalidation/preview",
+        json={
+            "title": "Inv",
+            "document_key": "inv-prev",
+            "text": source,
+            "change": {"scene_ids": [scene_id]},
+        },
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["claim"] == "invalidation_preview_not_a_canon_write"
+    assert payload["report"]["stale_ids"]
+    assert payload["stale_shot_ids"]
+    assert "PROPOSED" in payload["report"]["authority_note"]
 
 
 def test_lease_approvals_and_runs_endpoints() -> None:

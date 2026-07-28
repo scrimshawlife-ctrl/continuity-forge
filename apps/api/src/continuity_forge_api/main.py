@@ -11,7 +11,7 @@ from continuity_forge_harness import (
     execute_kernel_pipeline,
     temporal_registration_manifest,
 )
-from continuity_forge_ir import ScriptDocument
+from continuity_forge_ir import ChangeSet, ScriptDocument, StaleReport
 from continuity_forge_ledger import ContinuityLedger, build_continuity_ledger
 from continuity_forge_operator import (
     ApprovalStatus,
@@ -23,7 +23,7 @@ from continuity_forge_operator import (
 from continuity_forge_providers import ArtifactCandidate
 from continuity_forge_repair import LoopResult, ProofReceipt, run_controlled_proof, run_repair_loop
 from continuity_forge_runtime import RuntimeContext, get_runtime
-from continuity_forge_shots import ShotContractBundle, compile_shot_contracts
+from continuity_forge_shots import ShotContractBundle, compile_shot_contracts, preview_invalidation
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -126,6 +126,18 @@ class ProofRequest(BaseModel):
     actor_id: str = "proof-operator"
 
 
+class InvalidationPreviewRequest(BaseModel):
+    """Pure invalidation preview — does not write canon or elevate PROPOSED."""
+
+    title: str = "Untitled"
+    text: str
+    document_key: str | None = None
+    format: Literal["fountain", "fdx"] = "fountain"
+    revision: str = "0.1.0"
+    change: ChangeSet = Field(default_factory=ChangeSet)
+    force_full: bool = False
+
+
 def _document(request: CompileRequest) -> ScriptDocument:
     compiler = compile_fdx_text if request.format == "fdx" else compile_text
     return compiler(
@@ -201,6 +213,40 @@ def continuity_ledger(request: CompileRequest) -> ContinuityLedger:
 @app.post("/v1/shot-contracts", response_model=ShotContractBundle)
 def shot_contracts(request: CompileRequest) -> ShotContractBundle:
     return compile_shot_contracts(_document(request))
+
+
+@app.post("/v1/invalidation/preview")
+def invalidation_preview(request: InvalidationPreviewRequest) -> dict[str, Any]:
+    """Return deterministic stale artifact set for a change (read-only).
+
+    Does not mutate project stores, leases, or provider state. PROPOSED
+    candidates are never elevated to canon by this endpoint.
+    """
+    document = _document(
+        CompileRequest(
+            title=request.title,
+            text=request.text,
+            document_key=request.document_key,
+            format=request.format,
+            revision=request.revision,
+        )
+    )
+    bundle = compile_shot_contracts(document)
+    report: StaleReport = preview_invalidation(
+        document,
+        bundle,
+        request.change,
+        force_full=request.force_full,
+    )
+    from continuity_forge_ir import stale_shot_ids
+
+    return {
+        "report": report.model_dump(mode="json"),
+        "stale_shot_ids": stale_shot_ids(report),
+        "scene_count": len(document.scenes),
+        "shot_count": len(bundle.contracts),
+        "claim": "invalidation_preview_not_a_canon_write",
+    }
 
 
 @app.post("/v1/pipeline/runs", response_model=WorkflowRun)

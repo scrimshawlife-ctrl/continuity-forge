@@ -1,3 +1,13 @@
+from .dependency_graph import (
+    ArtifactKind,
+    ChangeSet,
+    DependencyGraph,
+    StaleReport,
+    artifact_id,
+    build_graph,
+    compute_stale,
+    stale_shot_ids,
+)
 from .models import (
     AtomType,
     CompileDiagnostic,
@@ -15,10 +25,13 @@ from .models import (
 )
 
 __all__ = [
+    "ArtifactKind",
     "AtomType",
+    "ChangeSet",
     "CompileDiagnostic",
     "CoverageReport",
     "CoverageStatus",
+    "DependencyGraph",
     "DiagnosticSeverity",
     "NarrativeAtom",
     "SceneNode",
@@ -26,6 +39,11 @@ __all__ = [
     "SegmentKind",
     "SourceSegment",
     "SourceSpan",
+    "StaleReport",
+    "artifact_id",
+    "build_graph",
+    "compute_stale",
     "content_hash",
     "stable_id",
+    "stale_shot_ids",
 ]
