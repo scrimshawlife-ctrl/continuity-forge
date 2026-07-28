@@ -1,6 +1,6 @@
-# MCP read-only compiler server
+# MCP Continuity Forge server
 
-M0 exposes deterministic, non-persistent compiler queries over stdio using the official MCP Python SDK. No tool writes canonical state, files, databases, or workflow history.
+Stdio MCP server for Hermes/OpenClaw. No tool writes canonical film state without a mutation contract; generation returns `PROPOSED` candidates only.
 
 ## Run
 
@@ -8,20 +8,23 @@ M0 exposes deterministic, non-persistent compiler queries over stdio using the o
 continuity-forge-mcp
 ```
 
-## Tools
+## Tool groups
 
-- `compile_script`: compile supplied Fountain source into validated Production IR without persistence
-- `get_compile_diagnostics`: return typed deterministic diagnostics
-- `list_scenes`: return compact stable scene summaries
-- `get_scene`: return one scene by stable identifier
-- `audit_script_coverage`: return source-accounting totals and uncovered spans
-- `build_ledger`: derive a deterministic continuity ledger from compiled source
-- `list_entities`: list ledger entities (characters, locations, props, wardrobe, injury)
-- `list_setup_payoff_links`: list setup/payoff links from the ledger
-- `build_shot_contracts`: compile model-neutral shot contracts from source
-- `list_shot_summaries`: compact per-scene shot summaries
-- `run_kernel_pipeline`: durable compile → ledger → shots under a mutation contract
-- `get_pipeline_run`: fetch a pipeline run by ID
-- `get_temporal_manifest`: Temporal adapter registration contracts
+### Kernel reads
+- `compile_script`, `get_compile_diagnostics`, `list_scenes`, `get_scene`, `audit_script_coverage`
+- `build_ledger`, `list_entities`, `list_setup_payoff_links`
+- `build_shot_contracts`, `list_shot_summaries`
 
-Compile/ledger/shot tools remain stateless reads. Pipeline tools use an in-process durable run store with idempotency; run records are execution provenance, not canonical film state.
+### Durable pipeline
+- `run_kernel_pipeline`, `get_pipeline_run`, `get_temporal_manifest`
+
+### Operator (M4)
+- `acquire_write_lease`, `release_write_lease`, `ingest_script`
+- `get_project_status`, `resolve_resource`, `audit_drift`
+- `inspect_scene`, `inspect_character_state`, `list_pipeline_runs`
+
+### Generation (M5/M6 mock)
+- `queue_generation` — PROPOSED mock candidate
+- `run_shot_repair_loop` — generate → validate → repair
+
+Resources use `cf://projects/...`, `cf://scenes/...`, `cf://shots/...` via `resolve_resource`.

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "continuity-forge"
-version = "0.5.0"
+version = "1.0.0rc1"
 description = "Deterministic cinematic-production kernel and durable harness for drift-resistant AI film generation"
 requires-python = ">=3.12"
 dependencies = [
@@ -36,6 +36,8 @@ packages = [
   "packages/continuity_ledger/src/continuity_forge_ledger",
   "packages/shot_contracts/src/continuity_forge_shots",
   "packages/harness/src/continuity_forge_harness",
+  "packages/operator/src/continuity_forge_operator",
+  "packages/repair/src/continuity_forge_repair",
   "packages/providers/src/continuity_forge_providers",
   "apps/api/src/continuity_forge_api",
   "apps/mcp/src/continuity_forge_mcp",
@@ -48,6 +50,8 @@ pythonpath = [
   "packages/continuity_ledger/src",
   "packages/shot_contracts/src",
   "packages/harness/src",
+  "packages/operator/src",
+  "packages/repair/src",
   "packages/providers/src",
   "apps/api/src",
   "apps/mcp/src",
