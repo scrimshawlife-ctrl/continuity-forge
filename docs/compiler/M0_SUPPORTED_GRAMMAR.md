@@ -10,6 +10,7 @@ This document defines the constructs covered by the executable M0 golden corpus.
 - dialogue blocks containing parentheticals and multiple nonblank lines
 - uppercase dialogue text after a character cue
 - Fountain transitions `CUT TO:`, `FADE IN:`, and `FADE OUT.` when they occur after a scene heading
+- single-line Fountain title-page metadata entries in `Key: Value` form
 - multiple scenes
 - UTF-8 screenplay text and byte-accurate source accounting
 - Final Draft XML (`.fdx`) normalization for scene heading, action, character, dialogue, parenthetical, and transition paragraph types
@@ -22,7 +23,15 @@ Supported fixtures must satisfy all of the following:
 - zero uncovered non-whitespace source bytes
 - no `CF_COVERAGE_UNEMITTED_SOURCE` diagnostic
 - no error-severity diagnostic
-- valid ordered source spans for every atom
+- valid ordered source spans for every atom and metadata entry
+
+## Title-page metadata semantics
+
+Before the first scene heading, a nonblank line matching `Key: Value` is compiled into a `ScriptMetadataEntry` with a normalized lowercase key, preserved value, and exact source span.
+
+Metadata remains separate from narrative atoms and does not receive a synthetic scene ID. Its source spans participate in coverage accounting, so a valid title page does not create silent omissions.
+
+Multiline or indented continuation values remain deferred.
 
 ## Dialogue-block semantics
 
@@ -36,15 +45,16 @@ M0 classifies nonblank screenplay lines in this order:
 
 1. active dialogue-block content
 2. scene heading
-3. transition
-4. new character cue
-5. action
+3. pre-scene `Key: Value` metadata
+4. transition
+5. new character cue
+6. action
 
-This ordering prevents uppercase dialogue, parentheticals, and transition tokens from being misclassified as character cues.
+This ordering prevents uppercase dialogue, parentheticals, transitions, and title-page metadata from being misclassified.
 
 ## Detected but not accepted as clean input
 
-- content before the first scene heading, including an opening `FADE IN:`
+- non-metadata content before the first scene heading, including an opening `FADE IN:`
 - orphan character cues
 - screenplay text containing no scene headings
 - malformed FDX XML
@@ -54,10 +64,11 @@ These inputs fail closed or produce typed diagnostics. They are not part of the 
 
 ## Deferred grammar
 
+- multiline title-page metadata values
 - dual dialogue
 - centered text
 - lyrics
-- notes, boneyards, sections, synopses, and title pages
+- notes, boneyards, sections, and synopses
 - forced Fountain elements
 - page breaks
 - revision marks
