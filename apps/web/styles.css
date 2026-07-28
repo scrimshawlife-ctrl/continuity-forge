@@ -94,6 +94,19 @@ button.linkish:focus-visible {
   outline-offset: 2px;
 }
 
+.decide-cell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2xs);
+  align-items: center;
+}
+
+.decide-cell .btn {
+  min-height: 2rem;
+  padding: var(--space-2xs) var(--space-xs);
+  font-size: var(--text-xs);
+}
+
 /* ── N8 Terminal command nav ── */
 .nav-term {
   position: sticky;

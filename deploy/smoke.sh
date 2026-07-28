@@ -51,4 +51,20 @@ echo "== list projects =="
 curl -sf "${AUTH[@]}" "$BASE/v1/projects" \
   | python -c 'import json,sys; d=json.load(sys.stdin); print("tenant", d["tenant_id"], "count", len(d["projects"]))'
 
+echo "== lease + approvals =="
+curl -sf "${AUTH[@]}" -X POST "$BASE/v1/projects/lease" \
+  -H 'Content-Type: application/json' \
+  -d "{\"document_key\":\"$DOC\",\"holder\":\"smoke\",\"ttl_seconds\":120}" \
+  | python -c 'import json,sys; d=json.load(sys.stdin); print("lease", d["holder"])'
+curl -sf "${AUTH[@]}" "$BASE/v1/projects/$DOC/lease" \
+  | python -c 'import json,sys; d=json.load(sys.stdin); assert d["active"] is True; print("lease active")'
+curl -sf "${AUTH[@]}" -X POST "$BASE/v1/approvals/request" \
+  -H 'Content-Type: application/json' \
+  -d "{\"document_key\":\"$DOC\",\"kind\":\"commit_candidate\",\"actor_id\":\"smoke\",\"authorization_scope\":\"approvals\",\"idempotency_key\":\"smoke-appr\",\"rationale\":\"smoke\"}" \
+  | python -c 'import json,sys; d=json.load(sys.stdin); print("approval", d["status"], d["approval_id"][:8])'
+curl -sf "${AUTH[@]}" "$BASE/v1/projects/$DOC/approvals" \
+  | python -c 'import json,sys; d=json.load(sys.stdin); assert d["approvals"]; print("approvals", len(d["approvals"]))'
+curl -sf "${AUTH[@]}" -X DELETE "$BASE/v1/projects/$DOC/lease?holder=smoke" \
+  | python -c 'import json,sys; d=json.load(sys.stdin); print(d["status"])'
+
 echo "SMOKE OK"

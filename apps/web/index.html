@@ -25,6 +25,7 @@
 <a href="#run" id="nav-run">--proof</a>
 <a href="#receipt" id="nav-receipt">--receipt</a>
 <a href="#canon" id="nav-canon">--canon</a>
+<a href="#control" id="nav-control">--control</a>
 <a href="#health" id="nav-health">--health</a><span class="caret" aria-hidden="true">▮</span></pre>
     </header>
 
@@ -332,11 +333,123 @@
             </p>
           </div>
         </section>
+
+        <section class="panel panel--wide" id="control" aria-labelledby="control-title">
+          <div class="panel__head">
+            <h2 class="panel__title" id="control-title">Control</h2>
+            <span class="chip">leases · approvals · runs</span>
+          </div>
+          <div class="panel__body">
+            <div class="field-row">
+              <div class="field">
+                <label for="holder">lease holder / actor</label>
+                <input
+                  id="holder"
+                  name="holder"
+                  type="text"
+                  autocomplete="off"
+                  spellcheck="false"
+                  value="proof-ui"
+                />
+              </div>
+              <div class="field">
+                <label for="approval-kind">approval kind</label>
+                <input
+                  id="approval-kind"
+                  name="approval_kind"
+                  type="text"
+                  autocomplete="off"
+                  spellcheck="false"
+                  value="commit_candidate"
+                />
+              </div>
+            </div>
+            <div class="field">
+              <label for="approval-rationale">rationale</label>
+              <input
+                id="approval-rationale"
+                name="approval_rationale"
+                type="text"
+                autocomplete="off"
+                value="operator workbench decision"
+              />
+            </div>
+            <div class="btn-row">
+              <button type="button" class="btn btn--primary" id="btn-lease-acquire">
+                Acquire lease
+              </button>
+              <button type="button" class="btn btn--ghost" id="btn-lease-release">
+                Release lease
+              </button>
+              <button type="button" class="btn btn--ghost" id="btn-lease-refresh">
+                Refresh lease
+              </button>
+              <button type="button" class="btn btn--ghost" id="btn-approval-request">
+                Request approval
+              </button>
+              <button type="button" class="btn btn--ghost" id="btn-approvals-list">
+                List approvals
+              </button>
+              <button type="button" class="btn btn--ghost" id="btn-runs-list">
+                List runs
+              </button>
+            </div>
+            <div class="hash-grid" id="lease-grid" hidden>
+              <div class="hash-row">
+                <dt>lease</dt>
+                <dd id="lease-active">—</dd>
+              </div>
+              <div class="hash-row">
+                <dt>holder</dt>
+                <dd id="lease-holder">—</dd>
+              </div>
+              <div class="hash-row">
+                <dt>scope</dt>
+                <dd id="lease-scope">—</dd>
+              </div>
+              <div class="hash-row">
+                <dt>expires_at</dt>
+                <dd id="lease-expires">—</dd>
+              </div>
+            </div>
+            <div class="table-wrap" id="approval-list-wrap" hidden>
+              <table class="receipt">
+                <thead>
+                  <tr>
+                    <th scope="col">kind</th>
+                    <th scope="col">status</th>
+                    <th scope="col">actor</th>
+                    <th scope="col">id</th>
+                    <th scope="col">decide</th>
+                  </tr>
+                </thead>
+                <tbody id="approval-rows"></tbody>
+              </table>
+            </div>
+            <div class="table-wrap" id="run-list-wrap" hidden>
+              <table class="receipt">
+                <thead>
+                  <tr>
+                    <th scope="col">run_id</th>
+                    <th scope="col">status</th>
+                    <th scope="col">idempotency</th>
+                    <th scope="col">created</th>
+                  </tr>
+                </thead>
+                <tbody id="run-rows"></tbody>
+              </table>
+            </div>
+            <p id="control-empty" class="empty">
+              Write leases gate mutations. Approvals require an active lease held by the
+              same actor. Runs list pipeline executions for the document key.
+            </p>
+          </div>
+        </section>
       </div>
 
       <footer class="foot-dense">
         <p>
-          Continuity Forge v1.2.0 · operator workbench · Hallmark Terminal · JetBrains Mono
+          Continuity Forge v1.3.0 · operator workbench · Hallmark Terminal · JetBrains Mono
           · controlled_proof_not_production_ready · models PROPOSED only · kernel owns
           canon · local validate is CI authority when Actions billing blocks · REST
           /v1/proof · MCP operator surface separate · private research codebase.

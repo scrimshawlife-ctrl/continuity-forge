@@ -1,6 +1,7 @@
 /**
- * Continuity Forge · Proof Workbench v1.2
- * Primary: POST /v1/proof → receipt. Secondary: canon status, export, auth bootstrap.
+ * Continuity Forge · Proof Workbench v1.3
+ * Primary: POST /v1/proof → receipt.
+ * Secondary: canon, export, auth bootstrap, leases, approvals, runs.
  */
 
 const SAMPLE_SCRIPT = `Title: Continuity Sample
@@ -62,6 +63,8 @@ const $ = (id) => document.getElementById(id);
 
 /** @type {Record<string, any> | null} */
 let lastReceipt = null;
+/** @type {Record<string, any> | null} */
+let lastWhoami = null;
 
 const els = {
   script: $("script"),
@@ -71,6 +74,9 @@ const els = {
   seed: $("seed"),
   apiBase: $("api-base"),
   apiKey: $("api-key"),
+  holder: $("holder"),
+  approvalKind: $("approval-kind"),
+  approvalRationale: $("approval-rationale"),
   btnProof: $("btn-proof"),
   btnHealth: $("btn-health"),
   btnCompile: $("btn-compile"),
@@ -82,6 +88,12 @@ const els = {
   btnCopyHash: $("btn-copy-hash"),
   btnStatus: $("btn-status"),
   btnList: $("btn-list"),
+  btnLeaseAcquire: $("btn-lease-acquire"),
+  btnLeaseRelease: $("btn-lease-release"),
+  btnLeaseRefresh: $("btn-lease-refresh"),
+  btnApprovalRequest: $("btn-approval-request"),
+  btnApprovalsList: $("btn-approvals-list"),
+  btnRunsList: $("btn-runs-list"),
   runState: $("run-state"),
   runMeta: $("run-meta"),
   metaElapsed: $("meta-elapsed"),
@@ -116,6 +128,16 @@ const els = {
   projectListWrap: $("project-list-wrap"),
   projectRows: $("project-rows"),
   canonEmpty: $("canon-empty"),
+  leaseGrid: $("lease-grid"),
+  leaseActive: $("lease-active"),
+  leaseHolder: $("lease-holder"),
+  leaseScope: $("lease-scope"),
+  leaseExpires: $("lease-expires"),
+  approvalListWrap: $("approval-list-wrap"),
+  approvalRows: $("approval-rows"),
+  runListWrap: $("run-list-wrap"),
+  runRows: $("run-rows"),
+  controlEmpty: $("control-empty"),
 };
 
 function baseUrl() {
@@ -171,6 +193,25 @@ function activeDocumentKey() {
   return "";
 }
 
+function actorId() {
+  const fromField = (els.holder?.value || "").trim();
+  if (fromField) return fromField;
+  if (lastWhoami?.actor_id) return String(lastWhoami.actor_id);
+  return "proof-ui";
+}
+
+function requireDocumentKey() {
+  const key = activeDocumentKey();
+  if (!key) {
+    throw new Error("Set document_key first.");
+  }
+  return key;
+}
+
+function idempotencyKey(prefix) {
+  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 async function api(path, options = {}) {
   const url = `${baseUrl()}${path}`;
   const res = await fetch(url, {
@@ -214,14 +255,209 @@ async function pingHealth() {
 async function pingWhoami() {
   try {
     const data = await api("/v1/whoami");
+    lastWhoami = data;
     els.chipTenant.textContent = `tenant · ${data.tenant_id || "—"}`;
     els.chipTenant.className = "chip chip--accent";
+    if (data.actor_id && els.holder && !(els.holder.value || "").trim()) {
+      els.holder.value = data.actor_id;
+    }
     return data;
   } catch {
+    lastWhoami = null;
     els.chipTenant.textContent = "tenant · —";
     els.chipTenant.className = "chip";
     return null;
   }
+}
+
+function showControl() {
+  if (els.controlEmpty) els.controlEmpty.hidden = true;
+}
+
+function renderLease(payload) {
+  showControl();
+  els.leaseGrid.hidden = false;
+  if (!payload.active || !payload.lease) {
+    setText(els.leaseActive, "inactive");
+    setText(els.leaseHolder, "—");
+    setText(els.leaseScope, "—");
+    setText(els.leaseExpires, "—");
+    return;
+  }
+  setText(els.leaseActive, "active");
+  setText(els.leaseHolder, payload.lease.holder);
+  setText(els.leaseScope, payload.lease.scope);
+  setText(els.leaseExpires, payload.lease.expires_at);
+}
+
+function renderApprovals(payload) {
+  showControl();
+  els.approvalListWrap.hidden = false;
+  els.approvalRows.replaceChildren();
+  const rows = payload.approvals || [];
+  if (!rows.length) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td colspan="5">No approvals for ${escapeHtml(
+      payload.document_key || "—",
+    )}</td>`;
+    els.approvalRows.appendChild(tr);
+    return;
+  }
+  for (const a of rows) {
+    const tr = document.createElement("tr");
+    const status = a.status || "";
+    const statusClass =
+      status === "granted"
+        ? "status-ok"
+        : status === "denied"
+          ? "status-fail"
+          : "";
+    tr.innerHTML = `
+      <td>${escapeHtml(a.kind || "—")}</td>
+      <td class="${statusClass}">${escapeHtml(status)}</td>
+      <td>${escapeHtml(a.actor_id || "—")}</td>
+      <td title="${escapeHtml(a.approval_id || "")}">${escapeHtml(
+        shortHash(a.approval_id),
+      )}</td>
+      <td class="decide-cell"></td>
+    `;
+    const cell = tr.querySelector(".decide-cell");
+    if (status === "requested" && cell) {
+      const grant = document.createElement("button");
+      grant.type = "button";
+      grant.className = "btn btn--ghost";
+      grant.textContent = "Grant";
+      grant.addEventListener("click", () => {
+        decideApproval(a.approval_id, "granted").catch((err) =>
+          showAlert(err instanceof Error ? err.message : String(err)),
+        );
+      });
+      const deny = document.createElement("button");
+      deny.type = "button";
+      deny.className = "btn btn--ghost";
+      deny.textContent = "Deny";
+      deny.addEventListener("click", () => {
+        decideApproval(a.approval_id, "denied").catch((err) =>
+          showAlert(err instanceof Error ? err.message : String(err)),
+        );
+      });
+      cell.append(grant, deny);
+    } else if (cell) {
+      cell.textContent = "—";
+    }
+    els.approvalRows.appendChild(tr);
+  }
+}
+
+function renderRuns(payload) {
+  showControl();
+  els.runListWrap.hidden = false;
+  els.runRows.replaceChildren();
+  const rows = payload.runs || [];
+  if (!rows.length) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td colspan="4">No pipeline runs for ${escapeHtml(
+      payload.document_key || "—",
+    )}</td>`;
+    els.runRows.appendChild(tr);
+    return;
+  }
+  for (const r of rows) {
+    const tr = document.createElement("tr");
+    const status = r.status || "—";
+    const created = r.created_at || r.started_at || "—";
+    const idem = r.command?.idempotency_key || "—";
+    tr.innerHTML = `
+      <td title="${escapeHtml(r.run_id || "")}">${escapeHtml(shortHash(r.run_id))}</td>
+      <td>${escapeHtml(status)}</td>
+      <td>${escapeHtml(idem)}</td>
+      <td>${escapeHtml(created)}</td>
+    `;
+    els.runRows.appendChild(tr);
+  }
+}
+
+async function refreshLease() {
+  const key = requireDocumentKey();
+  const payload = await api(`/v1/projects/${encodeURIComponent(key)}/lease`);
+  renderLease(payload);
+  return payload;
+}
+
+async function acquireLease() {
+  const key = requireDocumentKey();
+  const holder = actorId();
+  const lease = await api("/v1/projects/lease", {
+    method: "POST",
+    body: JSON.stringify({
+      document_key: key,
+      holder,
+      scope: "project",
+      ttl_seconds: 600,
+    }),
+  });
+  renderLease({ active: true, lease, document_key: lease.document_key });
+  showAlert(`Lease acquired · holder ${lease.holder}`, "ok");
+}
+
+async function releaseLease() {
+  const key = requireDocumentKey();
+  const holder = actorId();
+  await api(
+    `/v1/projects/${encodeURIComponent(key)}/lease?holder=${encodeURIComponent(holder)}`,
+    { method: "DELETE" },
+  );
+  await refreshLease();
+  showAlert(`Lease released · holder ${holder}`, "ok");
+}
+
+async function requestApproval() {
+  const key = requireDocumentKey();
+  const actor = actorId();
+  const record = await api("/v1/approvals/request", {
+    method: "POST",
+    body: JSON.stringify({
+      document_key: key,
+      kind: (els.approvalKind.value || "commit_candidate").trim(),
+      actor_id: actor,
+      authorization_scope: "approvals",
+      idempotency_key: idempotencyKey("appr"),
+      rationale: (els.approvalRationale.value || "operator decision").trim(),
+    }),
+  });
+  showAlert(`Approval requested · ${shortHash(record.approval_id)}`, "ok");
+  await listApprovals();
+}
+
+async function decideApproval(approvalId, status) {
+  const actor = actorId();
+  const record = await api("/v1/approvals/decide", {
+    method: "POST",
+    body: JSON.stringify({
+      approval_id: approvalId,
+      status,
+      actor_id: actor,
+      authorization_scope: "approvals",
+      idempotency_key: idempotencyKey(`dec-${status}`),
+      rationale: (els.approvalRationale.value || `decision:${status}`).trim(),
+    }),
+  });
+  showAlert(`Approval ${status} · ${shortHash(record.approval_id)}`, "ok");
+  await listApprovals();
+}
+
+async function listApprovals() {
+  const key = requireDocumentKey();
+  const payload = await api(`/v1/projects/${encodeURIComponent(key)}/approvals`);
+  renderApprovals(payload);
+  showAlert(`Approvals · ${(payload.approvals || []).length}`, "ok");
+}
+
+async function listRuns() {
+  const key = requireDocumentKey();
+  const payload = await api(`/v1/projects/${encodeURIComponent(key)}/runs`);
+  renderRuns(payload);
+  showAlert(`Runs · ${(payload.runs || []).length}`, "ok");
 }
 
 function renderReceipt(receipt) {
@@ -584,6 +820,38 @@ function wire() {
   });
   els.btnList.addEventListener("click", () => {
     listProjects().catch((err) =>
+      showAlert(err instanceof Error ? err.message : String(err)),
+    );
+  });
+  els.btnLeaseAcquire.addEventListener("click", () => {
+    acquireLease().catch((err) =>
+      showAlert(err instanceof Error ? err.message : String(err)),
+    );
+  });
+  els.btnLeaseRelease.addEventListener("click", () => {
+    releaseLease().catch((err) =>
+      showAlert(err instanceof Error ? err.message : String(err)),
+    );
+  });
+  els.btnLeaseRefresh.addEventListener("click", () => {
+    refreshLease()
+      .then((p) =>
+        showAlert(p.active ? "Lease active" : "No active lease", "ok"),
+      )
+      .catch((err) => showAlert(err instanceof Error ? err.message : String(err)));
+  });
+  els.btnApprovalRequest.addEventListener("click", () => {
+    requestApproval().catch((err) =>
+      showAlert(err instanceof Error ? err.message : String(err)),
+    );
+  });
+  els.btnApprovalsList.addEventListener("click", () => {
+    listApprovals().catch((err) =>
+      showAlert(err instanceof Error ? err.message : String(err)),
+    );
+  });
+  els.btnRunsList.addEventListener("click", () => {
+    listRuns().catch((err) =>
       showAlert(err instanceof Error ? err.message : String(err)),
     );
   });

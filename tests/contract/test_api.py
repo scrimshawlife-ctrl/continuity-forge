@@ -252,6 +252,8 @@ def test_web_ui_is_served() -> None:
     assert "Run controlled proof" in index.text
     assert "Export receipt JSON" in index.text
     assert 'id="canon"' in index.text
+    assert 'id="control"' in index.text
+    assert "Acquire lease" in index.text
     styles = client.get("/styles.css")
     assert styles.status_code == 200
     assert "Hallmark" in styles.text
@@ -266,4 +268,77 @@ def test_web_ui_is_served() -> None:
 
 def test_health_reports_version() -> None:
     payload = TestClient(app).get("/health").json()
-    assert payload["version"] == "1.2.0"
+    assert payload["version"] == "1.3.0"
+
+
+def test_lease_approvals_and_runs_endpoints() -> None:
+    client = TestClient(app)
+    key = "control-flow"
+    # Seed project via proof (lease acquired/released inside runner).
+    proof = client.post(
+        "/v1/proof",
+        json={
+            "title": "Control",
+            "document_key": key,
+            "text": "INT. ROOM - DAY\n\nMara enters.\n\nMARA\nGo.\n",
+            "seed": "ctrl",
+            "actor_id": "proof-ui",
+        },
+    )
+    assert proof.status_code == 200
+
+    empty = client.get(f"/v1/projects/{key}/lease")
+    assert empty.status_code == 200
+    assert empty.json()["active"] is False
+
+    lease = client.post(
+        "/v1/projects/lease",
+        json={"document_key": key, "holder": "proof-ui", "ttl_seconds": 300},
+    )
+    assert lease.status_code == 200
+    assert lease.json()["holder"] == "proof-ui"
+
+    got = client.get(f"/v1/projects/{key}/lease")
+    assert got.status_code == 200
+    assert got.json()["active"] is True
+
+    approval = client.post(
+        "/v1/approvals/request",
+        json={
+            "document_key": key,
+            "kind": "commit_candidate",
+            "actor_id": "proof-ui",
+            "authorization_scope": "approvals",
+            "idempotency_key": "appr-1",
+            "rationale": "contract",
+        },
+    )
+    assert approval.status_code == 200
+    approval_id = approval.json()["approval_id"]
+
+    listed = client.get(f"/v1/projects/{key}/approvals")
+    assert listed.status_code == 200
+    assert len(listed.json()["approvals"]) == 1
+
+    decided = client.post(
+        "/v1/approvals/decide",
+        json={
+            "approval_id": approval_id,
+            "status": "granted",
+            "actor_id": "proof-ui",
+            "authorization_scope": "approvals",
+            "idempotency_key": "dec-1",
+            "rationale": "ok",
+        },
+    )
+    assert decided.status_code == 200
+    assert decided.json()["status"] == "granted"
+
+    runs = client.get(f"/v1/projects/{key}/runs")
+    assert runs.status_code == 200
+    # proof stores under tenant-scoped key; runs may be empty if pipeline key differs
+    assert "runs" in runs.json()
+
+    released = client.delete(f"/v1/projects/{key}/lease?holder=proof-ui")
+    assert released.status_code == 200
+    assert released.json()["status"] == "released"
