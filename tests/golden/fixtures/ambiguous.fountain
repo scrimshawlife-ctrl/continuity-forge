@@ -1,0 +1,19 @@
+Title: Ambiguous Edges
+Author: Continuity Forge
+
+/* Inline note should not drop the next heading */ INT. THRESHOLD - DAY
+
+A VERY LONG UPPERCASE ACTION LINE THAT MUST NOT BECOME A CHARACTER CUE BECAUSE IT HAS TOO MANY WORDS TO BE DIALOGUE SPEAKER NAMES.
+
+MARA
+Is this a cue or a shout?
+
+!FORCE ACTION keeps forced action text even when uppercase-looking.
+
+.FORCED SCENE - NIGHT
+
+Mara enters. Mara exits. The prop lamp stays lit.
+
+[[Ambiguous production note retained as note atom.]]
+
+===

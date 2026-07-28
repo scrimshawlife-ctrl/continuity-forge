@@ -21,6 +21,8 @@ from continuity_forge_ir import (
     stable_id,
 )
 
+from .reconcile import reconcile_with_prior
+
 PARAGRAPH_RE = re.compile(r"<Paragraph\b[^>]*>.*?</Paragraph\s*>", re.DOTALL | re.IGNORECASE)
 TYPE_RE = re.compile(r'\bType\s*=\s*(["\'])(.*?)\1', re.IGNORECASE)
 FDX_TYPES = {
@@ -61,6 +63,7 @@ def compile_fdx_text(
     title: str = "Untitled",
     revision: str = "0.1.0",
     document_key: str | None = None,
+    prior: ScriptDocument | None = None,
 ) -> ScriptDocument:
     """Compile Final Draft XML into provenance-complete Production IR."""
     source_hash = content_hash(text)
@@ -92,7 +95,7 @@ def compile_fdx_text(
                 ),
             ]
         )
-        return _document(
+        document = _document(
             script_id=script_id,
             title=title,
             revision=revision,
@@ -103,6 +106,9 @@ def compile_fdx_text(
             segments=segments,
             diagnostics=diagnostics,
         )
+        if prior is not None:
+            return reconcile_with_prior(document, prior)
+        return document
 
     current_scene_id = None
     current_slugline: str | None = None
@@ -197,7 +203,7 @@ def compile_fdx_text(
                 message="No scene headings were found in the FDX document.",
             )
         )
-    return _document(
+    document = _document(
         script_id=script_id,
         title=title,
         revision=revision,
@@ -208,6 +214,9 @@ def compile_fdx_text(
         segments=segments,
         diagnostics=diagnostics,
     )
+    if prior is not None:
+        return reconcile_with_prior(document, prior)
+    return document
 
 
 def _document(

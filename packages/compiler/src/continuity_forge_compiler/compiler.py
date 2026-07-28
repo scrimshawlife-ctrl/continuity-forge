@@ -20,6 +20,8 @@ from continuity_forge_ir import (
     stable_id,
 )
 
+from .reconcile import reconcile_with_prior
+
 SCENE_RE = re.compile(r"^(?:INT\.|EXT\.|EST\.|INT/EXT\.|INT\./EXT\.|I/E\.)\s*.+", re.IGNORECASE)
 CHARACTER_RE = re.compile(r"^[A-Z][A-Z0-9 _'\-]*(?:\s*\([^)]*\))?\^?$", re.ASCII)
 TITLE_PAGE_RE = re.compile(r"^[A-Za-z][A-Za-z ]{0,30}:\s*.*$")
@@ -119,8 +121,14 @@ def compile_text(
     title: str = "Untitled",
     revision: str = "0.1.0",
     document_key: str | None = None,
+    prior: ScriptDocument | None = None,
 ) -> ScriptDocument:
-    """Compile Fountain source into deterministic, provenance-complete Production IR."""
+    """Compile Fountain source into deterministic, provenance-complete Production IR.
+
+    When ``prior`` is supplied for the same logical document, scene and atom IDs are
+    reconciled against that prior IR so duplicate sluglines remain stable across
+    insertions. Occurrence-indexed IDs remain the fallback for unmatched content.
+    """
     source_hash = content_hash(text)
     script_id = stable_id(
         "script", _script_identity(document_key=document_key, source_hash=source_hash)
@@ -279,7 +287,7 @@ def compile_text(
         ratio=1.0,
         uncovered_spans=[],
     )
-    return ScriptDocument(
+    document = ScriptDocument(
         script_id=script_id,
         title=title,
         revision=revision,
@@ -291,9 +299,17 @@ def compile_text(
         diagnostics=diagnostics,
         coverage=coverage,
     )
+    if prior is not None:
+        return reconcile_with_prior(document, prior)
+    return document
 
 
-def compile_file(path: Path, *, document_key: str | None = None) -> ScriptDocument:
+def compile_file(
+    path: Path,
+    *,
+    document_key: str | None = None,
+    prior: ScriptDocument | None = None,
+) -> ScriptDocument:
     if path.suffix.casefold() == ".fdx":
         from .fdx import compile_fdx_text
 
@@ -301,9 +317,11 @@ def compile_file(path: Path, *, document_key: str | None = None) -> ScriptDocume
             path.read_text(encoding="utf-8"),
             title=path.stem,
             document_key=document_key or path.stem,
+            prior=prior,
         )
     return compile_text(
         path.read_text(encoding="utf-8"),
         title=path.stem,
         document_key=document_key or path.stem,
+        prior=prior,
     )
