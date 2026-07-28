@@ -250,6 +250,17 @@
                   <button type="button" class="btn btn--ghost" id="btn-scene-next" title="Next scene ]">
                     Next scene
                   </button>
+                  <button
+                    type="button"
+                    class="btn btn--ghost"
+                    id="btn-stale-preview"
+                    title="Preview stale shots if focused scene (or all) changes"
+                  >
+                    Preview stale
+                  </button>
+                  <button type="button" class="btn btn--ghost" id="btn-stale-clear">
+                    Clear stale
+                  </button>
                 </div>
                 <ul class="scene-nav__list" id="scene-list" role="listbox" aria-label="Scenes"></ul>
                 <p class="scene-nav__focus" id="scene-focus-label" aria-live="polite">
@@ -315,6 +326,7 @@
                       <th scope="col">Attempts</th>
                       <th scope="col">Repair / rationale</th>
                       <th scope="col">Candidate</th>
+                      <th scope="col">Stale</th>
                     </tr>
                   </thead>
                   <tbody id="shot-rows"></tbody>

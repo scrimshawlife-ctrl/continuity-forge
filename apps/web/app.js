@@ -93,6 +93,8 @@ const tableView = {
   overscan: 8,
   scrollTop: 0,
   _boundScroll: false,
+  /** @type {Set<string>} shot_ids marked stale by invalidation preview */
+  staleShotIds: new Set(),
 };
 
 const els = {
@@ -169,6 +171,8 @@ const els = {
   btnSceneAll: $("btn-scene-all"),
   btnScenePrev: $("btn-scene-prev"),
   btnSceneNext: $("btn-scene-next"),
+  btnStalePreview: $("btn-stale-preview"),
+  btnStaleClear: $("btn-stale-clear"),
   rawJson: $("raw-json"),
   statusGrid: $("status-grid"),
   stDoc: $("st-doc"),
@@ -681,7 +685,10 @@ function useVirtualization(rowCount) {
 function buildShotRow(shot, index) {
   const tr = document.createElement("tr");
   if (index === nav.focusShotIndex) tr.classList.add("shot-row-focus");
-  tr.dataset.shotId = String(shot.shot_id || "");
+  const shotKey = String(shot.shot_id || "");
+  const isStale = tableView.staleShotIds.has(shotKey);
+  if (isStale) tr.classList.add("shot-row-stale");
+  tr.dataset.shotId = shotKey;
   tr.dataset.sceneId = String(shot.scene_id || "");
   tr.dataset.rowIndex = String(index);
   const status = shot.status || "";
@@ -704,6 +711,9 @@ function buildShotRow(shot, index) {
       </div>
     `;
   }
+  const staleBadge = isStale
+    ? `<span class="stale-badge" title="Lineage retained; not elevated to canon">stale</span>`
+    : "—";
   tr.innerHTML = `
     <td>${escapeHtml(shot.label || shortHash(shot.shot_id))}</td>
     <td class="${statusClass}">${escapeHtml(humanStatus(status))}</td>
@@ -712,6 +722,7 @@ function buildShotRow(shot, index) {
     <td title="${escapeHtml(shot.accepted_candidate_hash || "")}">${escapeHtml(
       shortHash(shot.accepted_candidate_hash),
     )}</td>
+    <td>${staleBadge}</td>
   `;
   tr.addEventListener("click", () => {
     nav.focusShotIndex = index;
@@ -720,6 +731,55 @@ function buildShotRow(shot, index) {
     announceShotFocus();
   });
   return tr;
+}
+
+async function previewStaleForFocus() {
+  showAlert("");
+  const text = els.script.value.trim();
+  if (!text) {
+    showAlert("Script required for invalidation preview.");
+    return;
+  }
+  const change = {
+    source_changed: false,
+    scene_ids: nav.focusSceneId ? [nav.focusSceneId] : [],
+    atom_ids: [],
+    entity_ids: [],
+    fact_ids: [],
+    shot_ids: [],
+  };
+  if (!nav.focusSceneId) {
+    // All scenes: treat as full source change for demo of force subgraph
+    change.source_changed = true;
+  }
+  try {
+    const payload = await api("/v1/invalidation/preview", {
+      method: "POST",
+      body: JSON.stringify({
+        title: els.title.value.trim() || "Untitled",
+        text,
+        document_key: els.documentKey.value.trim() || null,
+        format: els.format.value,
+        change,
+        force_full: false,
+      }),
+    });
+    const ids = payload.stale_shot_ids || [];
+    tableView.staleShotIds = new Set(ids.map(String));
+    renderShotTable();
+    showAlert(
+      `Invalidation preview · ${ids.length} shot(s) stale · not a canon write · PROPOSED not elevated`,
+      "ok",
+    );
+  } catch (err) {
+    showAlert(err instanceof Error ? err.message : String(err));
+  }
+}
+
+function clearStaleMarks() {
+  tableView.staleShotIds = new Set();
+  renderShotTable();
+  showAlert("Cleared stale markers (hashes retained).", "ok");
 }
 
 function announceShotFocus() {
@@ -789,7 +849,7 @@ function renderShotTableVirtual(shots) {
     spacer.className = "shot-spacer shot-spacer--top";
     spacer.setAttribute("aria-hidden", "true");
     const td = document.createElement("td");
-    td.colSpan = 5;
+    td.colSpan = 6;
     td.style.height = `${topPad}px`;
     spacer.appendChild(td);
     els.shotRows.appendChild(spacer);
@@ -804,7 +864,7 @@ function renderShotTableVirtual(shots) {
     spacer.className = "shot-spacer shot-spacer--bottom";
     spacer.setAttribute("aria-hidden", "true");
     const td = document.createElement("td");
-    td.colSpan = 5;
+    td.colSpan = 6;
     td.style.height = `${bottomPad}px`;
     spacer.appendChild(td);
     els.shotRows.appendChild(spacer);
@@ -1346,6 +1406,12 @@ function wire() {
   els.btnSceneAll?.addEventListener("click", () => setSceneFocus(null));
   els.btnScenePrev?.addEventListener("click", () => stepScene(-1));
   els.btnSceneNext?.addEventListener("click", () => stepScene(1));
+  els.btnStalePreview?.addEventListener("click", () => {
+    previewStaleForFocus().catch((err) =>
+      showAlert(err instanceof Error ? err.message : String(err)),
+    );
+  });
+  els.btnStaleClear?.addEventListener("click", clearStaleMarks);
 
   const onTableControls = () => {
     if (els.shotFilterStatus) {

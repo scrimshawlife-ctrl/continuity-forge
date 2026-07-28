@@ -185,6 +185,20 @@ button.linkish:focus-visible {
   outline-offset: -1px;
 }
 
+.shot-row-stale {
+  background: oklch(22% 0.04 90 / 0.2);
+}
+
+.stale-badge {
+  display: inline-block;
+  padding: 0.1em 0.45em;
+  border: var(--rule-hair) solid var(--color-warn);
+  color: var(--color-warn);
+  font-size: var(--text-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .shot-toolbar {
   border: var(--rule-hair) solid var(--color-rule);
   background: var(--color-paper);
