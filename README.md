@@ -64,11 +64,15 @@ M0 COMPILER SPINE
 python -m venv .venv
 source .venv/bin/activate
 pip install -e '.[dev]'
-pytest
+make validate
 python -m continuity_forge_compiler.cli compile tests/golden/fixtures/minimal.fountain --out out
 python -m continuity_forge_compiler.cli compile tests/golden/fixtures/minimal.fdx --out out
 continuity-forge-mcp
 ```
+
+M0 supported grammar: [`docs/compiler/M0_SUPPORTED_GRAMMAR.md`](docs/compiler/M0_SUPPORTED_GRAMMAR.md)
+
+Canonical local/CI gate: `python scripts/validate_m0.py` (also `make validate`).
 
 ## Authority rule
 

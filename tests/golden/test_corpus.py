@@ -14,6 +14,7 @@ SUPPORTED_FOUNTAIN = [
     "flashback.fountain",
     "ambiguous.fountain",
     "duplicate_scenes.fountain",
+    "unicode.fountain",
 ]
 
 SUPPORTED_FDX = [
@@ -155,3 +156,16 @@ def test_advanced_fdx_fixture_covers_flashback_and_payoff() -> None:
     assert "keycard" in blob
     assert "injury" in blob or "torn" in blob
     assert "payoff" in blob
+
+
+def test_unicode_fixture_preserves_non_ascii_provenance() -> None:
+    path = FIXTURES / "unicode.fountain"
+    source = path.read_text(encoding="utf-8")
+    document = compile_file(path)
+    blob = " ".join(atom.text for atom in _all_atoms(document))
+    assert "clé rouge" in blob
+    assert "Ça ne doit plus dériver" in blob
+    assert "Проверяем хеш" in blob
+    assert "確認ハッシュ" in blob
+    assert document.source_length == len(source)
+    assert document.coverage.accounted_characters == len(source)
