@@ -3,6 +3,7 @@
 - [Production Harness Architecture](PRODUCTION_HARNESS_ARCHITECTURE.md)
 - [ADR-0001: Adopt a deterministic production harness](../adr/ADR-0001-production-harness.md)
 - [Install & setup](../SETUP.md)
+- [Bare-metal Linux (systemd)](../LINUX.md)
 - [Hermes integration](../hermes/README.md)
 - [Hermes operator skill](../../skills/hermes-continuity-forge/SKILL.md)
 - [Mutation contract (operator skill)](../../skills/hermes-continuity-forge/references/mutation-contract.md)

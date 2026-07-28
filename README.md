@@ -85,6 +85,9 @@ pip install -e '.[production]'
 
 Full guide (env vars, Docker, troubleshooting): **[docs/SETUP.md](docs/SETUP.md)**.
 
+**Bare-metal Linux (no Docker):** systemd units + env template — **[docs/LINUX.md](docs/LINUX.md)**  
+(`deploy/linux/install.sh`, `continuity-forge-api.service`).
+
 ### CLI
 
 | Command | Role |

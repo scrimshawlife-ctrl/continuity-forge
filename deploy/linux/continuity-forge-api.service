@@ -1,0 +1,60 @@
+# Continuity Forge API + operator UI (bare-metal systemd)
+#
+# Install:
+#   sudo cp deploy/linux/continuity-forge-api.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now continuity-forge-api
+#
+# Paths assume:
+#   App:  /opt/continuity-forge
+#   Venv: /opt/continuity-forge/.venv
+#   Env:  /etc/continuity-forge/continuity-forge.env
+#   User: continuity-forge
+# Adjust User=, WorkingDirectory=, EnvironmentFile=, ExecStart= for your host.
+
+[Unit]
+Description=Continuity Forge API and operator workbench
+Documentation=https://github.com/scrimshawlife-ctrl/continuity-forge/blob/main/docs/LINUX.md
+After=network-online.target
+Wants=network-online.target
+# Uncomment if Postgres is local and unit-managed:
+# After=network-online.target postgresql.service
+# Requires=postgresql.service
+
+[Service]
+Type=simple
+User=continuity-forge
+Group=continuity-forge
+WorkingDirectory=/opt/continuity-forge
+
+EnvironmentFile=-/etc/continuity-forge/continuity-forge.env
+Environment=PYTHONUNBUFFERED=1
+
+# Prefer venv binaries so PATH does not depend on interactive shells.
+# CF_HOST / CF_PORT come from EnvironmentFile (defaults if unset: set them in env).
+ExecStart=/opt/continuity-forge/.venv/bin/uvicorn continuity_forge_api.main:app --host ${CF_HOST} --port ${CF_PORT} --proxy-headers --forwarded-allow-ips=127.0.0.1
+
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=30
+
+# Hardening (adjust if you reverse-proxy or bind non-loopback)
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/continuity-forge /opt/continuity-forge
+CapabilityBoundingSet=
+AmbientCapabilities=
+LockPersonality=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+SystemCallArchitectures=native
+
+# Logs: journalctl -u continuity-forge-api -f
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=continuity-forge-api
+
+[Install]
+WantedBy=multi-user.target
