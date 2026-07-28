@@ -43,6 +43,12 @@ class CompileDiagnostic(BaseModel):
     source_span: SourceSpan | None = None
 
 
+class ScriptMetadataEntry(BaseModel):
+    key: str
+    value: str
+    source_span: SourceSpan
+
+
 class NarrativeAtom(BaseModel):
     atom_id: UUID
     scene_id: UUID
@@ -66,6 +72,7 @@ class ScriptDocument(BaseModel):
     format: str
     revision: str
     source_hash: str
+    metadata: list[ScriptMetadataEntry] = Field(default_factory=list)
     scenes: list[SceneNode]
 
 
