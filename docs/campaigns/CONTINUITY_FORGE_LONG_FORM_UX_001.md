@@ -42,6 +42,7 @@ feature_implementation: IN_PROGRESS
 slice_1_scene_shot_nav: IMPLEMENTED  # apps/web scene nav + filter + URL deep-link
 slice_2_virtualized_tables: IMPLEMENTED  # virtual tbody + filters/sort + flag fallback
 slice_3_dependency_invalidation: IMPLEMENTED  # pure graph + POST /v1/invalidation/preview + UI stale column
+slice_4_incremental_compile: IMPLEMENTED  # compile_incremental + CLI/API/MCP + UI advanced + goldens
 trivial_stubs: NONE
 ```
 
@@ -87,7 +88,7 @@ Observed on the controlled-proof workbench (`apps/web/`):
 - Proof receipt renders **all** shot rows via full DOM replace (`shotRows.replaceChildren` + loop).
 - Scene/shot counts appear on project status; there is no hierarchical
   scene → shot navigator for long scripts.
-- Compile/proof is whole-document; no public incremental invalidation API.
+- Compile/proof default is whole-document; incremental compile + invalidation preview are optional operator paths (not production film).
 - Budget is a single wall-clock comparison (`budget_seconds` / `within_budget`
   on the proof receipt), not per-provider cost ledger or live burn-down.
 - Harness stores ordered checkpoints on `WorkflowRun`; the UI does not stream
@@ -377,11 +378,11 @@ readiness**.
 Suggested future PR order (non-binding):
 
 ```text
-1) dependency-graph invalidation (pure kernel module + tests)
-2) incremental compile (kernel + golden)
+1) dependency-graph invalidation — DONE
+2) incremental compile — DONE
 3) budget/provider telemetry schema (proof/repair emit + UI read)
 4) streaming/poll workflow events (harness + API)
-5) scene/shot navigation + virtualized tables (apps/web)
+5) scene/shot navigation + virtualized tables — DONE (shipped before kernel slices; stale badges + incremental now wired)
 ```
 
 Kernel-first keeps the UI honest: navigation and virtualization without
@@ -410,13 +411,13 @@ architecture_rewrite: NOT_REQUIRED
 ### Future implementation scoreboard (update only with tests)
 
 ```yaml
-scene_shot_navigation: NOT_STARTED
-virtualized_tables: NOT_STARTED
-dependency_graph_invalidation: NOT_STARTED
-incremental_compile: NOT_STARTED
+scene_shot_navigation: IMPLEMENTED
+virtualized_tables: IMPLEMENTED
+dependency_graph_invalidation: IMPLEMENTED
+incremental_compile: IMPLEMENTED
 budget_provider_telemetry: NOT_STARTED
 streaming_workflow_state: NOT_STARTED
-make_validate: N/A_for_docs_only
+make_validate: local_gate_for_slices
 ```
 
 ---

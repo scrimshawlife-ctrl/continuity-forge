@@ -3,7 +3,11 @@ from typing import Any, Literal
 from uuid import UUID
 
 from continuity_forge_auth import Principal, bootstrap_dev_allowed, bootstrap_dev_tenant
-from continuity_forge_compiler import compile_fdx_text, compile_text
+from continuity_forge_compiler import (
+    compile_fdx_text,
+    compile_incremental,
+    compile_text,
+)
 from continuity_forge_harness import (
     PipelineCommand,
     PipelineError,
@@ -138,6 +142,19 @@ class InvalidationPreviewRequest(BaseModel):
     force_full: bool = False
 
 
+class IncrementalCompileRequest(BaseModel):
+    """Optional incremental compile (full validation + prior reconcile + invalidation)."""
+
+    title: str = "Untitled"
+    text: str
+    document_key: str | None = None
+    format: Literal["fountain", "fdx"] = "fountain"
+    revision: str = "0.1.0"
+    # Prior Production IR JSON (optional). When omitted, behaves like full compile + recompiled tags.
+    prior_document: dict[str, Any] | None = None
+    force_full_invalidation: bool = False
+
+
 def _document(request: CompileRequest) -> ScriptDocument:
     compiler = compile_fdx_text if request.format == "fdx" else compile_text
     return compiler(
@@ -213,6 +230,28 @@ def continuity_ledger(request: CompileRequest) -> ContinuityLedger:
 @app.post("/v1/shot-contracts", response_model=ShotContractBundle)
 def shot_contracts(request: CompileRequest) -> ShotContractBundle:
     return compile_shot_contracts(_document(request))
+
+
+@app.post("/v1/compile/incremental")
+def compile_incremental_endpoint(request: IncrementalCompileRequest) -> dict[str, Any]:
+    """Full schema-validated compile with optional prior-IR ID reconcile + invalidation.
+
+    Default short-path remains ``POST /v1/compile``. This endpoint is optional for
+    edit loops. Read-side only: does not ingest project canon or elevate PROPOSED.
+    """
+    prior = None
+    if request.prior_document is not None:
+        prior = ScriptDocument.model_validate(request.prior_document)
+    result = compile_incremental(
+        request.text,
+        title=request.title,
+        revision=request.revision,
+        document_key=request.document_key,
+        format=request.format,
+        prior=prior,
+        force_full_invalidation=request.force_full_invalidation,
+    )
+    return result.model_dump(mode="json")
 
 
 @app.post("/v1/invalidation/preview")
