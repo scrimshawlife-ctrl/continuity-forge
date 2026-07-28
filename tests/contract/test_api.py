@@ -260,6 +260,9 @@ def test_web_ui_is_served() -> None:
     assert 'id="scene-nav"' in index.text
     assert "All scenes" in index.text
     assert 'id="shot-empty"' in index.text
+    assert 'id="shot-virtual"' in index.text
+    assert "Virtualize rows" in index.text
+    assert 'id="shot-filter-status"' in index.text
     assert 'id="canon"' in index.text
     assert 'id="control"' in index.text
     assert "Acquire lease" in index.text
@@ -282,6 +285,10 @@ def test_web_ui_is_served() -> None:
     assert "buildSceneIndex" in app_js.text
     assert "setSceneFocus" in app_js.text
     assert "scene_id" in app_js.text
+    assert "logicalShots" in app_js.text
+    assert "renderShotTableVirtual" in app_js.text
+    assert "useVirtualization" in app_js.text
+    assert "virtualThreshold" in app_js.text
 
 
 def test_health_reports_version() -> None:
