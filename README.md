@@ -18,28 +18,26 @@ Canonical architecture: [`docs/architecture/PRODUCTION_HARNESS_ARCHITECTURE.md`]
 
 ## Active campaign
 
-`CONTINUITY_FORGE_SHOT_CONTRACTS_001` — `M2_SHOT_CONTRACT_COMPILER`
+`CONTINUITY_FORGE_DURABLE_HARNESS_001` — `M3_DURABLE_HARNESS`
 
-M0 and M1 are complete. Active work compiles model-neutral shot contracts from Production IR + continuity ledger.
+M0–M2 kernel stages are complete. Active work is the durable harness for compile → ledger → shot contracts.
 
-### M2 scope
+### M3 scope
 
-- One deterministic shot contract per scene
-- Required narrative atoms and entity constraints
-- Hard / soft / prohibited constraints from ledger facts
-- Start/end state hashes
-- Declarative provider capability stubs (no execution)
-- Read-only REST (`POST /v1/shot-contracts`), MCP, and CLI
+- Typed pipeline commands (actor, scope, idempotency, rationale, optional expected-state hash)
+- Checkpointed in-process pipeline executor
+- Temporal adapter contracts (workflow/activity names, task queue)
+- REST `/v1/pipeline/runs`, MCP pipeline tools, CLI `pipeline`
 
-Video generation, Temporal workflows, provider execution, and autonomous rewriting remain excluded.
+Provider execution, media generation, and repair loops remain excluded.
 
 ## Planned progression
 
 ```text
 M0 COMPILER SPINE (complete)
 -> M1 CONTINUITY LEDGER (complete)
--> M2 SHOT CONTRACT COMPILER (active)
--> M3 DURABLE HARNESS / TEMPORAL
+-> M2 SHOT CONTRACT COMPILER (complete)
+-> M3 DURABLE HARNESS / TEMPORAL (active)
 -> M4 MCP OPERATOR SURFACE
 -> M5 PROVIDER GATEWAY + ISOLATED WORKERS
 -> M6 GENERATOR-EVALUATOR REPAIR LOOP
@@ -68,6 +66,7 @@ python -m continuity_forge_compiler.cli compile tests/golden/fixtures/minimal.fo
 python -m continuity_forge_compiler.cli compile tests/golden/fixtures/minimal.fdx --out out
 python -m continuity_forge_compiler.cli ledger tests/golden/fixtures/continuity.fountain --out out
 python -m continuity_forge_compiler.cli shots tests/golden/fixtures/continuity.fountain --out out
+python -m continuity_forge_compiler.cli pipeline tests/golden/fixtures/continuity.fountain --out out
 continuity-forge-mcp
 ```
 

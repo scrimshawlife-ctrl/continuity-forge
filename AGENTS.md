@@ -22,13 +22,13 @@ Continuity Forge is a deterministic cinematic-production kernel surrounded by a 
 
 ## Active campaign
 
-Read `docs/campaigns/CONTINUITY_FORGE_SHOT_CONTRACTS_001.md` before changing code.
+Read `docs/campaigns/CONTINUITY_FORGE_DURABLE_HARNESS_001.md` before changing code.
 
-M0 compiler spine and M1 continuity ledger are complete. Active work is **M2 Shot Contract Compiler**.
+M0–M2 kernel stages are complete. Active work is **M3 Durable Harness / Temporal adapter**.
 
 ## Scope discipline
 
-Do not add generation providers, visual-bible systems, timeline editing, Temporal workflows, or autonomous rewriting during M2 unless the active campaign is explicitly amended.
+Do not add generation providers, visual-bible systems, provider execution, or autonomous rewriting during M3 unless the active campaign is explicitly amended.
 
 Do not implement a single autonomous director agent that carries the full screenplay as its private memory or sequentially generates scenes without canonical shot contracts and validation gates.
 

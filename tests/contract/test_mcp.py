@@ -4,11 +4,14 @@ from continuity_forge_mcp.server import (
     build_shot_contracts,
     compile_script,
     get_compile_diagnostics,
+    get_pipeline_run,
     get_scene,
+    get_temporal_manifest,
     list_entities,
     list_scenes,
     list_setup_payoff_links,
     list_shot_summaries,
+    run_kernel_pipeline,
 )
 
 SOURCE = "INT. ROOM - DAY\n\nA lamp flickers.\n"
@@ -75,3 +78,21 @@ def test_mcp_shot_contract_tools() -> None:
     assert len(summaries) == 2
     assert summaries[0]["shot_id"] == bundle["contracts"][0]["shot_id"]
     assert summaries[0]["constraint_count"] >= 1
+
+
+def test_mcp_pipeline_tools() -> None:
+    source = "INT. ROOM - DAY\n\nMara enters.\n\nMARA\nGo.\n"
+    run = run_kernel_pipeline(
+        source,
+        actor_id="mcp-tester",
+        authorization_scope="kernel:pipeline",
+        idempotency_key="mcp-pipeline-1",
+        rationale="MCP contract test",
+        document_key="mcp-pipeline",
+    )
+    assert run["status"] == "completed"
+    fetched = get_pipeline_run(run["run_id"])
+    assert fetched is not None
+    assert fetched["run_id"] == run["run_id"]
+    manifest = get_temporal_manifest()
+    assert manifest["task_queue"] == "continuity-forge-kernel"
