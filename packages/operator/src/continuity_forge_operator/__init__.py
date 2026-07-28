@@ -4,6 +4,7 @@ from .models import (
     MutationEnvelope,
     ProjectRecord,
     WriteLease,
+    project_state_hash,
 )
 from .persistence import FileProjectStore
 from .store import DEFAULT_PROJECT_STORE, OperatorError, ProjectStore
@@ -18,4 +19,5 @@ __all__ = [
     "ProjectRecord",
     "ProjectStore",
     "WriteLease",
+    "project_state_hash",
 ]

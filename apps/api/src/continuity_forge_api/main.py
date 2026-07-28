@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Any, Literal
 from uuid import UUID
 
-from continuity_forge_auth import Principal, bootstrap_dev_tenant
+from continuity_forge_auth import Principal, bootstrap_dev_allowed, bootstrap_dev_tenant
 from continuity_forge_compiler import compile_fdx_text, compile_text
 from continuity_forge_harness import (
     PipelineCommand,
@@ -169,7 +169,20 @@ def whoami(principal: Principal = Depends(require_principal)) -> dict[str, Any]:
 
 @app.post("/v1/tenants/bootstrap-dev")
 def bootstrap_dev() -> dict[str, str]:
-    """Create/reset the local dev tenant and return its API key (dev only)."""
+    """Create/reset the local dev tenant and return its API key (dev only).
+
+    Disabled unless ``CF_BOOTSTRAP_DEV_TENANT`` is truthy, and always disabled
+    when ``CF_ENV``/``ENVIRONMENT`` is ``production``/``prod``.
+    """
+    if not bootstrap_dev_allowed():
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "bootstrap-dev is disabled: set CF_BOOTSTRAP_DEV_TENANT=1 for local "
+                "development only; never enable in production (also blocked when "
+                "CF_ENV/ENVIRONMENT is production|prod)"
+            ),
+        )
     rt = _rt()
     tenant, key = bootstrap_dev_tenant(rt.auth)
     return {"tenant_id": tenant.tenant_id, "api_key": key}
@@ -192,6 +205,16 @@ def shot_contracts(request: CompileRequest) -> ShotContractBundle:
 
 @app.post("/v1/pipeline/runs", response_model=WorkflowRun)
 def start_pipeline_run(command: PipelineCommand) -> WorkflowRun:
+    # Validate shared write-contract fields via MutationEnvelope (universal gate).
+    # PipelineCommand keeps its own command_schema_version and shot_contracts
+    # expected_state_hash domain.
+    MutationEnvelope.from_parts(
+        actor_id=command.actor_id,
+        authorization_scope=command.authorization_scope,
+        idempotency_key=command.idempotency_key,
+        rationale=command.rationale,
+        expected_state_hash=command.expected_state_hash,
+    )
     try:
         return execute_kernel_pipeline(command, store=_rt().run_store)
     except PipelineError as exc:
@@ -264,7 +287,7 @@ def ingest_project(
     principal: Principal = Depends(require_principal),
 ) -> dict[str, Any]:
     key = tenant_document_key(principal.tenant_id, request.document_key)
-    envelope = MutationEnvelope(
+    envelope = MutationEnvelope.from_parts(
         actor_id=request.actor_id or principal.actor_id,
         authorization_scope=request.authorization_scope,
         idempotency_key=request.idempotency_key,
@@ -386,7 +409,7 @@ def request_approval(
     principal: Principal = Depends(require_principal),
 ) -> dict[str, Any]:
     key = tenant_document_key(principal.tenant_id, request.document_key)
-    envelope = MutationEnvelope(
+    envelope = MutationEnvelope.from_parts(
         actor_id=request.actor_id or principal.actor_id,
         authorization_scope=request.authorization_scope,
         idempotency_key=request.idempotency_key,
@@ -409,7 +432,7 @@ def decide_approval(
     request: ApprovalDecision,
     principal: Principal = Depends(require_principal),
 ) -> dict[str, Any]:
-    envelope = MutationEnvelope(
+    envelope = MutationEnvelope.from_parts(
         actor_id=request.actor_id or principal.actor_id,
         authorization_scope=request.authorization_scope,
         idempotency_key=request.idempotency_key,
@@ -431,6 +454,13 @@ def generate_preview(
     request: GenerateRequest,
     principal: Principal = Depends(require_principal),
 ) -> ArtifactCandidate:
+    # PROPOSED-only: validate write-contract fields for audit, no canon write.
+    MutationEnvelope.from_parts(
+        actor_id=request.actor_id or principal.actor_id,
+        authorization_scope=request.authorization_scope,
+        idempotency_key=request.idempotency_key,
+        rationale=request.rationale,
+    )
     key = tenant_document_key(principal.tenant_id, request.document_key)
     contract = _shot(key, request.shot_id)
     candidate = _rt().gateway.generate_for_shot(contract, seed=request.seed)
@@ -443,6 +473,13 @@ def generate_repair_loop(
     request: RepairLoopRequest,
     principal: Principal = Depends(require_principal),
 ) -> LoopResult:
+    # PROPOSED-only: validate write-contract fields for audit, no canon write.
+    MutationEnvelope.from_parts(
+        actor_id=request.actor_id or principal.actor_id,
+        authorization_scope=request.authorization_scope,
+        idempotency_key=request.idempotency_key,
+        rationale=request.rationale,
+    )
     key = tenant_document_key(principal.tenant_id, request.document_key)
     contract = _shot(key, request.shot_id)
     result = run_repair_loop(

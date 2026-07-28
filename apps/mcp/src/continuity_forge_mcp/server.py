@@ -223,6 +223,15 @@ def run_kernel_pipeline(
     expected_state_hash: str | None = None,
 ) -> dict[str, Any]:
     """Execute the durable compile → ledger → shots pipeline under a mutation contract."""
+    # Universal write contract gate (shared fields). PipelineCommand owns
+    # pipeline schema version and shot_contracts_hash expected-state domain.
+    MutationEnvelope.from_parts(
+        actor_id=actor_id,
+        authorization_scope=authorization_scope,
+        idempotency_key=idempotency_key,
+        rationale=rationale,
+        expected_state_hash=expected_state_hash,
+    )
     command = PipelineCommand(
         actor_id=actor_id,
         authorization_scope=authorization_scope,
@@ -295,8 +304,12 @@ def ingest_script(
     format: str = "fountain",
     expected_state_hash: str | None = None,
 ) -> dict[str, Any]:
-    """Lease-gated ingest: run kernel pipeline and store project artifacts."""
-    envelope = MutationEnvelope(
+    """Lease-gated ingest: run kernel pipeline and store project artifacts.
+
+    ``expected_state_hash`` must match project ``state_hash`` when re-ingesting
+    an existing project (universal MutationEnvelope write contract).
+    """
+    envelope = MutationEnvelope.from_parts(
         actor_id=actor_id,
         authorization_scope=authorization_scope,
         idempotency_key=idempotency_key,
@@ -390,9 +403,23 @@ def list_pipeline_runs(document_key: str) -> list[dict[str, Any]]:
 def queue_generation(
     document_key: str,
     shot_id: str,
+    actor_id: str = "mcp-operator",
+    authorization_scope: str = "generation:preview",
+    idempotency_key: str = "mcp-queue-generation",
+    rationale: str = "PROPOSED generation (no canon write)",
     seed: str = "0",
 ) -> dict[str, Any]:
-    """Generate a PROPOSED mock media candidate for a shot (no canon mutation)."""
+    """Generate a PROPOSED mock media candidate for a shot (no canon mutation).
+
+    MutationEnvelope fields are validated for audit consistency; output remains
+    PROPOSED and never becomes film canon.
+    """
+    MutationEnvelope.from_parts(
+        actor_id=actor_id,
+        authorization_scope=authorization_scope,
+        idempotency_key=idempotency_key,
+        rationale=rationale,
+    )
     project = _rt().project_store.get_project(document_key)
     if project is None or not project.shot_contracts:
         raise ValueError("project or shot contracts not found")
@@ -417,11 +444,25 @@ def queue_generation(
 def run_shot_repair_loop(
     document_key: str,
     shot_id: str,
+    actor_id: str = "mcp-operator",
+    authorization_scope: str = "generation:repair",
+    idempotency_key: str = "mcp-shot-repair",
+    rationale: str = "PROPOSED repair loop (no canon write)",
     seed: str = "0",
     max_attempts: int = 3,
     fail_first: bool = False,
 ) -> dict[str, Any]:
-    """Run generate→validate→repair loop for one shot (mock worker)."""
+    """Run generate→validate→repair loop for one shot (mock worker).
+
+    MutationEnvelope fields are validated for audit consistency; accepted
+    candidates remain PROPOSED.
+    """
+    MutationEnvelope.from_parts(
+        actor_id=actor_id,
+        authorization_scope=authorization_scope,
+        idempotency_key=idempotency_key,
+        rationale=rationale,
+    )
     project = _rt().project_store.get_project(document_key)
     if project is None or not project.shot_contracts:
         raise ValueError("project or shot contracts not found")

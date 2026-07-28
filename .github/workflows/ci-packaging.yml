@@ -1,0 +1,102 @@
+# Phase 2 packaging gate — wheel + sdist build, clean-venv install, CLI/import smoke.
+# Separate from the default fast PR merge gate (ci.yml → validate_m0).
+name: Packaging
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: packaging-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    name: wheel-sdist-smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Environment receipt
+        run: |
+          python --version
+          python -m pip --version
+          uname -a
+
+      - name: Install build frontend
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install 'build>=1.2,<2'
+
+      - name: Build wheel and sdist
+        run: |
+          python -m build
+          echo "Artifacts:"
+          ls -la dist/
+          test -n "$(ls dist/*.whl 2>/dev/null)" || { echo "ERROR: no wheel produced"; exit 1; }
+          test -n "$(ls dist/*.tar.gz 2>/dev/null)" || { echo "ERROR: no sdist produced"; exit 1; }
+
+      - name: Install wheel in clean venv + smoke
+        run: |
+          set -euo pipefail
+          python -m venv .venv-package
+          . .venv-package/bin/activate
+          python -m pip install --upgrade pip
+          WHEEL="$(ls dist/*.whl | head -n1)"
+          echo "Installing ${WHEEL}"
+          python -m pip install "${WHEEL}"
+          python -m pip check
+
+          echo "==> continuity-forge --help"
+          continuity-forge --help
+
+          echo "==> import smoke"
+          python - <<'PY'
+          import continuity_forge_ir
+          import continuity_forge_compiler
+          import continuity_forge_ledger
+          import continuity_forge_shots
+          import continuity_forge_harness
+          import continuity_forge_operator
+          import continuity_forge_repair
+          import continuity_forge_providers
+          import continuity_forge_auth
+          import continuity_forge_persistence
+          import continuity_forge_runtime
+          import continuity_forge_api
+          import continuity_forge_mcp
+
+          mods = [
+              continuity_forge_ir,
+              continuity_forge_compiler,
+              continuity_forge_ledger,
+              continuity_forge_shots,
+              continuity_forge_harness,
+              continuity_forge_operator,
+              continuity_forge_repair,
+              continuity_forge_providers,
+              continuity_forge_auth,
+              continuity_forge_persistence,
+              continuity_forge_runtime,
+              continuity_forge_api,
+              continuity_forge_mcp,
+          ]
+          for m in mods:
+              print(f"  ok {m.__name__}")
+          print("import smoke: PASS")
+          PY
+
+          echo "Packaging gate: PASS"

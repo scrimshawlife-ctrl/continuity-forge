@@ -21,7 +21,7 @@ class ObjectClient(Protocol):
 class Boto3ObjectClient:
     def __init__(self) -> None:
         try:
-            import boto3  # type: ignore[import-not-found]
+            import boto3  # type: ignore[import-not-found,import-untyped,unused-ignore]
         except ImportError as exc:  # pragma: no cover
             raise RuntimeError("boto3 not installed. pip install 'continuity-forge[s3]'") from exc
         endpoint = os.environ.get("CF_S3_ENDPOINT") or os.environ.get("AWS_ENDPOINT_URL")

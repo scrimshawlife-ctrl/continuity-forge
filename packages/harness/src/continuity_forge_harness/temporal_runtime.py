@@ -69,9 +69,9 @@ def run_temporal_worker(
     Requires optional dependency: pip install 'continuity-forge[temporal]'
     """
     try:
-        from temporalio import activity, workflow  # type: ignore[import-not-found]
-        from temporalio.client import Client  # type: ignore[import-not-found]
-        from temporalio.worker import Worker  # type: ignore[import-not-found]
+        from temporalio import activity, workflow  # type: ignore[import-not-found,unused-ignore]
+        from temporalio.client import Client  # type: ignore[import-not-found,unused-ignore]
+        from temporalio.worker import Worker  # type: ignore[import-not-found,unused-ignore]
     except ImportError as exc:  # pragma: no cover
         raise RuntimeError(
             "temporalio is not installed. Install with: pip install 'continuity-forge[temporal]'"
@@ -79,25 +79,25 @@ def run_temporal_worker(
 
     spec = build_worker_spec(task_queue=task_queue, target_host=target_host, namespace=namespace)
 
-    @activity.defn(name="compile_screenplay")  # type: ignore[untyped-decorator]
+    @activity.defn(name="compile_screenplay")  # type: ignore[untyped-decorator,unused-ignore]
     async def compile_screenplay(payload: dict[str, Any]) -> dict[str, Any]:
         return activity_compile_screenplay(payload)
 
-    @activity.defn(name="build_continuity_ledger")  # type: ignore[untyped-decorator]
+    @activity.defn(name="build_continuity_ledger")  # type: ignore[untyped-decorator,unused-ignore]
     async def build_continuity_ledger_act(payload: dict[str, Any]) -> dict[str, Any]:
         return activity_build_continuity_ledger(payload)
 
-    @activity.defn(name="compile_shot_contracts")  # type: ignore[untyped-decorator]
+    @activity.defn(name="compile_shot_contracts")  # type: ignore[untyped-decorator,unused-ignore]
     async def compile_shot_contracts_act(payload: dict[str, Any]) -> dict[str, Any]:
         return activity_compile_shot_contracts(payload)
 
-    @activity.defn(name="run_kernel_pipeline")  # type: ignore[untyped-decorator]
+    @activity.defn(name="run_kernel_pipeline")  # type: ignore[untyped-decorator,unused-ignore]
     async def run_kernel_pipeline_act(payload: dict[str, Any]) -> dict[str, Any]:
         return activity_run_kernel_pipeline(payload)
 
     @workflow.defn(name=WORKFLOW_TYPE)
     class KernelPipelineWorkflow:
-        @workflow.run  # type: ignore[untyped-decorator]
+        @workflow.run  # type: ignore[untyped-decorator,unused-ignore]
         async def run(self, payload: dict[str, Any]) -> dict[str, Any]:
             result: Any = await workflow.execute_activity(
                 run_kernel_pipeline_act,

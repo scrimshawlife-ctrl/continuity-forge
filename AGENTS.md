@@ -38,8 +38,18 @@ Setup: `docs/SETUP.md`.
 
 ## CI
 
-GitHub Actions workflow `.github/workflows/ci.yml` runs `python scripts/validate_m0.py`
-(ruff, format, mypy, pytest). That is the merge gate. Local equivalent: `make validate`.
+- **Fast / default PR gate:** `.github/workflows/ci.yml` → `python scripts/validate_m0.py`
+  (ruff, format, mypy, pytest). Local equivalent: `make validate`.
+- **Packaging gate (Phase 2):** `.github/workflows/ci-packaging.yml` builds wheel+sdist
+  with `python -m build`, installs the wheel in a clean venv, then runs
+  `continuity-forge --help` and import smoke. Documented in `docs/SETUP.md` and
+  `deploy/README.md`. Do not fold packaging into the fast gate.
+- **Integration gate (Phase 2 skeleton):** `.github/workflows/ci-integration.yml`
+  runs Postgres 16 + MinIO service containers, installs `.[dev,production]`, sets
+  `CF_DATABASE_URL` / `CF_S3_*`, and executes
+  `tests/integration/test_postgres_minio_smoke.py`. Those tests **skip** when
+  services or extras are missing (local-friendly). Local:
+  `make test-integration` (or compose stack + same env as `deploy/README.md`).
 
 ## Scope discipline
 
@@ -49,14 +59,17 @@ Do not implement a single autonomous director agent that carries the full screen
 
 ## Mutation contract
 
-Any mutating agent or MCP command must include:
+`MutationEnvelope` is the universal write contract. Any mutating agent or MCP
+command must include (or construct):
 
 - actor identity
 - authorization scope
 - idempotency key
-- expected-state hash (when continuing prior state)
+- expected-state hash (when continuing prior project state — `state_hash`)
 - command schema version
 - rationale
+
+Providers must not import persistence repositories or write canon directly.
 
 ## Completion receipt
 

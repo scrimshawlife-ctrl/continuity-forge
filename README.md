@@ -8,7 +8,7 @@ Continuity Forge converts a screenplay into a provenance-preserving Production I
 
 > Models generate pixels and proposals. Continuity Forge governs identity, memory, causality, approvals, and production truth.
 
-**Version 1.3.0.** GitHub Actions runs `scripts/validate_m0.py` (merge gate). Local: `make validate`.
+**Version 1.3.0.** Default PR gate: `scripts/validate_m0.py` via `.github/workflows/ci.yml` (`make validate`). Phase 2: packaging (`.github/workflows/ci-packaging.yml`) and Postgres/MinIO integration smoke (`.github/workflows/ci-integration.yml`) — see `docs/SETUP.md` §3.
 
 | Doc | Contents |
 |-----|----------|

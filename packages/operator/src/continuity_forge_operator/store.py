@@ -96,6 +96,22 @@ class ProjectStore:
         if current.holder != actor_id:
             raise OperatorError("actor does not hold the write lease")
 
+    def _check_expected_project_state(self, document_key: str, envelope: MutationEnvelope) -> None:
+        """Optimistic concurrency against ProjectRecord.state_hash.
+
+        ``MutationEnvelope.expected_state_hash`` is the project state domain
+        (see ``project_state_hash``), not pipeline ``shot_contracts_hash``.
+        """
+        existing = self._projects.get(document_key)
+        if existing is None or existing.state_hash is None:
+            return
+        if envelope.expected_state_hash is None:
+            raise OperatorError("expected_state_hash required when continuing prior project state")
+        if envelope.expected_state_hash != existing.state_hash:
+            raise OperatorError(
+                "expected_state_hash conflict: does not match current project state_hash"
+            )
+
     def ingest_script(
         self,
         *,
@@ -110,12 +126,16 @@ class ProjectStore:
         with self._lock:
             if require_lease:
                 self._require_lease(document_key, envelope.actor_id)
+            self._check_expected_project_state(document_key, envelope)
+            # Project-level expected_state_hash is enforced above. PipelineCommand
+            # expected_state_hash is a separate domain (shot_contracts_hash) used
+            # only on direct pipeline runs — do not forward project state_hash.
             command = PipelineCommand(
                 actor_id=envelope.actor_id,
                 authorization_scope=envelope.authorization_scope,
                 idempotency_key=envelope.idempotency_key,
                 rationale=envelope.rationale,
-                expected_state_hash=envelope.expected_state_hash,
+                expected_state_hash=None,
                 title=title,
                 text=text,
                 revision=revision,

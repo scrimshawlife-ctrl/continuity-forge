@@ -69,6 +69,26 @@ packages = [
   "apps/mcp/src/continuity_forge_mcp",
 ]
 
+[tool.hatch.build.targets.sdist]
+# Keep sdist installable; exclude local tooling and caches (also covered by .gitignore).
+exclude = [
+  "/.venv",
+  "/.venv-*",
+  "/venv",
+  "/.git",
+  "/.github",
+  "/.grok",
+  "/.hallmark",
+  "/.mypy_cache",
+  "/.pytest_cache",
+  "/.ruff_cache",
+  "/dist",
+  "/build",
+  "/out",
+  "/htmlcov",
+  "/.coverage",
+]
+
 [tool.pytest.ini_options]
 pythonpath = [
   "packages/production_ir/src",
@@ -87,6 +107,9 @@ pythonpath = [
 ]
 testpaths = ["tests"]
 addopts = "-q --strict-markers"
+markers = [
+  "integration: requires live Postgres/MinIO (or CF_* env); skips when unavailable",
+]
 
 [tool.ruff]
 target-version = "py312"
