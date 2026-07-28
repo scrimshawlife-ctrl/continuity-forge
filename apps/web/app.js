@@ -2,6 +2,7 @@
  * Continuity Forge · Proof Workbench (easy path)
  * Default: paste script → Run proof → read receipt.
  * Advanced: connection, canon, leases, approvals.
+ * Long-form 4.1: scene / shot navigation (read-only).
  */
 
 const SAMPLE_SCRIPT = `Title: Continuity Sample
@@ -66,6 +67,18 @@ let lastReceipt = null;
 /** @type {Record<string, any> | null} */
 let lastWhoami = null;
 
+/** Scene/shot navigation state (read-only; does not mutate canon). */
+const nav = {
+  /** @type {string[]} ordered unique scene_ids from receipt shots */
+  sceneIds: [],
+  /** @type {Map<string, {scene_id: string, label: string, count: number}>} */
+  scenes: new Map(),
+  /** null = all scenes */
+  focusSceneId: /** @type {string | null} */ (null),
+  /** index into filtered shot list for keyboard focus highlight */
+  focusShotIndex: 0,
+};
+
 const els = {
   script: $("script"),
   documentKey: $("document-key"),
@@ -126,6 +139,13 @@ const els = {
   rLedger: $("r-ledger"),
   rShotsHash: $("r-shots-hash"),
   shotRows: $("shot-rows"),
+  shotEmpty: $("shot-empty"),
+  sceneNav: $("scene-nav"),
+  sceneList: $("scene-list"),
+  sceneFocusLabel: $("scene-focus-label"),
+  btnSceneAll: $("btn-scene-all"),
+  btnScenePrev: $("btn-scene-prev"),
+  btnSceneNext: $("btn-scene-next"),
   rawJson: $("raw-json"),
   statusGrid: $("status-grid"),
   stDoc: $("st-doc"),
@@ -555,6 +575,217 @@ async function listRuns() {
   showAlert(`Runs · ${(payload.runs || []).length}`, "ok");
 }
 
+function buildSceneIndex(shots) {
+  nav.scenes = new Map();
+  nav.sceneIds = [];
+  for (const shot of shots) {
+    const sid = String(shot.scene_id || "unknown");
+    if (!nav.scenes.has(sid)) {
+      nav.scenes.set(sid, {
+        scene_id: sid,
+        label: sceneLabelFromShot(shot, sid),
+        count: 0,
+      });
+      nav.sceneIds.push(sid);
+    }
+    const entry = nav.scenes.get(sid);
+    entry.count += 1;
+    // Prefer a scene-like label if shot label encodes scene-NNN-master
+    if (shot.label && String(shot.label).includes("scene-")) {
+      entry.label = sceneLabelFromShot(shot, sid);
+    }
+  }
+}
+
+function sceneLabelFromShot(shot, sceneId) {
+  const label = String(shot.label || "");
+  const m = label.match(/^(scene-\d+)/i);
+  if (m) return m[1];
+  return shortHash(sceneId);
+}
+
+function filteredShots() {
+  const shots = lastReceipt?.shots || [];
+  if (!nav.focusSceneId) return shots;
+  return shots.filter((s) => String(s.scene_id || "") === nav.focusSceneId);
+}
+
+function syncNavUrl() {
+  try {
+    const url = new URL(window.location.href);
+    const doc = activeDocumentKey();
+    if (doc) url.searchParams.set("document_key", doc);
+    else url.searchParams.delete("document_key");
+    if (nav.focusSceneId) url.searchParams.set("scene_id", nav.focusSceneId);
+    else url.searchParams.delete("scene_id");
+    const shots = filteredShots();
+    const focused = shots[nav.focusShotIndex];
+    if (focused?.shot_id) url.searchParams.set("shot_id", String(focused.shot_id));
+    else url.searchParams.delete("shot_id");
+    history.replaceState(null, "", url.pathname + url.search + url.hash);
+  } catch {
+    /* ignore */
+  }
+}
+
+function applyNavFromUrl() {
+  try {
+    const url = new URL(window.location.href);
+    const doc = url.searchParams.get("document_key");
+    if (doc && els.documentKey) els.documentKey.value = doc;
+    const sceneId = url.searchParams.get("scene_id");
+    const shotId = url.searchParams.get("shot_id");
+    if (sceneId && nav.sceneIds.includes(sceneId)) {
+      nav.focusSceneId = sceneId;
+    }
+    if (shotId && lastReceipt) {
+      const list = filteredShots();
+      const idx = list.findIndex((s) => String(s.shot_id) === shotId);
+      if (idx >= 0) nav.focusShotIndex = idx;
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+function renderSceneNav() {
+  if (!els.sceneNav || !els.sceneList) return;
+  if (!lastReceipt || !nav.sceneIds.length) {
+    els.sceneNav.hidden = true;
+    return;
+  }
+  // Always available; short fixtures still work without requiring expand chrome
+  els.sceneNav.hidden = false;
+  els.sceneList.replaceChildren();
+
+  for (const sid of nav.sceneIds) {
+    const meta = nav.scenes.get(sid);
+    const li = document.createElement("li");
+    li.setAttribute("role", "none");
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "scene-nav__item";
+    btn.setAttribute("role", "option");
+    btn.setAttribute(
+      "aria-selected",
+      nav.focusSceneId === sid ? "true" : "false",
+    );
+    btn.dataset.sceneId = sid;
+    btn.innerHTML = `${escapeHtml(meta?.label || shortHash(sid))}<span class="scene-nav__count">(${meta?.count ?? 0})</span>`;
+    btn.addEventListener("click", () => {
+      setSceneFocus(sid);
+    });
+    li.appendChild(btn);
+    els.sceneList.appendChild(li);
+  }
+
+  if (els.sceneFocusLabel) {
+    if (!nav.focusSceneId) {
+      els.sceneFocusLabel.textContent = `Showing all scenes · ${nav.sceneIds.length} scene(s) · ${lastReceipt.shots?.length || 0} shot(s)`;
+    } else {
+      const meta = nav.scenes.get(nav.focusSceneId);
+      els.sceneFocusLabel.textContent = `Focused · ${meta?.label || shortHash(nav.focusSceneId)} · ${meta?.count ?? 0} shot(s) · read-only`;
+    }
+  }
+}
+
+function renderShotTable() {
+  if (!els.shotRows) return;
+  const shots = filteredShots();
+  els.shotRows.replaceChildren();
+
+  if (!shots.length) {
+    if (els.shotEmpty) els.shotEmpty.hidden = false;
+    return;
+  }
+  if (els.shotEmpty) els.shotEmpty.hidden = true;
+
+  if (nav.focusShotIndex >= shots.length) nav.focusShotIndex = Math.max(0, shots.length - 1);
+  if (nav.focusShotIndex < 0) nav.focusShotIndex = 0;
+
+  shots.forEach((shot, index) => {
+    const tr = document.createElement("tr");
+    if (index === nav.focusShotIndex) tr.classList.add("shot-row-focus");
+    tr.dataset.shotId = String(shot.shot_id || "");
+    tr.dataset.sceneId = String(shot.scene_id || "");
+    const status = shot.status || "";
+    const statusClass =
+      status.includes("accept") || status === "accepted_proposed"
+        ? "status-ok"
+        : status.includes("fail") || status.includes("reject")
+          ? "status-fail"
+          : "";
+    const summary = repairRationaleSummary(shot);
+    let repairCell = "—";
+    if (summary) {
+      const actionCodes = summary.actions
+        .map((a) => escapeHtml(String(a)))
+        .join(", ");
+      repairCell = `
+        <div class="repair-summary">
+          <span class="repair-summary__actions">${actionCodes}</span>
+          <span class="repair-summary__rationale">${escapeHtml(summary.rationale)}</span>
+        </div>
+      `;
+    }
+    tr.innerHTML = `
+      <td>${escapeHtml(shot.label || shortHash(shot.shot_id))}</td>
+      <td class="${statusClass}">${escapeHtml(humanStatus(status))}</td>
+      <td>${escapeHtml(String(shot.attempts ?? "—"))}</td>
+      <td>${repairCell}</td>
+      <td title="${escapeHtml(shot.accepted_candidate_hash || "")}">${escapeHtml(
+        shortHash(shot.accepted_candidate_hash),
+      )}</td>
+    `;
+    tr.addEventListener("click", () => {
+      nav.focusShotIndex = index;
+      renderShotTable();
+      syncNavUrl();
+    });
+    els.shotRows.appendChild(tr);
+  });
+}
+
+function setSceneFocus(sceneId) {
+  nav.focusSceneId = sceneId || null;
+  nav.focusShotIndex = 0;
+  renderSceneNav();
+  renderShotTable();
+  syncNavUrl();
+}
+
+function stepScene(delta) {
+  if (!nav.sceneIds.length) return;
+  if (!nav.focusSceneId) {
+    nav.focusSceneId = delta > 0 ? nav.sceneIds[0] : nav.sceneIds[nav.sceneIds.length - 1];
+  } else {
+    const i = nav.sceneIds.indexOf(nav.focusSceneId);
+    const next = i + delta;
+    if (next < 0 || next >= nav.sceneIds.length) {
+      nav.focusSceneId = null; // wrap to all
+    } else {
+      nav.focusSceneId = nav.sceneIds[next];
+    }
+  }
+  nav.focusShotIndex = 0;
+  renderSceneNav();
+  renderShotTable();
+  syncNavUrl();
+}
+
+function stepShot(delta) {
+  const shots = filteredShots();
+  if (!shots.length) return;
+  nav.focusShotIndex = Math.max(
+    0,
+    Math.min(shots.length - 1, nav.focusShotIndex + delta),
+  );
+  renderShotTable();
+  syncNavUrl();
+  const row = els.shotRows?.querySelector(".shot-row-focus");
+  row?.scrollIntoView({ block: "nearest" });
+}
+
 function renderReceipt(receipt) {
   lastReceipt = receipt;
   els.receiptEmpty.hidden = true;
@@ -634,38 +865,14 @@ function renderReceipt(receipt) {
   );
   setText(els.metaShots, String(shots.length));
 
-  els.shotRows.replaceChildren();
-  for (const shot of shots) {
-    const tr = document.createElement("tr");
-    const status = shot.status || "";
-    const statusClass =
-      status.includes("accept") || status === "accepted_proposed"
-        ? "status-ok"
-        : status.includes("fail") || status.includes("reject")
-          ? "status-fail"
-          : "";
-    const summary = repairRationaleSummary(shot);
-    let repairCell = "—";
-    if (summary) {
-      const actionCodes = summary.actions.map((a) => escapeHtml(String(a))).join(", ");
-      repairCell = `
-        <div class="repair-summary">
-          <span class="repair-summary__actions">${actionCodes}</span>
-          <span class="repair-summary__rationale">${escapeHtml(summary.rationale)}</span>
-        </div>
-      `;
-    }
-    tr.innerHTML = `
-      <td>${escapeHtml(shot.label || shortHash(shot.shot_id))}</td>
-      <td class="${statusClass}">${escapeHtml(humanStatus(status))}</td>
-      <td>${escapeHtml(String(shot.attempts ?? "—"))}</td>
-      <td>${repairCell}</td>
-      <td title="${escapeHtml(shot.accepted_candidate_hash || "")}">${escapeHtml(
-        shortHash(shot.accepted_candidate_hash),
-      )}</td>
-    `;
-    els.shotRows.appendChild(tr);
-  }
+  buildSceneIndex(shots);
+  // Preserve URL focus if present; otherwise show all scenes
+  nav.focusSceneId = null;
+  nav.focusShotIndex = 0;
+  applyNavFromUrl();
+  renderSceneNav();
+  renderShotTable();
+  syncNavUrl();
 
   els.rawJson.textContent = JSON.stringify(receipt, null, 2);
 }
@@ -939,6 +1146,31 @@ function wire() {
   setStep(1);
   setRunState("idle", "ready");
   wireStickyCta();
+  applyNavFromUrl();
+
+  els.btnSceneAll?.addEventListener("click", () => setSceneFocus(null));
+  els.btnScenePrev?.addEventListener("click", () => stepScene(-1));
+  els.btnSceneNext?.addEventListener("click", () => stepScene(1));
+
+  document.addEventListener("keydown", (ev) => {
+    // Skip when typing in fields
+    const tag = (ev.target && /** @type {HTMLElement} */ (ev.target).tagName) || "";
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+    if (!lastReceipt) return;
+    if (ev.key === "[") {
+      ev.preventDefault();
+      stepScene(-1);
+    } else if (ev.key === "]") {
+      ev.preventDefault();
+      stepScene(1);
+    } else if (ev.key === "ArrowLeft") {
+      ev.preventDefault();
+      stepShot(-1);
+    } else if (ev.key === "ArrowRight") {
+      ev.preventDefault();
+      stepShot(1);
+    }
+  });
 
   els.btnProof.addEventListener("click", runProof);
   els.btnProofSticky?.addEventListener("click", runProof);
