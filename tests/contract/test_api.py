@@ -170,6 +170,26 @@ def test_pipeline_run_endpoint_is_idempotent() -> None:
     assert manifest.status_code == 200
     assert manifest.json()["workflow_type"] == "KernelPipelineWorkflow"
 
+    events = client.get(f"/v1/pipeline/runs/{run_id}/events")
+    assert events.status_code == 200
+    page = events.json()
+    assert page["claim"] == "workflow_events_observability_not_canon"
+    assert page["transport"] == "poll"
+    assert page["workflow_complete_is_not_production_ready"] is True
+    assert page["events"]
+    assert page["events"][0]["kind"] == "run_started"
+    assert page["events"][-1]["kind"] == "run_completed"
+    assert page["progress"]["percent"] == 100
+    assert "red keycard" not in events.text  # no script body leak
+    # Resume cursor: after first event
+    first_id = page["events"][0]["event_id"]
+    resumed = client.get(
+        f"/v1/pipeline/runs/{run_id}/events",
+        params={"last_event_id": first_id},
+    )
+    assert resumed.status_code == 200
+    assert resumed.json()["events"][0]["sequence"] == 2
+
 
 def test_shot_contracts_endpoint() -> None:
     response = TestClient(app).post(
@@ -311,6 +331,13 @@ def test_web_ui_is_served() -> None:
     assert "renderCostPanel" in app_js.text
     assert "over budget" in app_js.text
     assert "cost_summary" in app_js.text
+    assert 'id="workflow-panel"' in index.text
+    assert "workflow complete ≠ production ready" in index.text or (
+        "workflow complete" in index.text and "production ready" in index.text
+    )
+    assert "pollWorkflowEvents" in app_js.text
+    assert "/events" in app_js.text
+    assert "workflow_complete" in app_js.text or "not production ready" in app_js.text
 
 
 def test_health_reports_version() -> None:

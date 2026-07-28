@@ -38,12 +38,13 @@ phase3_operator_ux: REQUIRED      # exec vs readiness, repair rationale
 
 # This campaign (Phase 4)
 long_form_campaign_doc: PASS
-feature_implementation: IN_PROGRESS
+feature_implementation: COMPLETE  # all six long-form slices implemented with tests
 slice_1_scene_shot_nav: IMPLEMENTED  # apps/web scene nav + filter + URL deep-link
 slice_2_virtualized_tables: IMPLEMENTED  # virtual tbody + filters/sort + flag fallback
 slice_3_dependency_invalidation: IMPLEMENTED  # pure graph + POST /v1/invalidation/preview + UI stale column
 slice_4_incremental_compile: IMPLEMENTED  # compile_incremental + CLI/API/MCP + UI advanced + goldens
 slice_5_budget_telemetry: IMPLEMENTED  # CostEvent/Ledger/Summary + proof emit + UI burn-down chips
+slice_6_streaming_workflow: IMPLEMENTED  # poll GET .../events + UI progress + dual-lane copy
 trivial_stubs: NONE
 ```
 
@@ -92,8 +93,8 @@ Observed on the controlled-proof workbench (`apps/web/`):
 - Compile/proof default is whole-document; incremental compile + invalidation preview are optional operator paths (not production film).
 - Budget wall-clock remains on the proof receipt; cost ledger + provider traces
   are now run-scoped telemetry (mock fixed cost; not project canon).
-- Harness stores ordered checkpoints on `WorkflowRun`; the UI does not stream
-  checkpoint progress (poll/list runs only).
+- Harness stores ordered checkpoints on `WorkflowRun`; operators poll
+  `GET /v1/pipeline/runs/{id}/events` for ordered progress (SSE deferred).
 
 These are acceptable for short controlled proofs (30–60s mock path). They
 do not scale to feature-length operator review.
@@ -382,7 +383,7 @@ Suggested future PR order (non-binding):
 1) dependency-graph invalidation — DONE
 2) incremental compile — DONE
 3) budget/provider telemetry schema — DONE
-4) streaming/poll workflow events (harness + API)
+4) streaming/poll workflow events — DONE
 5) scene/shot navigation + virtualized tables — DONE
 ```
 
@@ -417,7 +418,7 @@ virtualized_tables: IMPLEMENTED
 dependency_graph_invalidation: IMPLEMENTED
 incremental_compile: IMPLEMENTED
 budget_provider_telemetry: IMPLEMENTED
-streaming_workflow_state: NOT_STARTED
+streaming_workflow_state: IMPLEMENTED
 make_validate: local_gate_for_slices
 ```
 
