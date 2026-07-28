@@ -12,6 +12,7 @@ SUPPORTED_FIXTURES = [
     "parenthetical_dialogue.fountain",
     "multi_scene.fountain",
     "transitions.fountain",
+    "title_page.fountain",
     "unicode.fountain",
     "minimal.fdx",
 ]
@@ -103,3 +104,19 @@ def test_parenthetical_and_multiline_dialogue_are_one_atom() -> None:
     assert dialogue_atoms[0].source_span.line_start == 3
     assert dialogue_atoms[0].source_span.line_end == 6
     assert dialogue_atoms[1].text == "JONAS: I know."
+
+
+def test_title_page_metadata_is_typed_and_source_covered() -> None:
+    result = compile_fixture(FIXTURES / "title_page.fountain")
+    metadata = {entry.key: entry for entry in result.document.metadata}
+
+    assert metadata["title"].value == "The Quiet Ledger"
+    assert metadata["credit"].value == "Written by"
+    assert metadata["author"].value == "Mara Vale"
+    assert metadata["draft_date"].value == "July 28, 2026"
+    assert metadata["title"].source_span.line_start == 1
+    assert metadata["draft_date"].source_span.line_end == 4
+    assert not any(
+        diagnostic.code == "CF_PARSE_CONTENT_BEFORE_SCENE"
+        for diagnostic in result.diagnostics
+    )
