@@ -8,10 +8,12 @@ Continuity Forge converts a screenplay into a provenance-preserving Production I
 
 > Models generate pixels and proposals. Continuity Forge governs identity, memory, causality, approvals, and production truth.
 
-**Version 1.4.0.** Default PR gate: `scripts/validate_m0.py` via `.github/workflows/ci.yml` (`make validate`). Phase 2: packaging (`.github/workflows/ci-packaging.yml`) and Postgres/MinIO integration smoke (`.github/workflows/ci-integration.yml`) — see `docs/SETUP.md` §3.
+**Version 1.4.0** — frozen baseline tag **`v1.4.0`** (mock controlled-proof operator kernel).  
+Default PR gate: `scripts/validate_m0.py` via `.github/workflows/ci.yml` (`make validate`). Phase 2: packaging (`.github/workflows/ci-packaging.yml`) and Postgres/MinIO integration smoke (`.github/workflows/ci-integration.yml`) — see `docs/SETUP.md` §3.
 
 | Doc | Contents |
 |-----|----------|
+| **[docs/releases/1.4.0.md](docs/releases/1.4.0.md)** | **Baseline freeze notes** (what works / non-claims / support policy) |
 | **[docs/SETUP.md](docs/SETUP.md)** | Full install, env, UI, MCP, Docker |
 | **[docs/hermes/README.md](docs/hermes/README.md)** | Hermes skill + MCP integration |
 | **[skills/hermes-continuity-forge/](skills/hermes-continuity-forge/)** | Ready-to-install Hermes operator skill |
@@ -62,6 +64,14 @@ LONG-FORM UX (Phase 4 audit) ......... Implemented (nav, virtualize, invalidatio
 Nothing in this table is **Production-validated**. Controlled proof and mock paths are not production film.
 
 **Long-form operator scale (v1.4):** scene/shot navigation, virtualized shot tables, dependency invalidation preview, optional incremental compile, run-scoped cost ledger, pollable workflow events. See [`docs/campaigns/CONTINUITY_FORGE_LONG_FORM_UX_001.md`](docs/campaigns/CONTINUITY_FORGE_LONG_FORM_UX_001.md).
+
+**Pin a known-good tree:**
+
+```bash
+git checkout v1.4.0   # baseline freeze — see docs/releases/1.4.0.md
+```
+
+Forward development continues on `main` (1.5+). Patch-only fixes for the freeze story use `1.4.x`.
 
 ---
 
