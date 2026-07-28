@@ -167,7 +167,10 @@
         <section class="panel panel--wide" id="receipt" aria-labelledby="receipt-title">
           <div class="panel__head">
             <h2 class="panel__title" id="receipt-title">Results</h2>
-            <span class="chip chip--warn" id="receipt-claim">waiting for proof</span>
+            <div class="panel__head-chips">
+              <span class="chip chip--warn" id="receipt-exec">waiting for proof</span>
+              <span class="chip chip--warn" id="receipt-claim" hidden>not production ready</span>
+            </div>
           </div>
           <div class="panel__body">
             <div id="receipt-empty" class="empty empty--friendly">
@@ -178,7 +181,30 @@
               </p>
             </div>
             <div id="receipt-body" hidden>
-              <p class="result-banner" id="result-banner" hidden></p>
+              <div class="result-stack" id="result-stack" hidden>
+                <p class="result-banner result-banner--exec" id="result-banner" hidden></p>
+                <div
+                  class="claim-banner claim-banner--post-proof"
+                  id="claim-post-proof"
+                  role="status"
+                  hidden
+                >
+                  <div class="claim-banner__row">
+                    <span class="claim-banner__k">Execution</span>
+                    <span class="claim-banner__v" id="claim-exec-label">—</span>
+                  </div>
+                  <div class="claim-banner__row">
+                    <span class="claim-banner__k">Production readiness</span>
+                    <span class="claim-banner__v claim-banner__v--warn">
+                      not ready — mock controlled proof only
+                    </span>
+                  </div>
+                  <p class="claim-banner__claim">
+                    <strong>Claim:</strong>
+                    <code id="r-claim-code">controlled_proof_not_production_ready</code>
+                  </p>
+                </div>
+              </div>
               <div class="btn-row">
                 <button type="button" class="btn btn--primary" id="btn-export">
                   Download receipt
@@ -213,7 +239,7 @@
                       <th scope="col">Shot</th>
                       <th scope="col">Status</th>
                       <th scope="col">Attempts</th>
-                      <th scope="col">Repair</th>
+                      <th scope="col">Repair / rationale</th>
                       <th scope="col">Candidate</th>
                     </tr>
                   </thead>
@@ -435,7 +461,20 @@
                   </div>
                 </div>
                 <div class="table-wrap" id="approval-list-wrap" hidden>
-                  <table class="receipt">
+                  <div
+                    id="approval-empty"
+                    class="empty empty--friendly empty--queue"
+                    hidden
+                  >
+                    <p class="empty__lead">Approval queue empty</p>
+                    <p>
+                      No pending approvals for this project. Next action:
+                      set <strong>Approval type</strong> and <strong>Why</strong>,
+                      then click <strong>Request approval</strong>. Acquire a
+                      write lease first if mutations require the same actor.
+                    </p>
+                  </div>
+                  <table class="receipt" id="approval-table">
                     <thead>
                       <tr>
                         <th scope="col">Kind</th>
@@ -472,8 +511,9 @@
 
       <footer class="foot-dense">
         <p>
-          Continuity Forge v1.3 · mock controlled proof only · models PROPOSED · kernel owns
-          canon · Hallmark Terminal workbench.
+          Continuity Forge · operator UI phase 3 · mock controlled proof only · claim
+          <code>controlled_proof_not_production_ready</code> · models PROPOSED ·
+          kernel owns canon · Hallmark Terminal workbench.
         </p>
       </footer>
     </main>

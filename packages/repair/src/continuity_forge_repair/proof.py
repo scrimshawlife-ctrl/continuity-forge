@@ -22,6 +22,7 @@ class ShotProof(BaseModel):
     attempts: int
     accepted_candidate_hash: str | None = None
     repair_actions: list[str] = Field(default_factory=list)
+    repair_rationale: str | None = None
 
 
 class ProofReceipt(BaseModel):
@@ -109,9 +110,19 @@ def run_controlled_proof(
             fail_first=(index == 0),
         )
         repair_actions: list[str] = []
+        rationales: list[str] = []
         for attempt in result.attempts:
             if attempt.repair_plan:
                 repair_actions.extend(a.value for a in attempt.repair_plan.actions)
+                if attempt.repair_plan.rationale:
+                    rationales.append(attempt.repair_plan.rationale)
+        # Prefer validator messages from repair plans; de-dupe while preserving order.
+        seen_r: set[str] = set()
+        unique_rationales: list[str] = []
+        for msg in rationales:
+            if msg not in seen_r:
+                seen_r.add(msg)
+                unique_rationales.append(msg)
         shot_proofs.append(
             ShotProof(
                 shot_id=str(contract["shot_id"]),
@@ -123,6 +134,7 @@ def run_controlled_proof(
                     result.accepted_candidate.content_hash if result.accepted_candidate else None
                 ),
                 repair_actions=repair_actions,
+                repair_rationale=("; ".join(unique_rationales) if unique_rationales else None),
             )
         )
 

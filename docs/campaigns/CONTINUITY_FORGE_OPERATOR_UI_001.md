@@ -7,12 +7,15 @@ Ship a technical/austere operator workbench for ops + producer overview: run con
 ## Status
 
 ```text
-operator_ui: PASS (v1.3)
+operator_ui: PASS (v1.3 + phase 3)
 proof_api: PASS
 project_list: PASS
 control_leases_approvals: PASS
 static_mount: PASS
 smoke: PASS (when API up)
+phase3_exec_vs_readiness: PASS
+phase3_repair_rationale: PASS
+phase3_approval_empty: PASS
 ```
 
 ## Surface
@@ -40,6 +43,14 @@ smoke: PASS (when API up)
 - Request approval + grant/deny from list
 - List pipeline runs for document key
 
+### Phase 3 (no React migration)
+
+- Separate **execution success** from **production readiness** after proof
+- Prominently surface claim `controlled_proof_not_production_ready` on the receipt
+- Shot rows show validator/repair rationale when `repair_actions` present
+- Approval queue empty-state with clear next action (request approval + lease)
+- Hallmark Terminal tokens retained (no reskin)
+
 ## Design fingerprint
 
 - Genre: atmospheric
@@ -48,6 +59,7 @@ smoke: PASS (when API up)
 - Nav: N8 Terminal command
 - Footer: Ft4 Dense colophon
 - Claim banner: `controlled_proof_not_production_ready`
+- Post-proof dual lane: execution ok (chip--ok) · not production ready (chip--warn)
 
 ## Non-goals
 
