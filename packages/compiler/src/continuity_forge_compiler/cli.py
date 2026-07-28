@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from typing import Annotated
 from uuid import uuid4
@@ -106,6 +107,39 @@ def proof_cmd(
     target = out / f"{script.stem}.proof-receipt.json"
     target.write_text(receipt.model_dump_json(indent=2), encoding="utf-8")
     typer.echo(str(target))
+
+
+@app.command("worker-dry-run")
+def worker_dry_run_cmd(
+    script: Annotated[Path, typer.Argument(exists=True, dir_okay=False)],
+    store_root: Annotated[Path | None, typer.Option("--store-root")] = None,
+    document_key: Annotated[str | None, typer.Option("--document-key")] = None,
+) -> None:
+    """Run KernelPipelineWorkflow via the in-process Temporal-shaped worker."""
+    from continuity_forge_harness import (
+        FileRunStore,
+        InProcessWorker,
+        PipelineCommand,
+        try_build_temporal_worker_note,
+    )
+
+    text = script.read_text(encoding="utf-8")
+    fmt = "fdx" if script.suffix.casefold() == ".fdx" else "fountain"
+    store = FileRunStore(store_root) if store_root is not None else None
+    worker = InProcessWorker(store=store)
+    command = PipelineCommand(
+        actor_id="cli-worker",
+        authorization_scope="kernel:pipeline",
+        idempotency_key=f"worker-{uuid4()}",
+        rationale="In-process worker dry-run",
+        title=script.stem,
+        text=text,
+        document_key=document_key or script.stem,
+        format=fmt,  # type: ignore[arg-type]
+    )
+    result = worker.run_workflow(command)
+    typer.echo(json.dumps({"status": result.get("status"), "run_id": result.get("run_id")}))
+    typer.echo(json.dumps(try_build_temporal_worker_note()))
 
 
 if __name__ == "__main__":
