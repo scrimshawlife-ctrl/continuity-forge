@@ -268,6 +268,8 @@ def test_web_ui_is_served() -> None:
     assert 'id="canon"' in index.text
     assert 'id="control"' in index.text
     assert "Acquire lease" in index.text
+    assert "Compile incremental" in index.text
+    assert 'id="btn-compile-incremental"' in index.text
     styles = client.get("/styles.css")
     assert styles.status_code == 200
     assert "Hallmark" in styles.text
@@ -291,11 +293,52 @@ def test_web_ui_is_served() -> None:
     assert "renderShotTableVirtual" in app_js.text
     assert "useVirtualization" in app_js.text
     assert "virtualThreshold" in app_js.text
+    assert "/v1/compile/incremental" in app_js.text
+    assert "compileIncremental" in app_js.text
+    assert "lastCompiledDocument" in app_js.text
 
 
 def test_health_reports_version() -> None:
     payload = TestClient(app).get("/health").json()
     assert payload["version"] == "1.3.0"
+
+
+def test_compile_incremental_endpoint() -> None:
+    client = TestClient(app)
+    text = "INT. ROOM - DAY\n\nA lamp flickers.\n"
+    first = client.post(
+        "/v1/compile/incremental",
+        json={
+            "title": "Inc",
+            "document_key": "api-inc",
+            "text": text,
+        },
+    )
+    assert first.status_code == 200
+    payload = first.json()
+    assert payload["claim"] == "incremental_compile_not_production_ready"
+    assert payload["mode"] == "incremental"
+    assert payload["prior_reconciled"] is False
+    assert len(payload["recompiled_scene_ids"]) == len(payload["document"]["scenes"])
+    assert payload["coverage_accounted_characters"] == payload["coverage_source_characters"]
+    assert "PROPOSED" in payload["authority_note"] or "canon" in payload["authority_note"].lower()
+
+    second = client.post(
+        "/v1/compile/incremental",
+        json={
+            "title": "Inc",
+            "document_key": "api-inc",
+            "text": text,
+            "prior_document": payload["document"],
+        },
+    )
+    assert second.status_code == 200
+    carried = second.json()
+    assert carried["prior_reconciled"] is True
+    assert carried["carried_scene_ids"]
+    assert carried["recompiled_scene_ids"] == []
+    assert carried["stale_shot_ids"] == []
+    assert carried["document"]["source_hash"] == payload["document"]["source_hash"]
 
 
 def test_invalidation_preview_endpoint() -> None:

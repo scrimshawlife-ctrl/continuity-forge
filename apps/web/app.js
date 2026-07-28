@@ -97,6 +97,9 @@ const tableView = {
   staleShotIds: new Set(),
 };
 
+/** Last full IR document for incremental compile prior reconcile (session only). */
+let lastCompiledDocument = null;
+
 const els = {
   script: $("script"),
   documentKey: $("document-key"),
@@ -114,6 +117,7 @@ const els = {
   stickyHint: $("sticky-hint"),
   btnHealth: $("btn-health"),
   btnCompile: $("btn-compile"),
+  btnCompileIncremental: $("btn-compile-incremental"),
   btnSample: $("btn-sample"),
   btnClear: $("btn-clear"),
   btnBootstrap: $("btn-bootstrap"),
@@ -1258,19 +1262,70 @@ async function compileOnly() {
         format: els.format.value,
       }),
     });
+    lastCompiledDocument = doc;
     const scenes = (doc.scenes || []).length;
     const coverage = doc.coverage?.ratio;
     const diags = (doc.diagnostics || []).length;
     showAlert(
       `Compile ok · ${scenes} scene(s)` +
         (coverage != null ? ` · coverage ${coverage}` : "") +
-        (diags ? ` · ${diags} diagnostic(s)` : ""),
+        (diags ? ` · ${diags} diagnostic(s)` : "") +
+        ` · full path (default)`,
       diags ? "error" : "ok",
     );
   } catch (err) {
     showAlert(err instanceof Error ? err.message : String(err));
   } finally {
     els.btnCompile.disabled = false;
+  }
+}
+
+async function compileIncremental() {
+  showAlert("");
+  const text = els.script.value.trim();
+  if (!text) {
+    showAlert("Script source is empty.");
+    return;
+  }
+  if (els.btnCompileIncremental) els.btnCompileIncremental.disabled = true;
+  try {
+    const body = {
+      title: els.title.value.trim() || "Untitled",
+      text,
+      document_key: els.documentKey.value.trim() || null,
+      format: els.format.value,
+    };
+    if (lastCompiledDocument) {
+      body.prior_document = lastCompiledDocument;
+    }
+    const payload = await api("/v1/compile/incremental", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+    if (payload.document) {
+      lastCompiledDocument = payload.document;
+    }
+    const ids = payload.stale_shot_ids || [];
+    tableView.staleShotIds = new Set(ids.map(String));
+    if (lastReceipt) renderShotTable();
+    const carried = (payload.carried_scene_ids || []).length;
+    const recompiled = (payload.recompiled_scene_ids || []).length;
+    const added = (payload.added_scene_ids || []).length;
+    const covOk =
+      payload.coverage_accounted_characters ===
+      payload.coverage_source_characters;
+    showAlert(
+      `Incremental compile · carried ${carried} · recompiled ${recompiled}` +
+        (added ? ` · added ${added}` : "") +
+        ` · stale shots ${ids.length}` +
+        (covOk ? " · coverage full partition" : " · coverage mismatch") +
+        " · not production film · PROPOSED not elevated",
+      covOk ? "ok" : "error",
+    );
+  } catch (err) {
+    showAlert(err instanceof Error ? err.message : String(err));
+  } finally {
+    if (els.btnCompileIncremental) els.btnCompileIncremental.disabled = false;
   }
 }
 
@@ -1472,6 +1527,13 @@ function wire() {
     }
   });
   els.btnCompile.addEventListener("click", compileOnly);
+  if (els.btnCompileIncremental) {
+    els.btnCompileIncremental.addEventListener("click", () => {
+      compileIncremental().catch((err) =>
+        showAlert(err instanceof Error ? err.message : String(err)),
+      );
+    });
+  }
   els.btnSample.addEventListener("click", loadSample);
   els.btnClear.addEventListener("click", clearScript);
   els.btnBootstrap.addEventListener("click", bootstrapDevKey);

@@ -147,11 +147,16 @@ Examples:
 
 ```bash
 continuity-forge compile tests/golden/fixtures/minimal.fountain --out out
+# Optional edit-loop path: full validate + prior-ID reconcile + invalidation receipt
+continuity-forge compile tests/golden/fixtures/minimal.fountain --out out \
+  --prior-ir out/minimal.production-ir.json --incremental
 continuity-forge ledger tests/golden/fixtures/continuity.fountain --out out
 continuity-forge shots tests/golden/fixtures/continuity.fountain --out out
 continuity-forge pipeline tests/golden/fixtures/continuity.fountain --out out
 continuity-forge proof tests/golden/fixtures/continuity.fountain --out out
 ```
+
+REST: default `POST /v1/compile`; optional `POST /v1/compile/incremental` (read-side, not a canon write).
 
 ---
 

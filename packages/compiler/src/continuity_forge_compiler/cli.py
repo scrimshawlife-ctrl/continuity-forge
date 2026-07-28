@@ -23,10 +23,54 @@ def compile_cmd(
     script: Annotated[Path, typer.Argument(exists=True, dir_okay=False)],
     out: Annotated[Path, typer.Option("--out")] = Path("out"),
     document_key: Annotated[str | None, typer.Option("--document-key")] = None,
+    prior_ir: Annotated[
+        Path | None,
+        typer.Option(
+            "--prior-ir",
+            help="Optional prior Production IR JSON for incremental ID reconcile",
+        ),
+    ] = None,
+    incremental: Annotated[
+        bool,
+        typer.Option(
+            "--incremental",
+            help="Write incremental receipt (scene carry + invalidation) alongside IR",
+        ),
+    ] = False,
 ) -> None:
-    """Compile a Fountain/FDX screenplay to validated Production IR JSON."""
-    document = compile_file(script, document_key=document_key)
+    """Compile a Fountain/FDX screenplay to validated Production IR JSON.
+
+    Default is full compile. Optional ``--prior-ir`` enables stable ID reconcile.
+    ``--incremental`` also writes a carry/invalidation receipt (not production film).
+    """
+    from continuity_forge_ir import ScriptDocument
+
+    from .incremental import compile_incremental
+
+    prior: ScriptDocument | None = None
+    if prior_ir is not None:
+        prior = ScriptDocument.model_validate_json(prior_ir.read_text(encoding="utf-8"))
+
+    text = script.read_text(encoding="utf-8")
+    fmt = "fdx" if script.suffix.casefold() == ".fdx" else "fountain"
     out.mkdir(parents=True, exist_ok=True)
+
+    if incremental or prior is not None:
+        result = compile_incremental(
+            text,
+            title=script.stem,
+            document_key=document_key or script.stem,
+            format=fmt,
+            prior=prior,
+        )
+        document = result.document
+        if incremental:
+            receipt = out / f"{script.stem}.incremental-compile.json"
+            receipt.write_text(result.model_dump_json(indent=2), encoding="utf-8")
+            typer.echo(str(receipt))
+    else:
+        document = compile_file(script, document_key=document_key)
+
     target = out / f"{script.stem}.production-ir.json"
     target.write_text(document.model_dump_json(indent=2), encoding="utf-8")
     typer.echo(str(target))

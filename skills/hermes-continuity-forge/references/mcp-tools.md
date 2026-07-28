@@ -6,7 +6,8 @@ Source of truth: `apps/mcp/src/continuity_forge_mcp/server.py`.
 
 | Tool | Purpose |
 |------|---------|
-| `compile_script` | Fountain/FDX → Production IR JSON |
+| `compile_script` | Fountain/FDX → Production IR JSON (default full compile) |
+| `compile_script_incremental` | Optional: full validate + prior-IR ID reconcile + stale shot preview (read-side; not a canon write) |
 | `get_compile_diagnostics` | Diagnostics only |
 | `list_scenes` | Scene id / ordinal / slugline |
 | `get_scene` | One scene by `scene_id` |
@@ -71,5 +72,7 @@ Examples:
 ## REST complements (not MCP)
 
 - `POST /v1/proof` — controlled proof receipt in one call
+- `POST /v1/compile` — default full compile; `POST /v1/compile/incremental` optional
+- `POST /v1/invalidation/preview` — stale artifact set (read-only)
 - `POST /v1/approvals/request` · `POST /v1/approvals/decide`
 - `GET /v1/projects` · `GET /v1/projects/{key}/runs`

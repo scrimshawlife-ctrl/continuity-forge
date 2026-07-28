@@ -39,7 +39,8 @@ Integration guide: [`docs/hermes/README.md`](../../../../docs/hermes/README.md).
 ## Tool groups
 
 ### Kernel reads
-- `compile_script`, `get_compile_diagnostics`, `list_scenes`, `get_scene`, `audit_script_coverage`
+- `compile_script` (default full compile), `compile_script_incremental` (optional: prior-IR + invalidation)
+- `get_compile_diagnostics`, `list_scenes`, `get_scene`, `audit_script_coverage`
 - `build_ledger`, `list_entities`, `list_setup_payoff_links`
 - `build_shot_contracts`, `list_shot_summaries`
 

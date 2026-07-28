@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
-from continuity_forge_compiler import compile_fdx_text, compile_text
+from continuity_forge_compiler import compile_fdx_text, compile_incremental, compile_text
 from continuity_forge_harness import (
     PipelineCommand,
     PipelineError,
@@ -57,8 +57,42 @@ def compile_script(
     format: str = "fountain",
     revision: str = "0.1.0",
 ) -> dict[str, Any]:
-    """Compile Fountain or Final Draft XML without mutating canonical state."""
+    """Compile Fountain or Final Draft XML without mutating canonical state.
+
+    Default full compile path. For edit loops with prior-IR reconcile, use
+    ``compile_script_incremental`` (optional; still full schema validation).
+    """
     return _compile(source, title, document_key, format, revision).model_dump(mode="json")
+
+
+@mcp.tool()
+def compile_script_incremental(
+    source: str,
+    title: str = "Untitled",
+    document_key: str | None = None,
+    format: str = "fountain",
+    revision: str = "0.1.0",
+    prior_document: dict[str, Any] | None = None,
+    force_full_invalidation: bool = False,
+) -> dict[str, Any]:
+    """Optional incremental compile: full validate + prior-ID reconcile + stale preview.
+
+    Read-side only. Does not ingest project canon or elevate PROPOSED media.
+    Default short proofs should keep using ``compile_script``.
+    """
+    prior = None
+    if prior_document is not None:
+        prior = ScriptDocument.model_validate(prior_document)
+    result = compile_incremental(
+        source,
+        title=title,
+        revision=revision,
+        document_key=document_key,
+        format=format,
+        prior=prior,
+        force_full_invalidation=force_full_invalidation,
+    )
+    return result.model_dump(mode="json")
 
 
 @mcp.tool()
