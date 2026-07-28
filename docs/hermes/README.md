@@ -108,3 +108,39 @@ Feed it to Hermes (or another coding agent) when MCP tools or REST surface chang
 - [MCP server README](../../apps/mcp/src/continuity_forge_mcp/README.md)
 - [Architecture](../architecture/PRODUCTION_HARNESS_ARCHITECTURE.md)
 - [AGENTS.md](../../AGENTS.md)
+
+---
+
+## Narrative / Creative Layer: scriptwriting Skill
+
+The `hermes-continuity-forge` skill is the **operator / enforcement** layer.
+
+Pair it with the **`scriptwriting`** skill (also in this repo) for the **upstream creative and structural work**:
+
+- Premise engineering, loglines, dramatic questions
+- Character systems, voice fingerprints, arcs
+- Macrostructure, sequences, beats
+- Scene contracts (objective, opposition, turn, irreversible result)
+- Dialogue engine, anti-slop gates (A–L + Forge bypass)
+- Revision passes, format adaptation
+- Production packets and visual identities
+
+### Integration Pattern
+
+1. Load `scriptwriting`.
+2. Develop foundations (DEVELOP mode) or diagnose/revise.
+3. When material is approved: hand off to Forge.
+   - Produce structured brief + scene contracts.
+   - Use Forge CLI/MCP: `compile`, `ingest_script` (with mutation contract + lease), `build_shot_contracts`.
+4. Ground future work in Forge state (`get_project_status`, ledger hashes).
+5. Use `hermes-continuity-forge` for leases, proof, repair loops, approvals.
+
+See `skills/scriptwriting/references/continuity-forge-integration.md` for exact handoff commands and boundaries.
+
+**Both skills are designed to be used together.** The narrative skill produces high-quality, drift-resistant creative material. The operator skill ensures it is governed by the deterministic kernel.
+
+Install:
+```bash
+cp -R skills/scriptwriting ~/.hermes/skills/
+cp -R skills/hermes-continuity-forge ~/.hermes/skills/
+```
