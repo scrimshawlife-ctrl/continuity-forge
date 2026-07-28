@@ -4,6 +4,13 @@ from typing import Any
 from uuid import UUID
 
 from continuity_forge_compiler import compile_fdx_text, compile_text
+from continuity_forge_harness import (
+    DEFAULT_RUN_STORE,
+    PipelineCommand,
+    PipelineError,
+    execute_kernel_pipeline,
+    temporal_registration_manifest,
+)
 from continuity_forge_ir import ScriptDocument
 from continuity_forge_ledger import ContinuityLedger, build_continuity_ledger
 from continuity_forge_shots import ShotContractBundle, compile_shot_contracts
@@ -191,6 +198,52 @@ def list_shot_summaries(
         }
         for contract in bundle.contracts
     ]
+
+
+@mcp.tool()
+def run_kernel_pipeline(
+    source: str,
+    actor_id: str,
+    authorization_scope: str,
+    idempotency_key: str,
+    rationale: str,
+    title: str = "Untitled",
+    document_key: str | None = None,
+    format: str = "fountain",
+    revision: str = "0.1.0",
+    expected_state_hash: str | None = None,
+) -> dict[str, Any]:
+    """Execute the durable compile → ledger → shots pipeline under a mutation contract."""
+    command = PipelineCommand(
+        actor_id=actor_id,
+        authorization_scope=authorization_scope,
+        idempotency_key=idempotency_key,
+        rationale=rationale,
+        expected_state_hash=expected_state_hash,
+        title=title,
+        text=source,
+        revision=revision,
+        document_key=document_key,
+        format=format,  # type: ignore[arg-type]
+    )
+    try:
+        run = execute_kernel_pipeline(command, store=DEFAULT_RUN_STORE)
+    except PipelineError as exc:
+        raise ValueError(str(exc)) from exc
+    return run.model_dump(mode="json")
+
+
+@mcp.tool()
+def get_pipeline_run(run_id: str) -> dict[str, Any] | None:
+    """Fetch a durable pipeline run by ID."""
+    run = DEFAULT_RUN_STORE.get(UUID(run_id))
+    return None if run is None else run.model_dump(mode="json")
+
+
+@mcp.tool()
+def get_temporal_manifest() -> dict[str, Any]:
+    """Return Temporal adapter registration contracts."""
+    return temporal_registration_manifest()
 
 
 def main() -> None:

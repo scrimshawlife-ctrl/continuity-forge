@@ -20,5 +20,8 @@ continuity-forge-mcp
 - `list_setup_payoff_links`: list setup/payoff links from the ledger
 - `build_shot_contracts`: compile model-neutral shot contracts from source
 - `list_shot_summaries`: compact per-scene shot summaries
+- `run_kernel_pipeline`: durable compile → ledger → shots under a mutation contract
+- `get_pipeline_run`: fetch a pipeline run by ID
+- `get_temporal_manifest`: Temporal adapter registration contracts
 
-All calls accept Fountain or Final Draft XML source text, a `format` selector, an optional `document_key`, and an optional `revision`. The key identifies the logical screenplay across revisions; when omitted, identity is derived from the source hash so unrelated untitled inputs do not collide. `revision` is preserved on the returned Production IR for provenance parity with REST. The server remains deliberately stateless. Durable project resources, authenticated mutation commands, approvals, and workflow integration remain later milestones.
+Compile/ledger/shot tools remain stateless reads. Pipeline tools use an in-process durable run store with idempotency; run records are execution provenance, not canonical film state.

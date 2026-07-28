@@ -65,6 +65,31 @@ def test_continuity_ledger_endpoint() -> None:
     assert any(entity["kind"] == "character" for entity in payload["entities"])
 
 
+def test_pipeline_run_endpoint_is_idempotent() -> None:
+    client = TestClient(app)
+    body = {
+        "actor_id": "api-tester",
+        "authorization_scope": "kernel:pipeline",
+        "idempotency_key": "api-pipeline-1",
+        "rationale": "API contract test",
+        "document_key": "api-pipeline",
+        "text": "INT. ROOM - DAY\n\nMara enters.\n\nMARA\nGo.\n",
+    }
+    first = client.post("/v1/pipeline/runs", json=body)
+    second = client.post("/v1/pipeline/runs", json=body)
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first.json()["run_id"] == second.json()["run_id"]
+    assert first.json()["status"] == "completed"
+    run_id = first.json()["run_id"]
+    fetched = client.get(f"/v1/pipeline/runs/{run_id}")
+    assert fetched.status_code == 200
+    assert fetched.json()["artifacts"]["shot_contracts"]["contracts"]
+    manifest = client.get("/v1/pipeline/temporal-manifest")
+    assert manifest.status_code == 200
+    assert manifest.json()["workflow_type"] == "KernelPipelineWorkflow"
+
+
 def test_shot_contracts_endpoint() -> None:
     response = TestClient(app).post(
         "/v1/shot-contracts",
