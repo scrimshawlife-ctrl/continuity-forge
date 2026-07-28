@@ -11,13 +11,14 @@ Continuity Forge converts a screenplay into a provenance-preserving Production I
 ### M0 scope
 
 - Script ingestion and source hashing
-- Scene, action, and dialogue parsing
-- Narrative atom generation
+- Scene, action, dialogue, transition, and title-page parsing
+- Narrative atom and typed metadata generation
 - Stable deterministic identifiers
 - Production IR serialization
 - Typed compile diagnostics
-- Script coverage accounting
+- UTF-8 byte-accurate script coverage accounting
 - Read-only REST and MCP surfaces
+- Reproducible local and CI validation gate
 
 Video generation, visual-bible generation, and autonomous rewriting are explicitly excluded.
 
@@ -35,10 +36,12 @@ Video generation, visual-bible generation, and autonomous rewriting are explicit
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -e '.[dev]'
-pytest
+python -m pip install -e '.[dev]'
+make validate
 python -m continuity_forge_compiler.cli compile tests/golden/fixtures/minimal.fountain --out out
 ```
+
+`make validate` and GitHub Actions both execute `python scripts/validate_m0.py`, which runs Ruff, strict mypy, pytest, coverage, API contracts, MCP contracts, and the supported screenplay golden corpus as one fail-fast gate.
 
 ## Authority rule
 
