@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FinalDraft DocumentType="Script" Template="No" Version="5">
+  <Content>
+    <Paragraph Type="Scene Heading"><Text>INT. LAB - DAY</Text></Paragraph>
+    <Paragraph Type="Action"><Text>The monitor glows.</Text></Paragraph>
+    <Paragraph Type="Character"><Text>MARA</Text></Paragraph>
+    <Paragraph Type="Parenthetical"><Text>(quietly)</Text></Paragraph>
+    <Paragraph Type="Dialogue"><Text>The state is stable.</Text></Paragraph>
+    <Paragraph Type="Transition"><Text>CUT TO:</Text></Paragraph>
+    <Paragraph Type="Scene Heading"><Text>EXT. ROOF - NIGHT</Text></Paragraph>
+    <Paragraph Type="Action"><Text>Rain falls.</Text></Paragraph>
+  </Content>
+</FinalDraft>

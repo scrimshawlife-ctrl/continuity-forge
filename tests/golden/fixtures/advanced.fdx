@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FinalDraft DocumentType="Script" Template="No" Version="5">
+  <Content>
+    <Paragraph Type="Scene Heading"><Text>INT. WARDROBE BAY - DAY</Text></Paragraph>
+    <Paragraph Type="Action"><Text>Mara enters in a clean grey coat and sets a red keycard on the bench.</Text></Paragraph>
+    <Paragraph Type="Character"><Text>MARA</Text></Paragraph>
+    <Paragraph Type="Parenthetical"><Text>(to Eli)</Text></Paragraph>
+    <Paragraph Type="Dialogue"><Text>Track the coat. Track the cut.</Text></Paragraph>
+    <Paragraph Type="Character"><Text>ELI</Text></Paragraph>
+    <Paragraph Type="Dialogue"><Text>And the keycard stays in frame.</Text></Paragraph>
+    <Paragraph Type="Transition"><Text>CUT TO:</Text></Paragraph>
+    <Paragraph Type="Scene Heading"><Text>INT. WARDROBE BAY - DAY - FLASHBACK</Text></Paragraph>
+    <Paragraph Type="Action"><Text>Earlier: the same coat is torn at the left sleeve. No keycard.</Text></Paragraph>
+    <Paragraph Type="Character"><Text>MARA</Text></Paragraph>
+    <Paragraph Type="Dialogue"><Text>That was the injury plant.</Text></Paragraph>
+    <Paragraph Type="Transition"><Text>BACK TO:</Text></Paragraph>
+    <Paragraph Type="Scene Heading"><Text>INT. WARDROBE BAY - DAY - PRESENT</Text></Paragraph>
+    <Paragraph Type="Action"><Text>Mara exits. The red keycard remains — payoff.</Text></Paragraph>
+  </Content>
+</FinalDraft>
