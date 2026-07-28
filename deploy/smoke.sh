@@ -44,7 +44,7 @@ curl -sf "${AUTH[@]}" -X POST "$BASE/v1/proof" \
   | python -c 'import json,sys; d=json.load(sys.stdin); assert d["claim"]=="controlled_proof_not_production_ready"; print(d["claim"], "shots", len(d["shots"]), "hash", d["receipt_hash"][:12])'
 
 echo "== operator UI =="
-curl -sf "$BASE/" | python -c 'import sys; t=sys.stdin.read(); assert "Proof workbench" in t; assert "Export receipt" in t; print("index ok")'
+curl -sf "$BASE/" | python -c 'import sys; t=sys.stdin.read(); assert "Run a proof" in t; assert "Run proof" in t; print("index ok")'
 curl -sf "$BASE/tokens.css" | python -c 'import sys; t=sys.stdin.read(); assert "--color-accent" in t; print("tokens ok")'
 
 echo "== list projects =="

@@ -248,9 +248,9 @@ def test_web_ui_is_served() -> None:
     client = TestClient(app)
     index = client.get("/")
     assert index.status_code == 200
-    assert "Proof workbench" in index.text
-    assert "Run controlled proof" in index.text
-    assert "Export receipt JSON" in index.text
+    assert "Run a proof" in index.text
+    assert "Run proof" in index.text
+    assert "Download receipt" in index.text
     assert 'id="canon"' in index.text
     assert 'id="control"' in index.text
     assert "Acquire lease" in index.text

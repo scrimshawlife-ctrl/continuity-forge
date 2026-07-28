@@ -1,7 +1,7 @@
 /**
- * Continuity Forge · Proof Workbench v1.3
- * Primary: POST /v1/proof → receipt.
- * Secondary: canon, export, auth bootstrap, leases, approvals, runs.
+ * Continuity Forge · Proof Workbench (easy path)
+ * Default: paste script → Run proof → read receipt.
+ * Advanced: connection, canon, leases, approvals.
  */
 
 const SAMPLE_SCRIPT = `Title: Continuity Sample
@@ -78,6 +78,9 @@ const els = {
   approvalKind: $("approval-kind"),
   approvalRationale: $("approval-rationale"),
   btnProof: $("btn-proof"),
+  btnProofSticky: $("btn-proof-sticky"),
+  stickyCta: $("sticky-cta"),
+  stickyHint: $("sticky-hint"),
   btnHealth: $("btn-health"),
   btnCompile: $("btn-compile"),
   btnSample: $("btn-sample"),
@@ -108,6 +111,7 @@ const els = {
   receiptEmpty: $("receipt-empty"),
   receiptBody: $("receipt-body"),
   receiptClaim: $("receipt-claim"),
+  resultBanner: $("result-banner"),
   rClaim: $("r-claim"),
   rDoc: $("r-doc"),
   rHash: $("r-hash"),
@@ -160,8 +164,54 @@ function showAlert(message, kind = "error") {
 }
 
 function setRunState(state, label) {
+  if (!els.runState) return;
   els.runState.dataset.state = state;
   els.runState.textContent = label;
+  els.runState.className =
+    "chip " +
+    (state === "done"
+      ? "chip--ok"
+      : state === "error"
+        ? "chip--danger"
+        : state === "running"
+          ? "chip--accent"
+          : "chip--accent");
+  if (els.stickyHint) {
+    els.stickyHint.textContent =
+      state === "running"
+        ? "Proof running…"
+        : state === "done"
+          ? "Proof complete"
+          : state === "error"
+            ? "Proof failed"
+            : "Script ready";
+  }
+}
+
+function setStep(n) {
+  for (let i = 1; i <= 3; i++) {
+    const el = $(`step-${i}`);
+    if (!el) continue;
+    el.classList.remove("is-current", "is-done");
+    if (i < n) el.classList.add("is-done");
+    if (i === n) el.classList.add("is-current");
+  }
+}
+
+function humanStatus(status) {
+  if (!status) return "—";
+  if (status === "accepted_proposed") return "accepted (proposed)";
+  return status.replaceAll("_", " ");
+}
+
+function setProofButtons(opts) {
+  const { disabled, state, label } = opts;
+  for (const btn of [els.btnProof, els.btnProofSticky]) {
+    if (!btn) continue;
+    btn.disabled = !!disabled;
+    if (state !== undefined) btn.dataset.state = state || "";
+    if (label !== undefined) btn.textContent = label;
+  }
 }
 
 function shortHash(value) {
@@ -203,7 +253,7 @@ function actorId() {
 function requireDocumentKey() {
   const key = activeDocumentKey();
   if (!key) {
-    throw new Error("Set document_key first.");
+    throw new Error("Set a Project ID under Script options first.");
   }
   return key;
 }
@@ -238,16 +288,16 @@ async function api(path, options = {}) {
 async function pingHealth() {
   try {
     const data = await api("/health");
-    els.chipHealth.textContent = `health · ${data.status || "ok"}`;
+    els.chipHealth.textContent = `api · ${data.status || "ok"}`;
     els.chipHealth.className = "chip chip--ok";
     els.chipBackend.textContent = `backend · ${data.backend || "—"}`;
-    els.chipVersion.textContent = `api · ${data.version || "—"}`;
+    els.chipVersion.textContent = `v · ${data.version || "—"}`;
     return data;
   } catch (err) {
-    els.chipHealth.textContent = "health · unreachable";
+    els.chipHealth.textContent = "api · offline";
     els.chipHealth.className = "chip chip--danger";
     els.chipBackend.textContent = "backend · —";
-    els.chipVersion.textContent = "api · —";
+    els.chipVersion.textContent = "v · —";
     throw err;
   }
 }
@@ -256,16 +306,20 @@ async function pingWhoami() {
   try {
     const data = await api("/v1/whoami");
     lastWhoami = data;
-    els.chipTenant.textContent = `tenant · ${data.tenant_id || "—"}`;
-    els.chipTenant.className = "chip chip--accent";
-    if (data.actor_id && els.holder && !(els.holder.value || "").trim()) {
-      els.holder.value = data.actor_id;
+    if (els.chipTenant) {
+      els.chipTenant.hidden = false;
+      els.chipTenant.textContent = `tenant · ${data.tenant_id || "—"}`;
+      els.chipTenant.className = "chip chip--accent";
+    }
+    if (data.actor_id && els.holder && els.holder.value === "proof-ui") {
+      /* keep default proof-ui unless user customized */
     }
     return data;
   } catch {
     lastWhoami = null;
-    els.chipTenant.textContent = "tenant · —";
-    els.chipTenant.className = "chip";
+    if (els.chipTenant) {
+      els.chipTenant.hidden = true;
+    }
     return null;
   }
 }
@@ -465,10 +519,26 @@ function renderReceipt(receipt) {
   els.receiptEmpty.hidden = true;
   els.receiptBody.hidden = false;
   els.runMeta.hidden = false;
+  setStep(3);
 
   const claim = receipt.claim || "controlled_proof_not_production_ready";
-  els.receiptClaim.textContent = claim;
-  els.receiptClaim.className = "chip chip--warn";
+  const shots = receipt.shots || [];
+  const accepted = shots.filter(
+    (s) => String(s.status || "").includes("accept"),
+  ).length;
+  els.receiptClaim.textContent = "proof complete";
+  els.receiptClaim.className = "chip chip--ok";
+
+  if (els.resultBanner) {
+    els.resultBanner.hidden = false;
+    const onTime =
+      receipt.within_budget === true
+        ? "within budget"
+        : receipt.within_budget === false
+          ? "over budget"
+          : "budget n/a";
+    els.resultBanner.textContent = `${accepted}/${shots.length} shots accepted · ${onTime} · mock media only`;
+  }
 
   setText(els.rClaim, claim);
   setText(els.rDoc, receipt.document_key);
@@ -481,7 +551,7 @@ function renderReceipt(receipt) {
 
   const elapsed =
     typeof receipt.elapsed_seconds === "number"
-      ? `${receipt.elapsed_seconds.toFixed(4)} s`
+      ? `${receipt.elapsed_seconds.toFixed(3)} s`
       : "—";
   setText(els.metaElapsed, elapsed);
   setText(
@@ -491,15 +561,15 @@ function renderReceipt(receipt) {
   setText(
     els.metaWithin,
     receipt.within_budget === true
-      ? "true"
+      ? "yes"
       : receipt.within_budget === false
-        ? "false"
+        ? "no"
         : "—",
   );
-  setText(els.metaShots, String((receipt.shots || []).length));
+  setText(els.metaShots, String(shots.length));
 
   els.shotRows.replaceChildren();
-  for (const shot of receipt.shots || []) {
+  for (const shot of shots) {
     const tr = document.createElement("tr");
     const status = shot.status || "";
     const statusClass =
@@ -511,7 +581,7 @@ function renderReceipt(receipt) {
     const repairs = (shot.repair_actions || []).join(", ") || "—";
     tr.innerHTML = `
       <td>${escapeHtml(shot.label || shortHash(shot.shot_id))}</td>
-      <td class="${statusClass}">${escapeHtml(status)}</td>
+      <td class="${statusClass}">${escapeHtml(humanStatus(status))}</td>
       <td>${escapeHtml(String(shot.attempts ?? "—"))}</td>
       <td>${escapeHtml(repairs)}</td>
       <td title="${escapeHtml(shot.accepted_candidate_hash || "")}">${escapeHtml(
@@ -582,13 +652,14 @@ async function runProof() {
   showAlert("");
   const text = els.script.value.trim();
   if (!text) {
-    showAlert("Script source is empty.");
+    showAlert("Add a screenplay first (or click Reset sample).");
+    els.script?.focus();
+    setStep(1);
     return;
   }
 
-  els.btnProof.disabled = true;
-  els.btnProof.dataset.state = "loading";
-  els.btnProof.textContent = "Running…";
+  setStep(2);
+  setProofButtons({ disabled: true, state: "loading", label: "Running…" });
   setRunState("running", "running");
 
   try {
@@ -601,36 +672,32 @@ async function runProof() {
         format: els.format.value,
         seed: els.seed.value.trim() || "proof",
         budget_seconds: 60,
-        actor_id: "proof-ui",
+        actor_id: actorId(),
       }),
     });
     renderReceipt(receipt);
     setRunState("done", "done");
-    els.btnProof.dataset.state = "success";
-    els.btnProof.textContent = "Proof complete";
+    setProofButtons({ disabled: true, state: "success", label: "Done" });
+    const n = (receipt.shots || []).length;
     showAlert(
-      `Receipt ${shortHash(receipt.receipt_hash)} · claim ${receipt.claim}`,
+      `Proof finished · ${n} shot(s) · download the receipt below`,
       "ok",
     );
     $("receipt")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    // Best-effort canon refresh (tenant key already in store).
-    loadProjectStatus().catch(() => {
-      /* status optional after proof */
-    });
-    listProjects().catch(() => {
-      /* list optional */
-    });
   } catch (err) {
+    setStep(2);
     setRunState("error", "error");
-    els.btnProof.dataset.state = "error";
-    els.btnProof.textContent = "Proof failed";
-    showAlert(err instanceof Error ? err.message : String(err));
+    setProofButtons({ disabled: true, state: "error", label: "Failed" });
+    const msg = err instanceof Error ? err.message : String(err);
+    showAlert(
+      msg.includes("Failed to fetch") || msg.includes("NetworkError")
+        ? "Cannot reach the API. Is the server running on this host?"
+        : msg,
+    );
   } finally {
     window.setTimeout(() => {
-      els.btnProof.disabled = false;
-      els.btnProof.dataset.state = "";
-      els.btnProof.textContent = "Run controlled proof";
-    }, 1200);
+      setProofButtons({ disabled: false, state: "", label: "Run proof" });
+    }, 900);
   }
 }
 
@@ -671,7 +738,7 @@ async function compileOnly() {
 async function loadProjectStatus() {
   const key = activeDocumentKey();
   if (!key) {
-    showAlert("Set document_key first.");
+    showAlert("Set a Project ID under Script options first.");
     return;
   }
   const status = await api(`/v1/projects/${encodeURIComponent(key)}/status`);
@@ -690,7 +757,7 @@ async function listProjects() {
 
 function exportReceipt() {
   if (!lastReceipt) {
-    showAlert("No receipt to export.");
+    showAlert("Run a proof first, then download the receipt.");
     return;
   }
   const blob = new Blob([JSON.stringify(lastReceipt, null, 2)], {
@@ -704,7 +771,7 @@ function exportReceipt() {
   a.download = `${stem}.proof-receipt.json`;
   a.click();
   URL.revokeObjectURL(a.href);
-  showAlert(`Exported ${a.download}`, "ok");
+  showAlert(`Downloaded ${a.download}`, "ok");
 }
 
 async function copyReceiptHash() {
@@ -744,12 +811,29 @@ function loadSample() {
   els.title.value = "Continuity Sample";
   els.format.value = "fountain";
   els.seed.value = "proof";
-  showAlert("");
+  setStep(1);
+  setRunState("idle", "ready");
+  showAlert("Sample script loaded — click Run proof.", "ok");
 }
 
 function clearScript() {
   els.script.value = "";
-  showAlert("");
+  setStep(1);
+  setRunState("idle", "ready");
+  showAlert("Script cleared.");
+  els.script?.focus();
+}
+
+function wireStickyCta() {
+  const primary = $("btn-proof");
+  if (!els.stickyCta || !primary) return;
+  const io = new IntersectionObserver(
+    ([entry]) => {
+      els.stickyCta.classList.toggle("is-visible", !entry.isIntersecting);
+    },
+    { threshold: 0.2 },
+  );
+  io.observe(primary);
 }
 
 function restorePrefs() {
@@ -774,17 +858,25 @@ function persistPrefs() {
 
 function wire() {
   restorePrefs();
-  loadSample();
+  els.script.value = SAMPLE_SCRIPT;
+  setStep(1);
+  setRunState("idle", "ready");
+  wireStickyCta();
 
   els.btnProof.addEventListener("click", runProof);
+  els.btnProofSticky?.addEventListener("click", runProof);
   els.btnHealth.addEventListener("click", async () => {
     showAlert("");
     try {
       const data = await pingHealth();
       await pingWhoami();
-      showAlert(`health ok · backend ${data.backend} · v${data.version}`, "ok");
+      showAlert(`API ok · ${data.backend} · v${data.version}`, "ok");
     } catch (err) {
-      showAlert(err instanceof Error ? err.message : String(err));
+      showAlert(
+        err instanceof Error
+          ? `API offline: ${err.message}`
+          : "API offline",
+      );
     }
   });
   els.btnCompile.addEventListener("click", compileOnly);
@@ -796,13 +888,10 @@ function wire() {
     try {
       const data = await pingWhoami();
       if (!data) {
-        showAlert("whoami failed — set API key if auth is required.");
+        showAlert("Could not identify you — set an API key if auth is required.");
         return;
       }
-      showAlert(
-        `whoami · tenant ${data.tenant_id} · actor ${data.actor_id}`,
-        "ok",
-      );
+      showAlert(`Signed in · tenant ${data.tenant_id} · actor ${data.actor_id}`, "ok");
     } catch (err) {
       showAlert(err instanceof Error ? err.message : String(err));
     }
