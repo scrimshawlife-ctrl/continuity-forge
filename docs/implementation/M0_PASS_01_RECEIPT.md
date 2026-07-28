@@ -22,7 +22,7 @@ PR: #2
 
 ```yaml
 branch: codex/m0-diagnostics-fdx-coverage
-head: b0539d6bf9dba1060167845275ac5c9fd9abbdd8
+head: b0f52a8b094050a7c95474ccddd660491f8ee45a
 mergeable: true
 mypy_type_gap_current_scene_id: repaired
 malformed_fdx_exception_escape: repaired
