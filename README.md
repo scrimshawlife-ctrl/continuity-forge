@@ -18,26 +18,27 @@ Canonical architecture: [`docs/architecture/PRODUCTION_HARNESS_ARCHITECTURE.md`]
 
 ## Active campaign
 
-`CONTINUITY_FORGE_CONTINUITY_LEDGER_001` — `M1_CONTINUITY_LEDGER`
+`CONTINUITY_FORGE_SHOT_CONTRACTS_001` — `M2_SHOT_CONTRACT_COMPILER`
 
-M0 compiler spine is complete. Active work derives a deterministic continuity ledger from Production IR.
+M0 and M1 are complete. Active work compiles model-neutral shot contracts from Production IR + continuity ledger.
 
-### M1 scope
+### M2 scope
 
-- Entity registry (characters, locations, props, wardrobe, injury)
-- Presence, enter/exit, holds/wears/injured facts with atom provenance
-- Scene continuity contracts
-- Setup/payoff linking
-- Read-only REST (`POST /v1/continuity-ledger`) and MCP ledger tools
+- One deterministic shot contract per scene
+- Required narrative atoms and entity constraints
+- Hard / soft / prohibited constraints from ledger facts
+- Start/end state hashes
+- Declarative provider capability stubs (no execution)
+- Read-only REST (`POST /v1/shot-contracts`), MCP, and CLI
 
-Video generation, visual-bible generation, durable Temporal workflows, shot contracts, and autonomous rewriting remain excluded.
+Video generation, Temporal workflows, provider execution, and autonomous rewriting remain excluded.
 
 ## Planned progression
 
 ```text
 M0 COMPILER SPINE (complete)
--> M1 CONTINUITY LEDGER (active)
--> M2 SHOT CONTRACT COMPILER
+-> M1 CONTINUITY LEDGER (complete)
+-> M2 SHOT CONTRACT COMPILER (active)
 -> M3 DURABLE HARNESS / TEMPORAL
 -> M4 MCP OPERATOR SURFACE
 -> M5 PROVIDER GATEWAY + ISOLATED WORKERS
@@ -66,6 +67,7 @@ make validate
 python -m continuity_forge_compiler.cli compile tests/golden/fixtures/minimal.fountain --out out
 python -m continuity_forge_compiler.cli compile tests/golden/fixtures/minimal.fdx --out out
 python -m continuity_forge_compiler.cli ledger tests/golden/fixtures/continuity.fountain --out out
+python -m continuity_forge_compiler.cli shots tests/golden/fixtures/continuity.fountain --out out
 continuity-forge-mcp
 ```
 

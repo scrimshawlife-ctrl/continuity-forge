@@ -1,12 +1,14 @@
 from continuity_forge_mcp.server import (
     audit_script_coverage,
     build_ledger,
+    build_shot_contracts,
     compile_script,
     get_compile_diagnostics,
     get_scene,
     list_entities,
     list_scenes,
     list_setup_payoff_links,
+    list_shot_summaries,
 )
 
 SOURCE = "INT. ROOM - DAY\n\nA lamp flickers.\n"
@@ -57,3 +59,19 @@ def test_mcp_ledger_tools() -> None:
     assert ledger["entities"] == entities
     assert any(entity["kind"] == "prop" for entity in entities)
     assert links == ledger["setup_payoff_links"]
+
+
+def test_mcp_shot_contract_tools() -> None:
+    source = (
+        "INT. ROOM - DAY\n\n"
+        "Mara enters holding a brass compass.\n\n"
+        "MARA\nThis is the plant.\n\n"
+        "EXT. ROOF - NIGHT\n\n"
+        "The brass compass payoff gleams.\n"
+    )
+    bundle = build_shot_contracts(source, document_key="mcp-shots")
+    summaries = list_shot_summaries(source, document_key="mcp-shots")
+    assert len(bundle["contracts"]) == 2
+    assert len(summaries) == 2
+    assert summaries[0]["shot_id"] == bundle["contracts"][0]["shot_id"]
+    assert summaries[0]["constraint_count"] >= 1

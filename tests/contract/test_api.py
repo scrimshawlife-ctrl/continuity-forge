@@ -63,3 +63,25 @@ def test_continuity_ledger_endpoint() -> None:
     assert payload["entities"]
     assert payload["scene_contracts"]
     assert any(entity["kind"] == "character" for entity in payload["entities"])
+
+
+def test_shot_contracts_endpoint() -> None:
+    response = TestClient(app).post(
+        "/v1/shot-contracts",
+        json={
+            "document_key": "api-shots",
+            "text": (
+                "INT. ROOM - DAY\n\n"
+                "Mara enters with a red keycard.\n\n"
+                "MARA\nHold the line.\n\n"
+                "EXT. ROOF - NIGHT\n\n"
+                "The red keycard is gone.\n"
+            ),
+        },
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload["contracts"]) == 2
+    assert payload["contracts"][0]["required_atom_ids"]
+    assert payload["contracts"][0]["start_state_hash"]
+    assert payload["ledger_hash"]
