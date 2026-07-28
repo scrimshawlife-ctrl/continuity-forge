@@ -251,19 +251,31 @@ def test_web_ui_is_served() -> None:
     assert "Run a proof" in index.text
     assert "Run proof" in index.text
     assert "Download receipt" in index.text
+    assert "controlled_proof_not_production_ready" in index.text
+    assert 'id="claim-post-proof"' in index.text
+    assert "not ready — mock controlled proof only" in index.text
+    assert "Approval queue empty" in index.text
+    assert "Request approval" in index.text
+    assert "Repair / rationale" in index.text
     assert 'id="canon"' in index.text
     assert 'id="control"' in index.text
     assert "Acquire lease" in index.text
     styles = client.get("/styles.css")
     assert styles.status_code == 200
     assert "Hallmark" in styles.text
+    assert "claim-banner--post-proof" in styles.text
     tokens = client.get("/tokens.css")
     assert tokens.status_code == 200
     assert "--color-accent" in tokens.text
+    assert "Terminal" in tokens.text
     app_js = client.get("/app.js")
     assert app_js.status_code == 200
     assert "/v1/proof" in app_js.text
     assert "/v1/projects" in app_js.text
+    assert "controlled_proof_not_production_ready" in app_js.text
+    assert "repairRationaleSummary" in app_js.text
+    assert "Approval queue empty" in app_js.text or "approval-empty" in app_js.text
+    assert "not production ready" in app_js.text
 
 
 def test_health_reports_version() -> None:

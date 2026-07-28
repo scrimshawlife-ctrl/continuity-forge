@@ -12,6 +12,10 @@ def test_controlled_proof_receipt() -> None:
     second = run_controlled_proof(FIXTURE, store=ProjectStore(), document_key="proof-doc", seed="s")
     assert first.schema_version == "m7.proof.v1"
     assert first.claim == "controlled_proof_not_production_ready"
+    # First shot is force-failed once: repair_actions + validator rationale expected.
+    assert first.shots
+    assert first.shots[0].repair_actions
+    assert first.shots[0].repair_rationale
     assert first.shots
     assert first.receipt_hash
     assert first.within_budget

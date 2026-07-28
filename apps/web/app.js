@@ -110,8 +110,13 @@ const els = {
   chipTenant: $("chip-tenant"),
   receiptEmpty: $("receipt-empty"),
   receiptBody: $("receipt-body"),
+  receiptExec: $("receipt-exec"),
   receiptClaim: $("receipt-claim"),
+  resultStack: $("result-stack"),
   resultBanner: $("result-banner"),
+  claimPostProof: $("claim-post-proof"),
+  claimExecLabel: $("claim-exec-label"),
+  rClaimCode: $("r-claim-code"),
   rClaim: $("r-claim"),
   rDoc: $("r-doc"),
   rHash: $("r-hash"),
@@ -138,10 +143,19 @@ const els = {
   leaseScope: $("lease-scope"),
   leaseExpires: $("lease-expires"),
   approvalListWrap: $("approval-list-wrap"),
+  approvalEmpty: $("approval-empty"),
+  approvalTable: $("approval-table"),
   approvalRows: $("approval-rows"),
   runListWrap: $("run-list-wrap"),
   runRows: $("run-rows"),
   controlEmpty: $("control-empty"),
+};
+
+/** Map repair action codes → short operator rationale labels. */
+const REPAIR_ACTION_RATIONALE = {
+  regenerate: "Regenerate candidate after validator failure",
+  include_missing_entities: "Include missing required entities",
+  drop_soft_target: "Drop soft target to satisfy constraints",
 };
 
 function baseUrl() {
@@ -202,6 +216,34 @@ function humanStatus(status) {
   if (!status) return "—";
   if (status === "accepted_proposed") return "accepted (proposed)";
   return status.replaceAll("_", " ");
+}
+
+/**
+ * Build a validator/repair rationale summary when repair_actions are present.
+ * Prefers shot.repair_rationale / shot.validator_rationale if the receipt
+ * includes them; otherwise derives labels from action codes.
+ */
+function repairRationaleSummary(shot) {
+  const actions = Array.isArray(shot?.repair_actions) ? shot.repair_actions : [];
+  if (!actions.length) return null;
+
+  const explicit =
+    (typeof shot.repair_rationale === "string" && shot.repair_rationale.trim()) ||
+    (typeof shot.validator_rationale === "string" &&
+      shot.validator_rationale.trim()) ||
+    "";
+  if (explicit) {
+    return { actions, rationale: explicit };
+  }
+
+  const unique = [...new Set(actions.map((a) => String(a)))];
+  const labels = unique.map(
+    (code) => REPAIR_ACTION_RATIONALE[code] || humanStatus(code),
+  );
+  return {
+    actions: unique,
+    rationale: labels.join(" · "),
+  };
 }
 
 function setProofButtons(opts) {
@@ -350,13 +392,12 @@ function renderApprovals(payload) {
   els.approvalRows.replaceChildren();
   const rows = payload.approvals || [];
   if (!rows.length) {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `<td colspan="5">No approvals for ${escapeHtml(
-      payload.document_key || "—",
-    )}</td>`;
-    els.approvalRows.appendChild(tr);
+    if (els.approvalEmpty) els.approvalEmpty.hidden = false;
+    if (els.approvalTable) els.approvalTable.hidden = true;
     return;
   }
+  if (els.approvalEmpty) els.approvalEmpty.hidden = true;
+  if (els.approvalTable) els.approvalTable.hidden = false;
   for (const a of rows) {
     const tr = document.createElement("tr");
     const status = a.status || "";
@@ -526,18 +567,43 @@ function renderReceipt(receipt) {
   const accepted = shots.filter(
     (s) => String(s.status || "").includes("accept"),
   ).length;
-  els.receiptClaim.textContent = "proof complete";
-  els.receiptClaim.className = "chip chip--ok";
+  const onTime =
+    receipt.within_budget === true
+      ? "within budget"
+      : receipt.within_budget === false
+        ? "over budget"
+        : "budget n/a";
+
+  // Separate execution success from production readiness.
+  if (els.receiptExec) {
+    els.receiptExec.textContent = "execution ok";
+    els.receiptExec.className = "chip chip--ok";
+  }
+  if (els.receiptClaim) {
+    els.receiptClaim.hidden = false;
+    els.receiptClaim.textContent = "not production ready";
+    els.receiptClaim.className = "chip chip--warn";
+  }
+
+  if (els.resultStack) els.resultStack.hidden = false;
 
   if (els.resultBanner) {
     els.resultBanner.hidden = false;
-    const onTime =
-      receipt.within_budget === true
-        ? "within budget"
-        : receipt.within_budget === false
-          ? "over budget"
-          : "budget n/a";
-    els.resultBanner.textContent = `${accepted}/${shots.length} shots accepted · ${onTime} · mock media only`;
+    els.resultBanner.textContent = `Execution succeeded · ${accepted}/${shots.length} shots accepted · ${onTime}`;
+    els.resultBanner.className = "result-banner result-banner--exec";
+  }
+
+  if (els.claimPostProof) {
+    els.claimPostProof.hidden = false;
+  }
+  if (els.claimExecLabel) {
+    setText(
+      els.claimExecLabel,
+      `${accepted}/${shots.length} accepted · ${onTime}`,
+    );
+  }
+  if (els.rClaimCode) {
+    els.rClaimCode.textContent = claim;
   }
 
   setText(els.rClaim, claim);
@@ -578,12 +644,22 @@ function renderReceipt(receipt) {
         : status.includes("fail") || status.includes("reject")
           ? "status-fail"
           : "";
-    const repairs = (shot.repair_actions || []).join(", ") || "—";
+    const summary = repairRationaleSummary(shot);
+    let repairCell = "—";
+    if (summary) {
+      const actionCodes = summary.actions.map((a) => escapeHtml(String(a))).join(", ");
+      repairCell = `
+        <div class="repair-summary">
+          <span class="repair-summary__actions">${actionCodes}</span>
+          <span class="repair-summary__rationale">${escapeHtml(summary.rationale)}</span>
+        </div>
+      `;
+    }
     tr.innerHTML = `
       <td>${escapeHtml(shot.label || shortHash(shot.shot_id))}</td>
       <td class="${statusClass}">${escapeHtml(humanStatus(status))}</td>
       <td>${escapeHtml(String(shot.attempts ?? "—"))}</td>
-      <td>${escapeHtml(repairs)}</td>
+      <td>${repairCell}</td>
       <td title="${escapeHtml(shot.accepted_candidate_hash || "")}">${escapeHtml(
         shortHash(shot.accepted_candidate_hash),
       )}</td>
@@ -679,8 +755,9 @@ async function runProof() {
     setRunState("done", "done");
     setProofButtons({ disabled: true, state: "success", label: "Done" });
     const n = (receipt.shots || []).length;
+    const claim = receipt.claim || "controlled_proof_not_production_ready";
     showAlert(
-      `Proof finished · ${n} shot(s) · download the receipt below`,
+      `Proof finished · ${n} shot(s) · claim ${claim} · download the receipt below`,
       "ok",
     );
     $("receipt")?.scrollIntoView({ behavior: "smooth", block: "start" });

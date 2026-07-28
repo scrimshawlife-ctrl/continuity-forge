@@ -36,19 +36,29 @@ Canonical architecture: [`docs/architecture/PRODUCTION_HARNESS_ARCHITECTURE.md`]
 
 ## Milestone status
 
+Status labels (do not conflate):
+
+| Label | Meaning |
+|-------|---------|
+| **Implemented** | Code and package/unit coverage exist on `main` (default CI: `make validate`). |
+| **Integration-tested** | Exercised under the Phase 2 integration or packaging gates (or equivalent live service smoke). |
+| **Production-validated** | Proven in a real production deployment with operator authority — **none of the milestones below claim this yet**. |
+
 ```text
-M0 COMPILER SPINE .................... complete
-M1 CONTINUITY LEDGER ................. complete
-M2 SHOT CONTRACT COMPILER ............ complete
-M3 DURABLE HARNESS / TEMPORAL ........ complete (in-process + adapter contracts)
-M4 MCP OPERATOR SURFACE .............. complete
-M5 PROVIDER GATEWAY + WORKERS ........ complete (mock default; real optional)
-M6 GENERATOR-EVALUATOR REPAIR LOOP ... complete (mock default)
-M7 CONTROLLED 30-60s PROOF ........... complete (mock media; not production film)
-POST-1.0 runtime / auth / deploy ..... complete
-OPERATOR UI (Hallmark) ............... complete v1.3
-HERMES SKILL ......................... complete (skills/hermes-continuity-forge)
+M0 COMPILER SPINE .................... Implemented
+M1 CONTINUITY LEDGER ................. Implemented
+M2 SHOT CONTRACT COMPILER ............ Implemented
+M3 DURABLE HARNESS / TEMPORAL ........ Implemented (in-process + adapter contracts; Temporal fleet not production-validated)
+M4 MCP OPERATOR SURFACE .............. Implemented
+M5 PROVIDER GATEWAY + WORKERS ........ Implemented (mock default; real providers env-gated, not production-validated)
+M6 GENERATOR-EVALUATOR REPAIR LOOP ... Implemented (mock default)
+M7 CONTROLLED 30-60s PROOF ........... Implemented (mock media; claim controlled_proof_not_production_ready)
+POST-1.0 runtime / auth / deploy ..... Implemented; Postgres/MinIO path Integration-tested (CI smoke skeleton)
+OPERATOR UI (Hallmark) ............... Implemented (v1.3.0 UI surface)
+HERMES SKILL ......................... Implemented (skills/hermes-continuity-forge)
 ```
+
+Nothing in this table is **Production-validated**. Controlled proof and mock paths are not production film.
 
 ---
 
@@ -170,4 +180,8 @@ Canonical mutations require schema validation, provenance, deterministic diagnos
 
 ## License / status
 
-Private research codebase. Controlled proof uses mock media; production providers are optional and env-gated.
+**Public research repository** ([github.com/scrimshawlife-ctrl/continuity-forge](https://github.com/scrimshawlife-ctrl/continuity-forge)). Source is published for research and collaboration; this is **not** a production-supported product release and does not imply production readiness.
+
+Package version: **1.3.0** (kept in sync with [`pyproject.toml`](pyproject.toml) `[project].version` — no bump in this docs pass).
+
+Controlled proof uses mock media; production providers and durability backends are optional and env-gated. See milestone labels above for Implemented vs Integration-tested vs Production-validated.
