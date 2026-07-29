@@ -118,6 +118,16 @@ markers = [
 [tool.ruff]
 target-version = "py312"
 line-length = 100
+# Standalone skills / optional helpers with their own lint posture
+# (not Continuity Forge kernel packages).
+exclude = [
+  ".git",
+  ".venv",
+  ".venv-*",
+  "venv",
+  "skills/kubrick",
+  "packages/kubrick_helpers",
+]
 
 [tool.ruff.lint.per-file-ignores]
 # FastAPI Depends() in defaults is idiomatic.
