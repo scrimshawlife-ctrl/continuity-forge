@@ -101,4 +101,5 @@ Campaign acceptance criteria for creative shell, analyze path, scenes/continuity
 prepare/export, lineage-aware review intent, regression gates, and docs: **implemented**.
 Production-validated film generation: **not claimed**.
 
-**Commit:** `4d132aac4883b5550715be98a1955ed850d7769d` on branch `feat/product-workflow-ui`
+**Branch:** `feat/product-workflow-ui` · **PR:** https://github.com/scrimshawlife-ctrl/continuity-forge/pull/49  
+**Tip:** `522d8b2d7c47172aa9e30cd6cb69a969098ec7b2` (skeptic fixes: durable store, USER_LOCKED, review actions, honest stages)
