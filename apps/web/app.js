@@ -463,8 +463,13 @@ function handleFile(file) {
 // --- Analyze ---
 
 function renderStages(activeIndex) {
+  // Kept for compatibility; prefer renderStagesWorking / renderStagesDone
   const ol = $("stage-list");
   if (!ol) return;
+  if (activeIndex < 0) {
+    renderStagesWorking();
+    return;
+  }
   ol.innerHTML = ANALYSIS_STAGES.map((label, i) => {
     let cls = "";
     if (i < activeIndex) cls = "is-done";
@@ -495,12 +500,8 @@ async function analyzeScript() {
   $("btn-analyze").disabled = true;
   $("btn-analyze-sticky").disabled = true;
 
-  let stage = 0;
-  renderStages(0);
-  const timer = setInterval(() => {
-    stage = Math.min(stage + 1, ANALYSIS_STAGES.length - 1);
-    renderStages(stage);
-  }, 450);
+  // Truthful progress: indeterminate stages (all "working") — no fake sequential percentages
+  renderStagesWorking();
 
   try {
     const result = await api("/v1/product/analyze", {
@@ -512,14 +513,17 @@ async function analyzeScript() {
         format: current.format,
         production_type: current.production_type,
         resolved_conflict_ids: current.resolvedConflictIds || [],
+        overrides: current.overrides || [],
       }),
     });
-    clearInterval(timer);
-    renderStages(ANALYSIS_STAGES.length);
+    renderStagesDone();
     current.summary = result.summary;
     current.scenes = result.scenes || [];
     current.entities = result.entities || [];
     current.breakdown = result.breakdown;
+    if (result.overrides_applied?.length) {
+      current.overrides = result.overrides_applied;
+    }
     current.phase = result.summary?.phase || "NEEDS_REVIEW";
     current.updatedAt = new Date().toISOString();
     projects[current.document_key] = current;
@@ -550,6 +554,22 @@ async function analyzeScript() {
     $("btn-analyze-sticky").disabled = false;
     updateStickyCta();
   }
+}
+
+function renderStagesWorking() {
+  const ol = $("stage-list");
+  if (!ol) return;
+  ol.innerHTML = ANALYSIS_STAGES.map(
+    (label) => `<li class="is-current">${escapeHtml(label)}</li>`
+  ).join("");
+}
+
+function renderStagesDone() {
+  const ol = $("stage-list");
+  if (!ol) return;
+  ol.innerHTML = ANALYSIS_STAGES.map(
+    (label) => `<li class="is-done">${escapeHtml(label)}</li>`
+  ).join("");
 }
 
 function renderAnalysisSummary(summary) {
@@ -645,6 +665,7 @@ async function loadSceneDetail(sceneId) {
         document_key: current.document_key,
         format: current.format,
         resolved_conflict_ids: current.resolvedConflictIds || [],
+        overrides: current.overrides || [],
       }),
     });
     current.sceneDetail = detail;
@@ -683,7 +704,7 @@ function renderSceneDetail(detail) {
       (v) =>
         `<li><strong>${escapeHtml(v.field_name)}</strong> ${escapeHtml(v.value)} ${renderProv(
           v
-        )}</li>`
+        )}${v.locked ? " <span class='badge badge--ready'>LOCKED</span>" : ""}</li>`
     )
     .join("");
   $("sd-exit").innerHTML = (detail.exit_state || [])
@@ -691,33 +712,15 @@ function renderSceneDetail(detail) {
       (v) =>
         `<li><strong>${escapeHtml(v.field_name)}</strong> ${escapeHtml(v.value)} ${renderProv(
           v
-        )}</li>`
+        )}${v.locked ? " <span class='badge badge--ready'>LOCKED</span>" : ""}</li>`
     )
     .join("");
   $("sd-shots").innerHTML = (detail.shots || [])
-    .map(
-      (sh) => `<article class="shot-card">
-      <h4>Shot ${escapeHtml(sh.shot_number)} · ${escapeHtml(sh.shot_type)}</h4>
-      <p>${escapeHtml(sh.description)}</p>
-      <p>Characters: ${escapeHtml((sh.characters || []).join(", ") || "—")}</p>
-      <p>Props: ${escapeHtml((sh.props || []).join(", ") || "—")}</p>
-      <p class="muted small">Status: ${escapeHtml(sh.status || "DRAFT")}</p>
-      <details>
-        <summary>Prompt &amp; advanced</summary>
-        <p>${escapeHtml(sh.prompt_preview || "")}</p>
-        <p class="muted">Start hash: ${escapeHtml((sh.start_state_hash || "").slice(0, 12))}…</p>
-      </details>
-      <div class="shot-card__actions">
-        <button type="button" class="btn btn--ghost btn--sm" data-copy-prompt="${escapeHtml(
-          sh.shot_id
-        )}">Copy Prompt</button>
-        <button type="button" class="btn btn--ghost btn--sm" data-export-shot="${escapeHtml(
-          sh.shot_id
-        )}">Export</button>
-      </div>
-    </article>`
-    )
+    .map((sh) => renderShotCardHtml(sh, { showReviewActions: true }))
     .join("") || "<p class='muted'>No proposed shots.</p>";
+
+  // Scene metadata correction (operator override; not silent)
+  ensureSceneMetaEditor(detail);
 
   const confWrap = $("sd-conflicts-wrap");
   const confHost = $("sd-conflicts");
@@ -737,6 +740,119 @@ function renderSceneDetail(detail) {
     detail.blocking_conflict_count > 0
       ? "Resolve blocking conflicts before preparing this scene"
       : "Prepare Scene for Generation";
+}
+
+function renderShotCardHtml(sh, { showReviewActions = false } = {}) {
+  const status = sh.status || "DRAFT";
+  const canGen = status !== "APPROVED";
+  const actions = [
+    `<button type="button" class="btn btn--ghost btn--sm" data-copy-prompt="${escapeHtml(sh.shot_id)}">Copy Prompt</button>`,
+    `<button type="button" class="btn btn--ghost btn--sm" data-export-shot="${escapeHtml(sh.shot_id)}">Export</button>`,
+  ];
+  if (showReviewActions) {
+    actions.push(
+      `<button type="button" class="btn btn--ghost btn--sm" data-review-action="generate" data-shot-id="${escapeHtml(sh.shot_id)}" ${canGen ? "" : "disabled"}>Generate</button>`,
+      `<button type="button" class="btn btn--ghost btn--sm" data-review-action="accept" data-shot-id="${escapeHtml(sh.shot_id)}">Accept</button>`,
+      `<button type="button" class="btn btn--ghost btn--sm" data-review-action="accept_with_note" data-shot-id="${escapeHtml(sh.shot_id)}">Accept with Note</button>`,
+      `<button type="button" class="btn btn--ghost btn--sm" data-review-action="repair" data-shot-id="${escapeHtml(sh.shot_id)}">Repair</button>`,
+      `<button type="button" class="btn btn--ghost btn--sm" data-review-action="regenerate" data-shot-id="${escapeHtml(sh.shot_id)}">Regenerate</button>`,
+      `<button type="button" class="btn btn--ghost btn--sm" data-review-action="reject" data-shot-id="${escapeHtml(sh.shot_id)}">Reject</button>`
+    );
+  }
+  return `<article class="shot-card" data-shot-card="${escapeHtml(sh.shot_id)}">
+      <h4>Shot ${escapeHtml(sh.shot_number)} · ${escapeHtml(sh.shot_type)}</h4>
+      <p>${escapeHtml(sh.description)}</p>
+      <p>Characters: ${escapeHtml((sh.characters || []).join(", ") || "—")}</p>
+      <p>Props: ${escapeHtml((sh.props || []).join(", ") || "—")}</p>
+      <p class="muted small">Status: ${escapeHtml(status)}</p>
+      <details>
+        <summary>Prompt &amp; advanced</summary>
+        <p>${escapeHtml(sh.prompt_preview || "")}</p>
+        <p class="muted">Start: ${escapeHtml((sh.start_state_hash || "").slice(0, 12))}… · End: ${escapeHtml((sh.end_state_hash || "").slice(0, 12))}…</p>
+      </details>
+      <div class="shot-card__actions">${actions.join("")}</div>
+    </article>`;
+}
+
+function ensureSceneMetaEditor(detail) {
+  let host = $("sd-meta-editor");
+  if (!host) {
+    const grid = document.querySelector("#scene-detail .detail-grid");
+    if (!grid) return;
+    host = document.createElement("article");
+    host.className = "card card--wide";
+    host.id = "sd-meta-editor";
+    grid.appendChild(host);
+  }
+  const s = detail.scene || {};
+  host.innerHTML = `
+    <h3>Correct scene metadata</h3>
+    <p class="muted small">Saves as USER LOCKED operator override. Source script is not rewritten. Downstream shots preview before apply.</p>
+    <div class="field">
+      <label for="meta-slugline">Slugline</label>
+      <input id="meta-slugline" type="text" value="${escapeHtml(s.slugline || "")}" />
+    </div>
+    <div class="field">
+      <label for="meta-location">Location</label>
+      <input id="meta-location" type="text" value="${escapeHtml(s.location || "")}" />
+    </div>
+    <div class="field">
+      <label for="meta-tod">Time of day</label>
+      <input id="meta-tod" type="text" value="${escapeHtml(s.time_of_day || "")}" />
+    </div>
+    <div class="field">
+      <label><input type="checkbox" id="meta-flashback" ${/flashback/i.test(s.summary || s.slugline || "") ? "checked" : ""}/> Mark flashback / dream</label>
+    </div>
+    <div class="primary-actions">
+      <button type="button" class="btn btn--primary" id="btn-save-scene-meta" data-scene-id="${escapeHtml(s.scene_id || "")}">Save corrections</button>
+    </div>`;
+  $("btn-save-scene-meta")?.addEventListener("click", saveSceneMetadata);
+}
+
+async function saveSceneMetadata() {
+  if (!current || !selectedSceneId) return;
+  const fields = [
+    { field_name: "slugline", original_value: current.sceneDetail?.scene?.slugline || "", locked_value: $("meta-slugline")?.value || "" },
+    { field_name: "location", original_value: current.sceneDetail?.scene?.location || "", locked_value: $("meta-location")?.value || "" },
+    { field_name: "time_of_day", original_value: current.sceneDetail?.scene?.time_of_day || "", locked_value: $("meta-tod")?.value || "" },
+    {
+      field_name: "flashback",
+      original_value: "false",
+      locked_value: $("meta-flashback")?.checked ? "true" : "false",
+    },
+  ];
+  for (const f of fields) {
+    if (f.locked_value === f.original_value) continue;
+    try {
+      const res = await api("/v1/product/override/preview", {
+        method: "POST",
+        body: JSON.stringify({
+          title: current.title,
+          text: current.text,
+          document_key: current.document_key,
+          format: current.format,
+          target_kind: "scene",
+          target_id: selectedSceneId,
+          field_name: f.field_name,
+          original_value: f.original_value,
+          locked_value: f.locked_value,
+          rationale: "Scene metadata correction",
+          confirm: true,
+          existing_overrides: current.overrides || [],
+        }),
+      });
+      if (res.override) {
+        current.overrides = [...(current.overrides || []), res.override];
+      }
+    } catch (e) {
+      showAlert(e.message || "Could not save scene metadata", { technical: e.detail });
+      return;
+    }
+  }
+  current.phase = "STALE";
+  saveProjects();
+  showAlert("Scene metadata locked. Re-analyze or reopen scene to refresh dependents.", { kind: "ok" });
+  await loadSceneDetail(selectedSceneId);
 }
 
 function renderConflictCard(c) {
@@ -858,17 +974,25 @@ function renderContinuity() {
   host.innerHTML = `<div class="entity-list">${entities
     .map((e) => {
       const values = (e.values || [])
-        .map(
-          (v) =>
-            `<li><strong>${escapeHtml(v.field_name)}</strong> ${escapeHtml(v.value)} ${renderProv(
-              v
-            )}
-            <button type="button" class="btn btn--ghost btn--sm" data-lock-entity="${escapeHtml(
-              e.entity_id
-            )}" data-field="${escapeHtml(v.field_name)}" data-original="${escapeHtml(
-              v.value
-            )}">Lock edit…</button></li>`
-        )
+        .map((v) => {
+          const locked = v.locked || v.provenance?.label === "USER_LOCKED";
+          return `<li><strong>${escapeHtml(v.field_name)}</strong> ${escapeHtml(v.value)} ${renderProv(
+            v
+          )}
+            ${
+              locked
+                ? `<span class="badge badge--ready">USER LOCKED</span>${
+                    v.original_value
+                      ? ` <span class="muted small">(was ${escapeHtml(v.original_value)})</span>`
+                      : ""
+                  }`
+                : `<button type="button" class="btn btn--ghost btn--sm" data-lock-entity="${escapeHtml(
+                    e.entity_id
+                  )}" data-field="${escapeHtml(v.field_name)}" data-original="${escapeHtml(
+                    v.value
+                  )}">Lock edit…</button>`
+            }</li>`;
+        })
         .join("");
       return `<article class="entity-card">
         <div class="entity-card__head">
@@ -926,23 +1050,97 @@ async function lockEntityValue(entityId, field, original) {
   }
 }
 
-function confirmOverride() {
+async function confirmOverride() {
   if (!current || !pendingOverride?.override) {
     $("invalidation-dialog").close();
     return;
   }
-  current.overrides = [...(current.overrides || []), pendingOverride.override];
-  current.phase = "STALE";
-  current.updatedAt = new Date().toISOString();
-  projects[current.document_key] = current;
-  saveProjects();
-  pendingOverride = null;
-  $("invalidation-dialog").close();
-  $("phase-label").textContent = `Phase: ${humanPhase(current.phase)}`;
-  showAlert("Value locked (USER LOCKED). Original preserved. Dependents marked stale — re-analyze when ready.", {
-    kind: "ok",
+  const ov = pendingOverride.override;
+  try {
+    const res = await api("/v1/product/override/preview", {
+      method: "POST",
+      body: JSON.stringify({
+        title: current.title,
+        text: current.text,
+        document_key: current.document_key,
+        format: current.format,
+        target_kind: ov.target_kind,
+        target_id: ov.target_id,
+        field_name: ov.field_name,
+        original_value: ov.original_value,
+        locked_value: ov.locked_value,
+        rationale: ov.rationale || "Operator lock",
+        confirm: true,
+        existing_overrides: current.overrides || [],
+      }),
+    });
+    current.overrides = [...(current.overrides || []), res.override || ov];
+    if (res.entities?.length) {
+      current.entities = res.entities;
+    } else {
+      // Client-side apply so USER_LOCKED is visible immediately
+      current.entities = applyOverridesLocal(current.entities || [], current.overrides);
+    }
+    current.phase = "STALE";
+    current.updatedAt = new Date().toISOString();
+    projects[current.document_key] = current;
+    saveProjects();
+    pendingOverride = null;
+    $("invalidation-dialog").close();
+    $("phase-label").textContent = `Phase: ${humanPhase(current.phase)}`;
+    showAlert("Value locked (USER LOCKED). Original preserved. Dependents marked stale.", {
+      kind: "ok",
+    });
+    renderContinuity();
+  } catch (e) {
+    showAlert(e.message || "Could not confirm override", { technical: e.detail });
+  }
+}
+
+/** Apply USER_LOCKED overrides to entity profiles in the client (mirrors server). */
+function applyOverridesLocal(entities, overrides) {
+  if (!overrides?.length) return entities;
+  return (entities || []).map((ent) => {
+    const ovs = overrides.filter(
+      (o) =>
+        o.target_id === ent.entity_id &&
+        ["entity", "character", "location", "prop", "wardrobe"].includes(o.target_kind)
+    );
+    if (!ovs.length) return ent;
+    let values = [...(ent.values || [])];
+    let name = ent.name;
+    for (const ov of ovs) {
+      let hit = false;
+      values = values.map((v) => {
+        if (v.field_name === ov.field_name) {
+          hit = true;
+          return {
+            ...v,
+            value: ov.locked_value,
+            locked: true,
+            original_value: ov.original_value,
+            provenance: {
+              label: "USER_LOCKED",
+              icon: "🔒",
+              title: "Locked by you",
+            },
+          };
+        }
+        return v;
+      });
+      if (!hit) {
+        values.push({
+          field_name: ov.field_name,
+          value: ov.locked_value,
+          locked: true,
+          original_value: ov.original_value,
+          provenance: { label: "USER_LOCKED", icon: "🔒", title: "Locked by you" },
+        });
+      }
+      if (ov.field_name === "name") name = ov.locked_value;
+    }
+    return { ...ent, name, values };
   });
-  renderContinuity();
 }
 
 // --- Generate / prepare ---
@@ -1001,16 +1199,21 @@ function renderGenerate() {
     $("gen-shot-cards").innerHTML = (pkg.shot_list || [])
       .map((s, i) => {
         const prompt = (pkg.shot_prompts || [])[i]?.prompt || "";
-        return `<article class="shot-card">
-          <h4>Shot ${escapeHtml(s.shot_number)}</h4>
-          <p>${escapeHtml(s.description || "")}</p>
-          <details open><summary>Prompt</summary><p>${escapeHtml(prompt)}</p></details>
-          <div class="shot-card__actions">
-            <button type="button" class="btn btn--ghost btn--sm" data-copy-text="${escapeHtml(
-              prompt
-            )}">Copy Prompt</button>
-          </div>
-        </article>`;
+        return renderShotCardHtml(
+          {
+            shot_id: s.shot_id,
+            shot_number: s.shot_number,
+            shot_type: s.shot_type || "coverage",
+            description: s.description || "",
+            characters: s.characters || [],
+            props: s.props || [],
+            status: "READY",
+            prompt_preview: prompt,
+            start_state_hash: "",
+            end_state_hash: "",
+          },
+          { showReviewActions: true }
+        );
       })
       .join("");
   }
@@ -1021,39 +1224,113 @@ function renderGenerate() {
 function renderReview() {
   const empty = $("review-empty");
   const list = $("review-list");
+  if (!list) return;
+  const shots =
+    current?.sceneDetail?.shots ||
+    (current?.breakdown?.shots || []).map((s) => ({
+      shot_id: s.shot_id,
+      shot_number: `${s.scene_ordinal}.${s.shot_ordinal}`,
+      shot_type: s.label,
+      description: s.label,
+      characters: s.characters_present,
+      props: s.props_referenced,
+      status: "DRAFT",
+      prompt_preview: s.label,
+      start_state_hash: s.start_state_hash,
+      end_state_hash: s.end_state_hash,
+    }));
   const decisions = current?.reviewDecisions || [];
-  if (!decisions.length) {
-    empty.hidden = false;
+  // Ensure every shot has a review candidate row (linked by shot_id)
+  const candidates = shots.map((sh) => {
+    const last = [...decisions].reverse().find((d) => d.shot_id === sh.shot_id);
+    return {
+      shot_id: sh.shot_id,
+      shot_number: sh.shot_number,
+      candidate_id: last?.candidate_id || `proposed-${sh.shot_id.slice(0, 8)}`,
+      provider: "none (export-only)",
+      model: "—",
+      validation: last
+        ? last.action === "reject" || last.action === "repair"
+          ? "needs_attention"
+          : "passed"
+        : "pending",
+      decision: last || null,
+      shot: sh,
+    };
+  });
+
+  if (!candidates.length) {
+    if (empty) {
+      empty.hidden = false;
+      empty.innerHTML =
+        "<p>No shots yet. Analyze a script and open a scene, then review proposed shots here.</p>";
+    }
     list.hidden = true;
     list.innerHTML = "";
     return;
   }
-  empty.hidden = true;
+  if (empty) empty.hidden = true;
   list.hidden = false;
-  list.innerHTML = decisions
-    .map(
-      (d) => `<article class="card">
-      <h3>${escapeHtml(d.action)} · shot ${escapeHtml(d.shot_id)}</h3>
-      <p class="muted small">Lineage preserved · canon advances only via validated mutation paths (${
-        d.advances_canon ? "intent to accept" : "no canon advance"
-      })</p>
-      ${d.note ? `<p>${escapeHtml(d.note)}</p>` : ""}
-    </article>`
-    )
+  list.innerHTML = candidates
+    .map((c) => {
+      const issues =
+        c.validation === "needs_attention"
+          ? `<div class="issue-list"><p><strong>Needs attention</strong></p><ul><li>Operator requested repair or reject.</li></ul></div>`
+          : c.validation === "passed" && c.decision
+            ? `<div class="issue-list"><p><strong>Passed</strong> · decision ${escapeHtml(c.decision.action)}</p></div>`
+            : `<div class="issue-list"><p class="muted">No generation yet — export prompts or record a decision on the proposed package.</p></div>`;
+      return `<article class="card" data-candidate-shot="${escapeHtml(c.shot_id)}">
+        <h3>Shot ${escapeHtml(c.shot_number || "")} · ${escapeHtml(c.shot_id.slice(0, 8))}…</h3>
+        <p class="muted small">Candidate ${escapeHtml(c.candidate_id)} · Provider: ${escapeHtml(c.provider)} · Model: ${escapeHtml(c.model)}</p>
+        <h4>Continuity check</h4>
+        ${issues}
+        ${renderShotCardHtml({ ...c.shot, status: c.decision?.action?.toUpperCase() || c.shot.status }, { showReviewActions: true })}
+      </article>`;
+    })
     .join("");
 }
 
 async function recordReview(shotId, action) {
   if (!current) return;
+  let note = "";
+  if (action === "accept_with_note") {
+    note = window.prompt("Note for acceptance (optional):", "") || "";
+  }
   try {
     const res = await api("/v1/product/review/decision", {
       method: "POST",
-      body: JSON.stringify({ shot_id: shotId, action, actor_id: "ui-operator" }),
+      body: JSON.stringify({
+        shot_id: shotId,
+        action,
+        candidate_id: `proposed-${shotId.slice(0, 8)}`,
+        note,
+        actor_id: "ui-operator",
+        document_key: current.document_key,
+      }),
     });
     current.reviewDecisions = [...(current.reviewDecisions || []), res.decision];
+    // Update local shot status for UI
+    if (current.sceneDetail?.shots) {
+      current.sceneDetail.shots = current.sceneDetail.shots.map((s) =>
+        s.shot_id === shotId
+          ? {
+              ...s,
+              status:
+                action === "accept" || action === "accept_with_note"
+                  ? "APPROVED"
+                  : action === "reject"
+                    ? "REJECTED"
+                    : action === "repair"
+                      ? "REPAIR_PROPOSED"
+                      : s.status,
+            }
+          : s
+      );
+    }
     saveProjects();
-    showAlert(res.note || "Decision recorded.", { kind: "ok" });
+    showAlert(res.note || "Decision recorded with lineage preserved.", { kind: "ok" });
     if (activeView === "review") renderReview();
+    if (activeView === "scenes" && current.sceneDetail) renderSceneDetail(current.sceneDetail);
   } catch (e) {
     showAlert(e.message || "Review decision failed", { technical: e.detail });
   }
@@ -1252,6 +1529,20 @@ function bindEvents() {
     if (copyT) {
       navigator.clipboard?.writeText(copyT.getAttribute("data-copy-text") || "");
       showAlert("Copied.", { kind: "ok" });
+    }
+    const rev = e.target.closest?.("[data-review-action]");
+    if (rev) {
+      const action = rev.getAttribute("data-review-action");
+      const shotId = rev.getAttribute("data-shot-id");
+      if (action === "generate") {
+        showAlert(
+          "No generation provider is connected. Export the scene package or configure a provider under Settings → Developer.",
+          { kind: "ok" }
+        );
+        setView("generate");
+        return;
+      }
+      if (shotId && action) recordReview(shotId, action);
     }
   });
 

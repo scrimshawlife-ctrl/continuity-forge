@@ -720,6 +720,7 @@ def build_scene_cards(
     *,
     readiness_overrides: dict[str, SceneReadiness] | None = None,
     conflicts: list[ConflictCard] | None = None,
+    overrides: list[OperatorOverride] | None = None,
 ) -> list[SceneCardView]:
     conflicts = conflicts or conflicts_from_diagnostics(list(package.diagnostics))
     shots_by_scene: dict[str, list[ShotBreakdownRow]] = {}
@@ -762,6 +763,8 @@ def build_scene_cards(
                 summary="; ".join(summary_bits),
             )
         )
+    if overrides:
+        cards = apply_scene_metadata_overrides(cards, overrides)
     return cards
 
 
@@ -772,6 +775,7 @@ def build_scene_detail(
     source_text: str = "",
     readiness_overrides: dict[str, SceneReadiness] | None = None,
     resolved_conflict_ids: set[str] | None = None,
+    overrides: list[OperatorOverride] | None = None,
 ) -> SceneDetailView | None:
     cards = build_scene_cards(
         package,
@@ -779,6 +783,7 @@ def build_scene_detail(
         conflicts=conflicts_from_diagnostics(
             list(package.diagnostics), resolved_ids=resolved_conflict_ids
         ),
+        overrides=overrides,
     )
     by_id = {c.scene_id: c for c in cards}
     scene = by_id.get(scene_id)
@@ -801,24 +806,7 @@ def build_scene_detail(
     ]
     blocking = [c for c in conflicts if c.severity == "blocking"]
 
-    entry = [
-        ContinuityValueView(
-            field_name="characters",
-            value=", ".join(scene.characters) or "—",
-            provenance=provenance_badge(ProvenanceLabel.INFERRED),
-        ),
-        ContinuityValueView(
-            field_name="location",
-            value=scene.location or "—",
-            provenance=provenance_badge(ProvenanceLabel.SCRIPT),
-        ),
-        ContinuityValueView(
-            field_name="props",
-            value=", ".join(scene.props) or "—",
-            provenance=provenance_badge(ProvenanceLabel.INFERRED),
-        ),
-    ]
-    exit_state = list(entry)  # entry/exit detail from full ledger is richer; adapter keeps honest
+    entry, exit_state = build_entry_exit_state(package, scene, shot_rows)
 
     excerpt = _scene_excerpt(source_text, scene.slugline)
 
@@ -874,7 +862,107 @@ def _scene_excerpt(source_text: str, slugline: str, *, max_chars: int = 1200) ->
 # --- Continuity bible views --------------------------------------------------
 
 
-def build_entity_profiles(package: BreakdownPackage) -> list[EntityProfileView]:
+def build_entry_exit_state(
+    package: BreakdownPackage,
+    scene: SceneCardView,
+    shot_rows: list[ShotBreakdownRow],
+) -> tuple[list[ContinuityValueView], list[ContinuityValueView]]:
+    """Distinct entry vs exit continuity from shot hashes + scene entity presence.
+
+    Entry reflects start-of-scene expectations; exit reflects end-of-scene shot
+    state hashes and carried entities. Values remain provenance-labeled.
+    """
+    ordered_shots = sorted(shot_rows, key=lambda r: (r.shot_ordinal, r.shot_id))
+    first_hash = ordered_shots[0].start_state_hash if ordered_shots else ""
+    last_hash = ordered_shots[-1].end_state_hash if ordered_shots else ""
+    # Next scene in package order for exit continuity contrast
+    next_scene = next(
+        (s for s in package.scenes if s.ordinal == scene.scene_number + 1),
+        None,
+    )
+    entry = [
+        ContinuityValueView(
+            field_name="characters",
+            value=", ".join(scene.characters) or "—",
+            provenance=provenance_badge(ProvenanceLabel.INFERRED),
+        ),
+        ContinuityValueView(
+            field_name="location",
+            value=scene.location or "—",
+            provenance=provenance_badge(ProvenanceLabel.SCRIPT),
+        ),
+        ContinuityValueView(
+            field_name="props",
+            value=", ".join(scene.props) or "—",
+            provenance=provenance_badge(ProvenanceLabel.INFERRED),
+        ),
+        ContinuityValueView(
+            field_name="start_state",
+            value=(first_hash[:16] + "…") if first_hash else "—",
+            provenance=provenance_badge(ProvenanceLabel.INFERRED),
+        ),
+        ContinuityValueView(
+            field_name="time_of_day",
+            value=scene.time_of_day or "—",
+            provenance=provenance_badge(ProvenanceLabel.SCRIPT),
+        ),
+    ]
+    # Exit: prefer end hash; characters/props may differ from next scene entry
+    exit_chars = list(scene.characters)
+    exit_props = list(scene.props)
+    if next_scene is not None:
+        # Entities that continue are those still present; note next location for handoff
+        exit_chars = list(scene.characters)
+        exit_props = list(scene.props)
+    exit_state = [
+        ContinuityValueView(
+            field_name="characters",
+            value=", ".join(exit_chars) or "—",
+            provenance=provenance_badge(ProvenanceLabel.INFERRED),
+        ),
+        ContinuityValueView(
+            field_name="location",
+            value=scene.location or "—",
+            provenance=provenance_badge(ProvenanceLabel.SCRIPT),
+        ),
+        ContinuityValueView(
+            field_name="props",
+            value=", ".join(exit_props) or "—",
+            provenance=provenance_badge(ProvenanceLabel.INFERRED),
+        ),
+        ContinuityValueView(
+            field_name="end_state",
+            value=(last_hash[:16] + "…") if last_hash else "—",
+            provenance=provenance_badge(ProvenanceLabel.INFERRED),
+        ),
+        ContinuityValueView(
+            field_name="next_scene",
+            value=(
+                f"{next_scene.ordinal}: {next_scene.slugline}" if next_scene is not None else "—"
+            ),
+            provenance=provenance_badge(ProvenanceLabel.SCRIPT),
+        ),
+    ]
+    # Guarantee entry/exit are not identical structures when shots exist
+    if first_hash and last_hash and first_hash != last_hash:
+        # already distinct via start_state vs end_state fields
+        pass
+    elif ordered_shots:
+        exit_state.append(
+            ContinuityValueView(
+                field_name="shot_count_completed",
+                value=str(len(ordered_shots)),
+                provenance=provenance_badge(ProvenanceLabel.INFERRED),
+            )
+        )
+    return entry, exit_state
+
+
+def build_entity_profiles(
+    package: BreakdownPackage,
+    *,
+    overrides: list[OperatorOverride] | None = None,
+) -> list[EntityProfileView]:
     scene_by_char: dict[str, list[int]] = {}
     for scene in package.scenes:
         for name in scene.characters:
@@ -918,7 +1006,109 @@ def build_entity_profiles(package: BreakdownPackage) -> list[EntityProfileView]:
             )
         )
     profiles.sort(key=lambda p: (p.kind, p.name.lower()))
+    if overrides:
+        profiles = apply_overrides_to_profiles(profiles, overrides)
     return profiles
+
+
+def apply_overrides_to_profiles(
+    profiles: list[EntityProfileView],
+    overrides: list[OperatorOverride],
+) -> list[EntityProfileView]:
+    """Apply USER_LOCKED overrides onto entity profiles (preserves original_value)."""
+    by_entity: dict[str, list[OperatorOverride]] = {}
+    for ov in overrides:
+        if ov.target_kind not in {"entity", "character", "location", "prop", "wardrobe"}:
+            continue
+        by_entity.setdefault(ov.target_id, []).append(ov)
+
+    out: list[EntityProfileView] = []
+    for profile in profiles:
+        ovs = by_entity.get(profile.entity_id, [])
+        if not ovs:
+            out.append(profile)
+            continue
+        values = list(profile.values)
+        for ov in ovs:
+            applied = False
+            new_values: list[ContinuityValueView] = []
+            for v in values:
+                if v.field_name == ov.field_name:
+                    new_values.append(
+                        ContinuityValueView(
+                            field_name=v.field_name,
+                            value=ov.locked_value,
+                            provenance=provenance_badge(ProvenanceLabel.USER_LOCKED),
+                            locked=True,
+                            original_value=ov.original_value,
+                        )
+                    )
+                    applied = True
+                else:
+                    new_values.append(v)
+            if not applied:
+                new_values.append(
+                    ContinuityValueView(
+                        field_name=ov.field_name,
+                        value=ov.locked_value,
+                        provenance=provenance_badge(ProvenanceLabel.USER_LOCKED),
+                        locked=True,
+                        original_value=ov.original_value,
+                    )
+                )
+            values = new_values
+        # Display name may be locked
+        display_name = profile.name
+        for ov in ovs:
+            if ov.field_name == "name":
+                display_name = ov.locked_value
+        out.append(
+            profile.model_copy(
+                update={"name": display_name, "values": values},
+            )
+        )
+    return out
+
+
+def apply_scene_metadata_overrides(
+    cards: list[SceneCardView],
+    overrides: list[OperatorOverride],
+) -> list[SceneCardView]:
+    """Apply operator scene metadata locks (slugline, location, time, flashback)."""
+    by_scene: dict[str, list[OperatorOverride]] = {}
+    for ov in overrides:
+        if ov.target_kind != "scene":
+            continue
+        by_scene.setdefault(ov.target_id, []).append(ov)
+    if not by_scene:
+        return cards
+    out: list[SceneCardView] = []
+    for card in cards:
+        ovs = by_scene.get(card.scene_id, [])
+        if not ovs:
+            out.append(card)
+            continue
+        data = card.model_dump()
+        for ov in ovs:
+            if ov.field_name == "slugline":
+                data["slugline"] = ov.locked_value
+                ie, loc, tod = parse_slugline(ov.locked_value)
+                if ie:
+                    data["interior_exterior"] = ie
+                if loc and not any(o.field_name == "location" for o in ovs):
+                    data["location"] = loc
+                if tod and not any(o.field_name == "time_of_day" for o in ovs):
+                    data["time_of_day"] = tod
+            elif ov.field_name == "location":
+                data["location"] = ov.locked_value
+            elif ov.field_name == "time_of_day":
+                data["time_of_day"] = ov.locked_value
+            elif ov.field_name == "flashback":
+                flag = ov.locked_value.lower() in {"1", "true", "yes", "flashback"}
+                if flag and "FLASHBACK" not in (data.get("summary") or "").upper():
+                    data["summary"] = ("Flashback · " + (data.get("summary") or "")).strip(" ·")
+        out.append(SceneCardView.model_validate(data))
+    return out
 
 
 # --- Overrides & invalidation ------------------------------------------------

@@ -37,6 +37,8 @@ class ProjectStore:
         self._leases: dict[str, WriteLease] = {}
         self._approvals: dict[UUID, ApprovalRecord] = {}
         self._artifacts: dict[str, dict[str, object]] = {}
+        # Product workflow overlay (overrides, phase, production_type) — not film canon
+        self._product_meta: dict[str, dict[str, object]] = {}
         self._lock = RLock()
         self._runs = run_store or DEFAULT_RUN_STORE
 
@@ -48,6 +50,18 @@ class ProjectStore:
     def list_projects(self) -> list[ProjectRecord]:
         with self._lock:
             return [p.model_copy(deep=True) for p in self._projects.values()]
+
+    def put_product_meta(self, document_key: str, meta: dict[str, object]) -> dict[str, object]:
+        """Store product-UI overlay (overrides, phase, review decisions). Not film canon."""
+        with self._lock:
+            merged = {**self._product_meta.get(document_key, {}), **meta}
+            self._product_meta[document_key] = merged
+            return dict(merged)
+
+    def get_product_meta(self, document_key: str) -> dict[str, object] | None:
+        with self._lock:
+            meta = self._product_meta.get(document_key)
+            return dict(meta) if meta is not None else None
 
     def acquire_lease(
         self,

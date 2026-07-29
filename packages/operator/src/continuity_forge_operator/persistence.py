@@ -31,6 +31,7 @@ class FileProjectStore(ProjectStore):
         self._projects_path = root / "projects.json"
         self._leases_path = root / "leases.json"
         self._approvals_path = root / "approvals.json"
+        self._product_meta_path = root / "product_meta.json"
         self._persist_lock = RLock()
         self._load()
 
@@ -50,6 +51,13 @@ class FileProjectStore(ProjectStore):
             for raw in data.get("approvals", []):
                 approval = ApprovalRecord.model_validate(raw)
                 self._approvals[approval.approval_id] = approval
+        if self._product_meta_path.exists():
+            data = json.loads(self._product_meta_path.read_text(encoding="utf-8"))
+            raw_meta = data.get("product_meta", {})
+            if isinstance(raw_meta, dict):
+                self._product_meta = {
+                    str(k): dict(v) for k, v in raw_meta.items() if isinstance(v, dict)
+                }
 
     def _flush(self) -> None:
         with self._persist_lock:
@@ -74,6 +82,15 @@ class FileProjectStore(ProjectStore):
                 ),
                 encoding="utf-8",
             )
+            self._product_meta_path.write_text(
+                json.dumps({"product_meta": self._product_meta}, indent=2),
+                encoding="utf-8",
+            )
+
+    def put_product_meta(self, document_key: str, meta: dict[str, object]) -> dict[str, object]:
+        result = super().put_product_meta(document_key, meta)
+        self._flush()
+        return result
 
     def acquire_lease(
         self,

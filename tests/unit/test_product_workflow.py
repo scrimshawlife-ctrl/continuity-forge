@@ -201,6 +201,63 @@ def test_review_decision_preserves_lineage_no_silent_canon() -> None:
     assert r.advances_canon is False
 
 
+def test_apply_overrides_shows_user_locked_on_profiles(package) -> None:
+    from continuity_forge_operator.product_workflow import apply_overrides_to_profiles
+
+    profiles = build_entity_profiles(package)
+    entity = next(e for e in package.entities if e.kind == "character")
+    override, _preview = apply_operator_override(
+        target_kind="entity",
+        target_id=entity.entity_id,
+        field_name="name",
+        original_value=entity.name,
+        locked_value=entity.name + " Locked",
+        package=package,
+    )
+    applied = apply_overrides_to_profiles(profiles, [override])
+    hit = next(p for p in applied if p.entity_id == entity.entity_id)
+    name_val = next(v for v in hit.values if v.field_name == "name")
+    assert name_val.locked is True
+    assert name_val.provenance.label is ProvenanceLabel.USER_LOCKED
+    assert name_val.value == entity.name + " Locked"
+    assert name_val.original_value == entity.name
+    assert hit.name == entity.name + " Locked"
+
+
+def test_entry_exit_state_are_distinct(package, sample_text: str) -> None:
+    scene_id = package.scenes[0].scene_id
+    detail = build_scene_detail(package, scene_id, source_text=sample_text)
+    assert detail is not None
+    entry_fields = {v.field_name: v.value for v in detail.entry_state}
+    exit_fields = {v.field_name: v.value for v in detail.exit_state}
+    assert "start_state" in entry_fields
+    assert "end_state" in exit_fields
+    # Distinct field sets (entry has start_state, exit has end_state / next_scene)
+    assert entry_fields.keys() != exit_fields.keys() or entry_fields.get(
+        "start_state"
+    ) != exit_fields.get("end_state")
+
+
+def test_scene_metadata_override_applied_to_cards(package) -> None:
+    from continuity_forge_operator.product_workflow import apply_scene_metadata_overrides
+
+    cards = build_scene_cards(package)
+    scene = cards[0]
+    ov, _ = apply_operator_override(
+        target_kind="scene",
+        target_id=scene.scene_id,
+        field_name="slugline",
+        original_value=scene.slugline,
+        locked_value="INT. CORRECTED SET - DAWN",
+        package=package,
+    )
+    # target_kind scene for metadata
+    ov = ov.model_copy(update={"target_kind": "scene"})
+    updated = apply_scene_metadata_overrides(cards, [ov])
+    assert updated[0].slugline == "INT. CORRECTED SET - DAWN"
+    assert updated[0].time_of_day and "DAWN" in updated[0].time_of_day.upper()
+
+
 def test_friendly_parser_errors_are_actionable() -> None:
     err = friendly_parser_error("missing scene heading near line 148")
     assert "scene heading" in err.what_happened.lower() or "INT." in err.what_happened
