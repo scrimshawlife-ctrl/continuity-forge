@@ -136,3 +136,8 @@ exclude = [
 [tool.mypy]
 python_version = "3.12"
 strict = true
+# Optional Kubrick skill helpers are not part of the CF kernel gate.
+exclude = [
+  "(?x)(^|/)packages/kubrick_helpers/",
+  "(?x)(^|/)skills/kubrick/",
+]
