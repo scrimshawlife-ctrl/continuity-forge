@@ -901,6 +901,138 @@ def content_hash_safe(text: str) -> str:
     return content_hash(text)[:16]
 
 
+def _logical_document_key(scoped_key: str, tenant_id: str) -> str:
+    prefix = f"{tenant_id}::"
+    if scoped_key.startswith(prefix):
+        return scoped_key[len(prefix) :]
+    return scoped_key
+
+
+def _product_project_row(
+    *,
+    logical_key: str,
+    tenant_key: str,
+    project: ProjectRecord | None,
+    meta: dict[str, object] | None,
+) -> dict[str, Any]:
+    """UI-facing project summary (logical key, not tenant-scoped storage key)."""
+    meta = meta or {}
+    title = str(meta.get("title") or (project.title if project else logical_key))
+    phase = str(meta.get("phase") or ("IMPORTED" if project and project.source_text else "EMPTY"))
+    production_type = str(meta.get("production_type") or "Other")
+    fmt = str(meta.get("format") or (project.format if project else "fountain"))
+    updated = None
+    if project is not None:
+        updated = project.updated_at.isoformat()
+    return {
+        "document_key": logical_key,
+        "tenant_document_key": tenant_key,
+        "title": title,
+        "production_type": production_type,
+        "phase": phase,
+        "format": fmt,
+        "source_hash": project.source_hash if project else None,
+        "state_hash": project.state_hash if project else None,
+        "scene_count": len((project.production_ir or {}).get("scenes") or []) if project else 0,
+        "shot_count": (
+            len((project.shot_contracts or {}).get("contracts") or []) if project else 0
+        ),
+        "has_script": bool(project and project.source_text),
+        "updated_at": updated,
+        "persisted": project is not None,
+    }
+
+
+@app.get("/v1/product/projects")
+def product_list_projects(
+    principal: Principal = Depends(require_principal),
+) -> dict[str, Any]:
+    """List durable product projects for the tenant (server source of truth).
+
+    Keys are logical document_keys for the UI. localStorage may cache; reopen
+    must use GET /v1/product/projects/{document_key}.
+    """
+    prefix = f"{principal.tenant_id}::"
+    store = _rt().project_store
+    by_logical: dict[str, dict[str, Any]] = {}
+
+    for project in store.list_projects():
+        if not project.document_key.startswith(prefix):
+            continue
+        logical = _logical_document_key(project.document_key, principal.tenant_id)
+        meta = store.get_product_meta(project.document_key)
+        by_logical[logical] = _product_project_row(
+            logical_key=logical,
+            tenant_key=project.document_key,
+            project=project,
+            meta=meta,
+        )
+
+    # Meta-only rows (e.g. empty projects without ingest)
+    for store_key, meta in store.list_product_meta().items():
+        if not store_key.startswith(prefix):
+            continue
+        logical = _logical_document_key(store_key, principal.tenant_id)
+        if logical in by_logical:
+            continue
+        by_logical[logical] = _product_project_row(
+            logical_key=logical,
+            tenant_key=store_key,
+            project=None,
+            meta=meta,
+        )
+
+    projects = sorted(
+        by_logical.values(),
+        key=lambda row: str(row.get("updated_at") or row.get("title") or ""),
+        reverse=True,
+    )
+    return {"tenant_id": principal.tenant_id, "projects": projects, "source": "project_store"}
+
+
+@app.get("/v1/product/projects/{document_key}")
+def product_get_project(
+    document_key: str,
+    principal: Principal = Depends(require_principal),
+) -> dict[str, Any]:
+    """Hydrate a product project for UI reopen (script + product_meta + store record).
+
+    Server is source of truth. Does not re-run analysis; client may Analyze Script.
+    """
+    key = tenant_document_key(principal.tenant_id, document_key)
+    store = _rt().project_store
+    project = store.get_project(key)
+    meta = store.get_product_meta(key) or {}
+    if project is None and not meta:
+        raise HTTPException(status_code=404, detail="project not found")
+
+    logical = _logical_document_key(key, principal.tenant_id)
+    summary = _product_project_row(
+        logical_key=logical,
+        tenant_key=key,
+        project=project,
+        meta=meta,
+    )
+    text = project.source_text if project else str(meta.get("source_text") or "")
+    overrides = _meta_list(meta, "overrides")
+    resolved = _meta_list(meta, "resolved_conflict_ids")
+    decisions = _meta_list(meta, "review_decisions")
+    return {
+        **summary,
+        "text": text,
+        "revision": project.revision if project else "0.1.0",
+        "overrides": overrides,
+        "resolved_conflict_ids": resolved,
+        "review_decisions": decisions,
+        "product_meta": meta,
+        "project": project.model_dump(mode="json") if project else None,
+        "authority_note": (
+            "Project hydrate is store-backed. Analysis summary is rebuilt client-side "
+            "via Analyze Script; product_meta holds USER_LOCKED overrides and review intent."
+        ),
+    }
+
+
 @app.post("/v1/product/analyze")
 def product_analyze(request: ProductAnalyzeRequest) -> dict[str, Any]:
     """Analyze script → creative-language summary + scene cards + continuity profiles.

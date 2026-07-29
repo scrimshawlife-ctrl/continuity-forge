@@ -106,9 +106,9 @@ let continuityTab = "characters";
 /** @type {object|null} */
 let pendingOverride = null;
 
-// --- Storage (local durable for product path; server store via ingest when used) ---
+// --- Storage: ProjectStore is source of truth; localStorage is UI cache only ---
 
-function loadProjects() {
+function loadProjectsFromCache() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     projects = raw ? JSON.parse(raw) : {};
@@ -117,13 +117,100 @@ function loadProjects() {
   }
 }
 
+/** @deprecated use loadProjectsFromCache — name kept for older greps */
+function loadProjects() {
+  loadProjectsFromCache();
+}
+
 function saveProjects() {
   try {
+    // Cache only — never the sole durable store
     localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
     if (current) localStorage.setItem(LAST_KEY, current.document_key);
   } catch {
     /* ignore quota */
   }
+}
+
+/**
+ * Merge server project list into local cache (summaries; text may be empty until open).
+ * Server wins on title/phase/production_type/has_script.
+ */
+function mergeServerProjectList(serverProjects) {
+  const next = { ...projects };
+  const seen = new Set();
+  for (const row of serverProjects || []) {
+    const key = row.document_key;
+    if (!key) continue;
+    seen.add(key);
+    const prev = next[key] || {};
+    next[key] = {
+      ...prev,
+      document_key: key,
+      tenant_document_key: row.tenant_document_key || prev.tenant_document_key,
+      title: row.title || prev.title || key,
+      production_type: row.production_type || prev.production_type || "Other",
+      format: row.format || prev.format || "fountain",
+      phase: row.phase || prev.phase || "EMPTY",
+      text: prev.text || "",
+      summary: prev.summary || null,
+      scenes: prev.scenes || [],
+      entities: prev.entities || [],
+      breakdown: prev.breakdown || null,
+      sceneDetail: prev.sceneDetail || null,
+      scenePackage: prev.scenePackage || null,
+      overrides: prev.overrides || [],
+      resolvedConflictIds: prev.resolvedConflictIds || [],
+      reviewDecisions: prev.reviewDecisions || [],
+      updatedAt: row.updated_at || prev.updatedAt || new Date().toISOString(),
+      has_script: Boolean(row.has_script),
+      persisted: Boolean(row.persisted),
+      from_server: true,
+    };
+  }
+  // Keep local-only drafts that never reached the server
+  projects = next;
+  saveProjects();
+  return seen;
+}
+
+async function refreshProjectsFromServer() {
+  try {
+    const res = await api("/v1/product/projects");
+    mergeServerProjectList(res.projects || []);
+    updateProjectChrome();
+    return res.projects || [];
+  } catch (e) {
+    // Offline / memory backend cold start — keep cache
+    console.warn("project list from server failed; using cache", e);
+    return null;
+  }
+}
+
+/** Build UI project state from hydrate payload. */
+function projectFromHydrate(payload) {
+  return {
+    document_key: payload.document_key,
+    tenant_document_key: payload.tenant_document_key,
+    title: payload.title,
+    production_type: payload.production_type || "Other",
+    format: payload.format || "fountain",
+    text: payload.text || "",
+    phase: payload.phase || "IMPORTED",
+    summary: null,
+    scenes: [],
+    entities: [],
+    breakdown: null,
+    sceneDetail: null,
+    scenePackage: null,
+    overrides: payload.overrides || [],
+    resolvedConflictIds: payload.resolved_conflict_ids || [],
+    reviewDecisions: payload.review_decisions || [],
+    updatedAt: payload.updated_at || new Date().toISOString(),
+    has_script: Boolean(payload.has_script || payload.text),
+    persisted: Boolean(payload.persisted),
+    from_server: true,
+  };
 }
 
 function baseUrl() {
@@ -378,6 +465,7 @@ async function createProjectFromForm(ev) {
     });
     const project = {
       document_key: created.document_key,
+      tenant_document_key: created.tenant_document_key,
       title: created.title,
       production_type: created.production_type,
       format: created.format,
@@ -393,22 +481,87 @@ async function createProjectFromForm(ev) {
       resolvedConflictIds: [],
       reviewDecisions: [],
       updatedAt: new Date().toISOString(),
+      has_script: Boolean(text.trim()),
+      persisted: Boolean(created.persisted),
+      from_server: true,
     };
     projects[project.document_key] = project;
     current = project;
     saveProjects();
-    updateProjectChrome();
-    showProjectWorkspace();
+    // Prefer rehydrate from store so reopen path is exercised
+    try {
+      await openProject(project.document_key, { preferServer: true });
+    } catch {
+      updateProjectChrome();
+      showProjectWorkspace();
+    }
     setView("projects");
-    showAlert("Project created. Review the script, then Analyze Script.", { kind: "ok" });
+    showAlert(
+      created.persisted
+        ? "Project saved on the server. Review the script, then Analyze Script."
+        : "Project created (local). Add a script and save to persist on the server.",
+      { kind: "ok" }
+    );
   } catch (e) {
     showAlert(e.message || "Could not create project", { technical: e.detail || String(e) });
   }
 }
 
-function openProject(key) {
+/**
+ * Open a project. Server hydrate is preferred; cache used if offline.
+ * @param {string} key
+ * @param {{ preferServer?: boolean }} [opts]
+ */
+async function openProject(key, opts = {}) {
+  const preferServer = opts.preferServer !== false;
+  if (!key) return;
+
+  if (preferServer) {
+    try {
+      const payload = await api(`/v1/product/projects/${encodeURIComponent(key)}`);
+      const hydrated = projectFromHydrate(payload);
+      // Preserve client analysis if source text unchanged
+      const prev = projects[key];
+      if (
+        prev &&
+        prev.text === hydrated.text &&
+        prev.summary &&
+        prev.breakdown
+      ) {
+        hydrated.summary = prev.summary;
+        hydrated.scenes = prev.scenes;
+        hydrated.entities = prev.entities;
+        hydrated.breakdown = prev.breakdown;
+        hydrated.sceneDetail = prev.sceneDetail;
+        hydrated.scenePackage = prev.scenePackage;
+      }
+      // Always take server overrides / review decisions as authority
+      hydrated.overrides = payload.overrides || [];
+      hydrated.resolvedConflictIds = payload.resolved_conflict_ids || [];
+      hydrated.reviewDecisions = payload.review_decisions || [];
+      projects[key] = hydrated;
+      current = hydrated;
+      saveProjects();
+      updateProjectChrome();
+      showProjectWorkspace();
+      setView("projects");
+      if (hydrated.summary) enableWorkflowNav(true);
+      else enableWorkflowNav(false);
+      return;
+    } catch (e) {
+      if (e.status === 404) {
+        // Fall through to cache
+      } else {
+        console.warn("server hydrate failed, trying cache", e);
+      }
+    }
+  }
+
   const p = projects[key];
-  if (!p) return;
+  if (!p) {
+    showAlert(`Project “${key}” was not found on the server or in cache.`);
+    return;
+  }
   current = p;
   saveProjects();
   updateProjectChrome();
@@ -1741,18 +1894,36 @@ function bindEvents() {
   });
 }
 
-function init() {
-  loadProjects();
+async function init() {
+  loadProjectsFromCache();
   bindEvents();
   updateProjectChrome();
+  setView("projects");
+  pingHealth();
+
+  // Server-first list; cache is fallback
+  const serverList = await refreshProjectsFromServer();
   const last = localStorage.getItem(LAST_KEY);
-  if (last && projects[last]) {
-    openProject(last);
+  const serverKeys = new Set((serverList || []).map((p) => p.document_key));
+
+  if (last && (serverKeys.has(last) || projects[last])) {
+    await openProject(last, { preferServer: true });
+  } else if (serverList && serverList.length) {
+    await openProject(serverList[0].document_key, { preferServer: true });
+  } else if (Object.keys(projects).length) {
+    // Offline cache only
+    const first = Object.keys(projects).sort((a, b) =>
+      (projects[b].updatedAt || "").localeCompare(projects[a].updatedAt || "")
+    )[0];
+    await openProject(first, { preferServer: false });
   } else {
     showEmptyState();
   }
-  setView("projects");
-  pingHealth();
 }
 
-document.addEventListener("DOMContentLoaded", init);
+document.addEventListener("DOMContentLoaded", () => {
+  init().catch((e) => {
+    console.error(e);
+    showEmptyState();
+  });
+});
