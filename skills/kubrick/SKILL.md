@@ -1,6 +1,6 @@
 ---
 name: kubrick
-description: "Symbolic narrative engineering with motif mutation."
+description: "Symbolic narrative engineering with executable retrieval and self-evolution from use."
 version: 0.7.0
 author: Hermes
 platforms: [linux, macos, windows]

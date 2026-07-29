@@ -9,10 +9,17 @@ kubrick is the evolved replacement for earlier narrative engineering tools. It d
 - **Observed first, meaning second**: Every motif begins with concrete, observable form before any interpretation.
 - **Mandatory mutation**: No motif recurs identically unless stagnation is the dramatic point.
 - **Three-channel symbolism**: Diegetic (objects/behavior), Dramaturgical (structure/choice), Cinematic (framing/geometry/rhythm) — power comes from crossing channels without explanation.
-- **Provenance-linked Symbolic Narrative Pattern System**: Full `SymbolicNarrativePattern` schema, Narrative Affordance Registry, Transformation Grammar Registry, and 10 domain packs grounded in PRIMARY/SCHOLARLY sources with explicit cross-tradition relationship types.
-- **Cinematic Symbolism Corpus**: Shot scale, graphic matches, negative space, acousmatic sound, broken symmetry, motif transfer — meaning arises from pattern and transformation, never fixed iconography.
-- **Relational geometry & cinematic encoding**: Blocking and shots are described as pressure and relationship, not clichés.
+- **Provenance-linked Symbolic Narrative Pattern System**: Full `SymbolicNarrativePattern` schema, Narrative Affordance Registry, Transformation Grammar Registry, and 10+ domain packs grounded in PRIMARY/SCHOLARLY sources.
+- **Executable Retrieval**: `scripts/retrieve_symbolic_patterns.py` provides deterministic, scored retrieval with exclusions, saturation awareness, and `NOT_COMPUTABLE` fallback.
+- **Self-Evolution from Use**: The skill improves itself. Retrievals are auto-logged; project outcomes adjust pattern confidence, usage history, and index ordering via `scripts/evolve_from_use.py`.
 - **Forge-native**: Produces clean `symbolic_architecture` and `cinematic_encoding` ready for Continuity Forge ledger and shot contracts.
+
+## Key New Capabilities (0.7.x)
+
+- Machine-readable pattern sidecars (`references/patterns/`)
+- Deterministic retrieval with score decomposition and receipt emission
+- Autonomous evolution engine that learns from real project/Forge usage
+- Full support for project symbolic ledger, revision diffing, cultural review gates, and production feasibility
 
 ## Installation
 
@@ -23,31 +30,27 @@ cp -R skills/kubrick ~/.hermes/skills/
 cp -R skills/hermes-continuity-forge ~/.hermes/skills/   # recommended companion
 ```
 
+Or categorized:
+```bash
+cp -R skills/kubrick ~/.hermes/skills/creative/
+```
+
 ## Quick Start
 
 Load `kubrick`.
 
-**Example prompts:**
-- "Develop this premise into a feature with strong symbolic architecture and motif lifecycle."
-- "Diagnose this scene for motif mutation and geometric pressure using the rubric."
-- "Rewrite this scene with the circular motif locked, showing explicit mutation on recurrence."
-- "Produce production handoff packet with full cinematic_encoding for these scenes."
+**Retrieval example:**
+```bash
+python scripts/retrieve_symbolic_patterns.py --brief my-brief.yaml
+```
 
-Always approve foundations before deep symbolic work.
+**Evolution (after use):**
+```bash
+# After projects, drop outcomes in references/usage/outcomes/
+python scripts/evolve_from_use.py
+```
 
-See `references/symbolic-dramaturgy.md`, `references/symbolic-narrative-patterns.yaml`, `references/narrative-affordance-registry.md`, `references/transformation-grammar-registry.md`, `references/cinematic-symbolism-corpus.md`, and `references/corpus-usage.md` for the full system.
-
-Companion operator skill: `hermes-continuity-forge` for leases, ingest, and proof.
-
-
-
-## Deterministic Retrieval & Continuity (v0.6.0+)
-
-Kubrick now includes machine schemas, scored retrieval, exclusion profiles, project symbolic ledger, saturation control, motif collision detection, revision diffing, counterpoint, sequence/character arc layers, production feasibility, cultural review gates, and versioning.
-
-See `references/retrieval-and-continuity.md` and `schemas/`.
-
-Use `kubrick` + `hermes-continuity-forge` together for full symbolic-to-production pipeline with memory and revision safety.
+See SKILL.md for full procedures, prompts, and evolution workflow.
 
 ## Core Artifacts
 
@@ -55,9 +58,15 @@ Use `kubrick` + `hermes-continuity-forge` together for full symbolic-to-producti
 - motif_registry (observed_form + lifecycle)
 - cinematic_encoding (relational + shot recurrence)
 - symbolic_architecture (Forge handoff)
+- retrieval_receipt
+- evolution_receipt
+
+## Companion
+
+Use with `hermes-continuity-forge` for the full symbolic-to-production pipeline with memory and revision safety.
 
 ## Version
 
-0.5.0 (Symbolic Narrative Pattern System)
+0.7.0 (Executable Retrieval + Self-Evolution)
 
 See CHANGELOG.md for details.
