@@ -1,0 +1,178 @@
+index_version: 1.0.0
+source_lexicon: esoteric-alchemical-encoding-lexicon.md
+schema: ../schemas/esoteric-encoding.schema.yaml
+activation:
+  explicit_terms:
+    - esoteric
+    - alchemical
+    - alchemy
+    - hermetic
+    - occult structure
+    - ritual structure
+    - sacred geometry
+    - planetary pressure
+    - elemental grammar
+    - hidden symbolism
+  brief_flag: esoteric_encoding
+  default: false
+selection_policy:
+  primary_limit: 1
+  secondary_limit: 2
+  minimum_score: 0.55
+  fail_closed: NOT_COMPUTABLE
+  prefer_existing_ledger_grammar: true
+  require_observable_evidence: true
+  require_mutation_rule: true
+  require_tradition_boundary: true
+  audience_surface_default: peripheral
+  canon_status_default: PROPOSED
+concepts:
+  alchemical_nigredo:
+    tradition: alchemy
+    dramatic_operations: [dissolve, contaminate, descend, fragment, expose]
+    state_changes: [identity_breakdown, system_failure, decomposition]
+    vectors: [material, light, color, sound, architecture, recurrence]
+    mutation: darkness or decay must alter ownership, agency, consequence, or relation on recurrence
+    source_tier: PRIMARY
+    provenance: [Corpus Hermeticum tradition boundary, Zosimos, Rosarium Philosophorum]
+    boundary: Use as transformation grammar; do not claim historical uniformity across alchemical schools.
+    misuse_risks: [generic darkness, occult collage, decorative decay]
+  alchemical_albedo:
+    tradition: alchemy
+    dramatic_operations: [clarify, separate, reveal, purify]
+    state_changes: [truth_from_projection, signal_extraction, stripped_identity]
+    vectors: [light, silence, framing, material, edit]
+    mutation: clarification must expose a cost or new constraint rather than merely brighten the image
+    source_tier: PRIMARY
+    provenance: [alchemical whitening phase traditions]
+    boundary: Treat as operational phase, not a universal fixed color equation.
+    misuse_risks: [white_equals_purity, sterile_cliche]
+  alchemical_rubedo:
+    tradition: alchemy
+    dramatic_operations: [embody, integrate, commit, transform]
+    state_changes: [insight_to_action, irreversible_choice, material_completion]
+    vectors: [gesture, prop, color, causality, relationship_state]
+    mutation: final recurrence must become embodied action with irreversible consequence
+    source_tier: PRIMARY
+    provenance: [alchemical reddening and completion traditions]
+    boundary: Do not equate red with completion unless project-local recurrence establishes it.
+    misuse_risks: [red_equals_danger, unearned_completion]
+  hermetic_correspondence:
+    tradition: hermetic
+    dramatic_operations: [mirror, bind, reveal, echo]
+    state_changes: [micro_macro_alignment, internal_external_alignment]
+    vectors: [framing, blocking, architecture, edit, prop]
+    mutation: repeated correspondence must change scale, agency, or causal consequence
+    source_tier: PRIMARY
+    provenance: [Corpus Hermeticum, Emerald Tablet reception history]
+    boundary: Distinguish historical derivation from modern popular Hermetic synthesis.
+    misuse_risks: [as_above_so_below_exposition, arbitrary_visual_rhyme]
+  solve_et_coagula:
+    tradition: hermetic_alchemical
+    dramatic_operations: [decompose, separate, recombine, stabilize]
+    state_changes: [raw_to_structured, fragmented_to_integrated]
+    vectors: [edit, scene_order, prop, identity_state, continuity]
+    mutation: recombination must preserve provenance and produce a state unavailable before separation
+    source_tier: SCHOLARLY
+    provenance: [alchemical process traditions, modern Hermetic reception]
+    boundary: Use as process model; do not present as a single historically fixed doctrine.
+    misuse_risks: [empty_slogan, montage_without_causality]
+  liminal_threshold:
+    tradition: ritual_liminal
+    dramatic_operations: [cross, initiate, suspend, test]
+    state_changes: [status_change, identity_between_states, access_change]
+    vectors: [blocking, architecture, sound, light, temporal_phase]
+    mutation: each crossing must alter permission, identity, knowledge, or cost
+    source_tier: SCHOLARLY
+    provenance: [van Gennep, Victor Turner]
+    boundary: Apply as comparative ritual structure, not proof of identical cultural meaning.
+    misuse_risks: [doorway_cliche, vague_liminality]
+  tzimtzum_withdrawal:
+    tradition: kabbalistic
+    dramatic_operations: [withdraw, create_space, conceal, permit]
+    state_changes: [authority_absence, agency_emergence, negative_space_activation]
+    vectors: [silence, negative_space, framing, sound, blocking]
+    mutation: withdrawal must create a new possibility or obligation in the vacated field
+    source_tier: PRIMARY
+    provenance: [Lurianic Kabbalah]
+    boundary: Requires explicit Jewish mystical provenance; do not flatten into generic emptiness.
+    misuse_risks: [tradition_flattening, empty_frame_without_function]
+  tikkun_repair:
+    tradition: kabbalistic
+    dramatic_operations: [restore, bind, repair, reintegrate]
+    state_changes: [fragment_to_relation, continuity_repair, responsibility_assumed]
+    vectors: [prop, relationship_state, continuity, material, gesture]
+    mutation: repair must retain visible or causal evidence of prior breakage
+    source_tier: PRIMARY
+    provenance: [Lurianic Kabbalah and later tikkun traditions]
+    boundary: Do not reduce to generic self-help repair; preserve religious provenance.
+    misuse_risks: [erasing_damage, universalizing_living_tradition]
+  ouroboros_recursion:
+    tradition: alchemical_emblematic
+    dramatic_operations: [repeat, return, self_cause, consume]
+    state_changes: [loop_to_spiral, system_self_feeding, ending_generates_beginning]
+    vectors: [scene_order, edit, recurrence, prop, causality]
+    mutation: recurrence must accumulate consequence or reveal self-causation; exact loops require explicit stagnation intent
+    source_tier: PRIMARY
+    provenance: [ancient and alchemical ouroboros traditions]
+    boundary: Use the recursive structure rather than literal serpent iconography by default.
+    misuse_risks: [literal_symbol_insert, repetition_without_mutation]
+  choronzon_drift:
+    tradition: modern_occult
+    dramatic_operations: [fragment, multiply, contradict, destabilize]
+    state_changes: [identity_drift, continuity_collapse, variant_proliferation]
+    vectors: [identity_state, continuity, edit, sound, framing]
+    mutation: every detected divergence must be tied to an invariant violation or authorized transformation
+    source_tier: PRIMARY
+    provenance: [Enochian reception, Thelemic writings]
+    boundary: Use as Kubrick anomaly label; do not assert metaphysical entity claims.
+    misuse_risks: [random_surrealism, glamorized_incoherence]
+  genius_loci:
+    tradition: roman_religious_and_later_place_theory
+    dramatic_operations: [bind, orient, remember, constrain]
+    state_changes: [place_becomes_agentive, behavior_changes_by_location]
+    vectors: [architecture, sound, material, blocking, light]
+    mutation: place rules must remain stable while their consequences change with occupants or pressure
+    source_tier: PRIMARY
+    provenance: [Roman genius loci concept, later architectural reception]
+    boundary: Distinguish historical religious usage from modern design metaphor.
+    misuse_risks: [haunted_place_cliche, untracked_environment_rules]
+  planetary_saturn:
+    tradition: astrological
+    dramatic_operations: [restrict, delay, structure, judge, age]
+    state_changes: [freedom_to_constraint, latency_to_consequence, hierarchy_exposed]
+    vectors: [duration, architecture, rhythm, material, blocking]
+    mutation: restriction must reveal structure, cost, or maturity rather than merely slow pacing
+    source_tier: PRIMARY
+    provenance: [classical and medieval astrological Saturn traditions]
+    boundary: Treat as dramatic pressure grammar, not deterministic fate or personality diagnosis.
+    misuse_risks: [astrology_exposition, fixed_character_typing]
+  elemental_water:
+    tradition: comparative_elemental
+    dramatic_operations: [dissolve, reflect, remember, adapt]
+    state_changes: [boundary_loss, memory_activation, emotional_permeability]
+    vectors: [material, sound, camera, light, recurrence]
+    mutation: water recurrence must change state, ownership, accessibility, or consequence
+    source_tier: COMPARATIVE
+    provenance: [project-local elemental grammar required]
+    boundary: No universal water-equals-emotion rule; project-local evidence controls meaning.
+    misuse_risks: [one_to_one_symbolism, decorative_rain]
+  coniunctio:
+    tradition: alchemical
+    dramatic_operations: [join, reconcile, synthesize, align]
+    state_changes: [opposition_to_third_state, separated_to_integrated]
+    vectors: [blocking, framing, sound, relationship_state, material]
+    mutation: union must create a third operational state and preserve meaningful difference
+    source_tier: PRIMARY
+    provenance: [alchemical conjunction traditions]
+    boundary: Avoid literal sacred-marriage imagery unless narratively and culturally justified.
+    misuse_risks: [forced_reconciliation, polarity_flattening]
+problem_routes:
+  identity_breakdown: [alchemical_nigredo, choronzon_drift, liminal_threshold]
+  hidden_connection: [hermetic_correspondence, ouroboros_recursion, genius_loci]
+  transformation_completion: [alchemical_rubedo, coniunctio, tikkun_repair]
+  purification_clarity: [alchemical_albedo, solve_et_coagula, tzimtzum_withdrawal]
+  continuity_repair: [tikkun_repair, solve_et_coagula, genius_loci]
+  recursive_system: [ouroboros_recursion, choronzon_drift, hermetic_correspondence]
+  institutional_pressure: [planetary_saturn, genius_loci, liminal_threshold]
+  dissolution_memory: [elemental_water, alchemical_nigredo, liminal_threshold]
