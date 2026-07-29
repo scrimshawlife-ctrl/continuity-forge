@@ -1,0 +1,15 @@
+project_symbolic_ledger:
+  governing_grammar: "putrefaction / contamination"
+  supporting_grammars: ["liminal crossing"]
+  active_motifs:
+    - motif_id: "red_geometric"
+      observed_form: "repeating red pattern underfoot"
+      last_scene: 8
+      state: "contaminated"
+      debt: false
+  retired_motifs: []
+  prohibited_motifs: ["unexplained twins"]
+  unresolved_payoffs: ["thread residue must appear in final convergence"]
+  symbolic_debt: []
+  saturation_score: 0.65
+  last_updated: "scene 8"

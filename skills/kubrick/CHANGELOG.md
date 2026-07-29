@@ -1,3 +1,17 @@
+## [0.6.2] - 2026-07-28 (further continuation)
+### Added
+- Additional genre packs: melodrama, comedy, low-budget/TV/short-form
+- More populated schema examples (symbolic counterpoint, project ledger)
+- Forge round-trip validation example and test
+- Deeper film-pattern provenance depth for key examples (Kubrick Monolith, Tarkovsky, Bresson)
+- Production feasibility test
+- Expanded validation for round-trip and feasibility
+- Updated SKILL.md with Forge round-trip procedure
+
+### Expanded
+- Genre and constrained-production guidance
+- Transferable structure documentation in cinematic corpus
+
 ## [0.6.1] - 2026-07-28 (continuation after merge of #42)
 ### Added
 - Populated schema examples (alchemical-nigredo, kubrick-monolith)

@@ -1,0 +1,20 @@
+{
+  "pattern_id": "symbolic_counterpoint_image_vs_dialogue",
+  "title": "Controlled Counterpoint: Image Contradicts Dialogue",
+  "domain": "cinematic",
+  "source_tier": "SCHOLARLY",
+  "dramatic_operations": ["apparent safety vs actual danger", "emotional distance despite physical proximity"],
+  "cinematic_affordances": ["blocking", "camera distance", "sound design", "color stability"],
+  "applicable_genres": ["drama", "thriller", "melodrama", "horror"],
+  "transferable_structure": [
+    "Warm, stable lighting and close framing while dialogue reveals fracture",
+    "Intimate blocking with characters physically close but emotionally separated",
+    "Stable color palette while internal state fractures"
+  ],
+  "non_transferable_surface": ["specific color choices", "exact dialogue lines"],
+  "mutation_requirements": {
+    "required": true,
+    "variables": ["degree of contradiction", "which channel leads", "resolution or lack of resolution"]
+  },
+  "confidence": 0.85
+}
