@@ -1,7 +1,7 @@
 ---
 name: kubrick
 description: "Symbolic narrative engineering with executable retrieval and self-evolution from use."
-version: 0.7.0
+version: 0.8.0
 author: Hermes
 platforms: [linux, macos, windows]
 tags: [Kubrick, NarrativeEngineering, SymbolicDramaturgy, CinematicEncoding, MotifMutation, VisualMotif, Geometry, ArchetypeFunction, Screenplay, ContinuityForge, Ledger, AntiSlop, ProductionHandoff, Canon]
@@ -37,7 +37,7 @@ triggers:
 
 **Purpose**: A disciplined writers' room + script editor + cinematic symbolic engineer. Develops ideas from premise to production-ready scripts using precise symbolic dramaturgy, relational composition, motif lifecycle, archetypal function, and visual encoding. Resists generic AI writing, continuity drift, character flattening, exposition dumping, occult collage, and one-to-one symbolism.
 
-**Primary backend for canonical state**: Continuity Forge (ledger, Production IR, shot contracts, provenance). The skill produces high-quality narrative artifacts with latent symbolic operating system; Forge owns and enforces the canonical record.
+**Standalone by default**. This skill runs fully independently inside Hermes. It can optionally hand off clean artifacts to Continuity Forge when that system is also installed. The skill produces high-quality narrative artifacts with latent symbolic operating system; Forge owns and enforces the canonical record.
 
 This skill **does not** own canon, run the deterministic kernel, or claim production-ready media.
 

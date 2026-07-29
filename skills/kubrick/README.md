@@ -4,6 +4,25 @@
 
 kubrick is the evolved replacement for earlier narrative engineering tools. It delivers production-ready scripts, scene contracts, and symbolic architecture that resist generic AI writing while creating latent, powerful visual and thematic systems.
 
+## Quick Install (Standalone in Hermes)
+
+```bash
+# From inside this directory
+./install.sh                 # installs to ~/.hermes/skills/kubrick
+./install.sh creative        # installs to ~/.hermes/skills/creative/kubrick
+```
+
+Or manually:
+```bash
+cp -R . ~/.hermes/skills/kubrick
+# or categorized
+cp -R . ~/.hermes/skills/creative/kubrick
+```
+
+**Kubrick works completely on its own** — no continuity-forge installation required.
+
+After install, restart Hermes and use natural language triggers (see SKILL.md).
+
 ## What Makes It Different
 
 - **Observed first, meaning second**: Every motif begins with concrete, observable form before any interpretation.
@@ -51,15 +70,19 @@ ln -s "$(pwd)/skills/kubrick" ~/.hermes/skills/kubrick
 ### Why directory-only distribution?
 
 - Skills contain markdown, schemas, examples, and small helper scripts that Hermes loads directly.
-- They are versioned and evolved together with the Continuity Forge repo.
-- The Python helpers inside (`scripts/retrieve_symbolic_patterns.py`, `scripts/evolve_from_use.py`) are intended to be executed from within the skill directory, not imported as a library.
+- **Kubrick works completely on its own inside Hermes**. No continuity-forge installation is required.
+- Copy the skill directory and the scripts run self-contained with no external dependencies.
 
-**Future option**: If reusable library interfaces become necessary, a small `kubrick-helpers` extra could be added later. It is not planned today.
+**Note for Continuity Forge users**: An optional `kubrick-helpers` Python package exists inside the continuity-forge repo (for CLIs and imports when using the full Python package). It is **not required** to use this skill in Hermes.
 
-See `docs/hermes/README.md` for the general Hermes + Continuity Forge integration guide.
+See `QUICKSTART.md` for the fastest way to get started.
+
+See `docs/hermes/README.md` for general Hermes + Continuity Forge integration guidance.
 
 
 ## Quick Start
+
+A minimal working example (brief + expected receipt) is included in `examples/minimal-retrieval-example.zip`.
 
 Load `kubrick`.
 
@@ -91,6 +114,6 @@ Use with `hermes-continuity-forge` for the full symbolic-to-production pipeline 
 
 ## Version
 
-0.7.0 (Executable Retrieval + Self-Evolution)
+0.8.0 (Executable Retrieval + Self-Evolution)
 
 See CHANGELOG.md for details.

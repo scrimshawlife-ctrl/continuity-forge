@@ -18,7 +18,7 @@ import os
 import glob
 from datetime import datetime
 from collections import defaultdict
-import hashlib
+from typing import Dict
 
 try:
     import yaml
@@ -137,7 +137,7 @@ def update_index_from_usage(index_path, usage_stats, sidecars):
     try:
         with open(index_path, "r") as f:
             index = yaml.safe_load(f)
-    except:
+    except Exception:
         return None
 
     changed = False

@@ -20,7 +20,7 @@ import os
 import sys
 import hashlib
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Dict, List
 
 try:
     import yaml
@@ -217,7 +217,6 @@ def run_retrieval(brief: Dict, index_path: str = None, patterns_dir: str = None)
         global DEFAULT_PATTERNS_DIR
         DEFAULT_PATTERNS_DIR = patterns_dir
 
-    idx = load_index(index_path)
     patterns_db = load_all_patterns(patterns_dir)
 
     if not patterns_db:
