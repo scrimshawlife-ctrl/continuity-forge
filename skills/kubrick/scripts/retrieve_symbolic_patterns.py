@@ -16,6 +16,7 @@ import os
 import sys
 import hashlib
 from datetime import datetime
+import os
 from typing import Any, Dict, List
 
 try:
@@ -197,6 +198,19 @@ def build_receipt(brief: Dict, ranked: List[Dict], patterns_db: Dict) -> Dict:
         }
     }
 
+
+def log_receipt(receipt, log_dir=None):
+    if log_dir is None:
+        log_dir = os.path.join(SKILL_ROOT, "references", "usage", "receipts")
+    os.makedirs(log_dir, exist_ok=True)
+    h = receipt.get("retrieval_receipt", {}).get("request_hash", "unknown")
+    ts = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+    path = os.path.join(log_dir, f"receipt-{h}-{ts}.json")
+    with open(path, "w") as f:
+        json.dump(receipt, f, indent=2)
+    return path
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--brief", type=str, help="Path to YAML/JSON brief")
@@ -220,6 +234,10 @@ def main():
     ranked = rank_patterns(brief, patterns_db)
 
     receipt = build_receipt(brief, ranked, patterns_db)
+
+    # Auto-log for evolution
+    logged = log_receipt(receipt)
+    receipt["retrieval_receipt"]["logged_to"] = logged
 
     # Output
     print(yaml.dump(receipt, sort_keys=False, default_flow_style=False))
