@@ -1,9 +1,8 @@
 /**
- * Continuity Forge · Proof Workbench (easy path)
- * Default: paste script → Run proof → read receipt.
- * Advanced: connection, canon, leases, approvals.
- * Long-form 4.1: scene / shot navigation (read-only).
- * Long-form 4.2: virtualized shot table + filters (presentation only).
+ * Continuity Forge — creative production workspace
+ * Default journey: Project → Import → Analyze Script → Scenes / Continuity →
+ * Generate/Export → Review. Engineering controls live under Settings → Developer.
+ * Display actions never mutate film canon.
  */
 
 const SAMPLE_SCRIPT = `Title: Continuity Sample
@@ -61,1555 +60,1009 @@ MARA
 Then the ledger was never canonical.
 `;
 
+const STORAGE_KEY = "cf.product.projects.v1";
+const LAST_KEY = "cf.product.lastProject";
+
+const ANALYSIS_STAGES = [
+  "Reading screenplay",
+  "Detecting scenes",
+  "Extracting characters and locations",
+  "Building continuity timeline",
+  "Preparing shot suggestions",
+  "Checking for conflicts",
+];
+
 const $ = (id) => document.getElementById(id);
 
-/** @type {Record<string, any> | null} */
-let lastReceipt = null;
-/** @type {Record<string, any> | null} */
-let lastWhoami = null;
+/** @typedef {{
+ *  document_key: string,
+ *  title: string,
+ *  production_type: string,
+ *  format: string,
+ *  text: string,
+ *  phase: string,
+ *  summary: object|null,
+ *  scenes: object[],
+ *  entities: object[],
+ *  breakdown: object|null,
+ *  sceneDetail: object|null,
+ *  scenePackage: object|null,
+ *  overrides: object[],
+ *  resolvedConflictIds: string[],
+ *  reviewDecisions: object[],
+ *  updatedAt: string
+ * }} Project */
 
-/** Scene/shot navigation state (read-only; does not mutate canon). */
-const nav = {
-  /** @type {string[]} ordered unique scene_ids from receipt shots */
-  sceneIds: [],
-  /** @type {Map<string, {scene_id: string, label: string, count: number}>} */
-  scenes: new Map(),
-  /** null = all scenes */
-  focusSceneId: /** @type {string | null} */ (null),
-  /** index into filtered shot list for keyboard focus highlight */
-  focusShotIndex: 0,
-};
+/** @type {Project|null} */
+let current = null;
+/** @type {Record<string, Project>} */
+let projects = {};
+/** @type {string} */
+let activeView = "projects";
+/** @type {string|null} */
+let selectedSceneId = null;
+/** @type {string} */
+let continuityTab = "characters";
+/** @type {object|null} */
+let pendingOverride = null;
 
-/** Table view: filters + virtualization (presentation only). */
-const tableView = {
-  statusFilter: "all",
-  repairFilter: "all",
-  sort: "default",
-  /** Feature flag: when false, mount every row (short proofs). */
-  virtualEnabled: true,
-  /** Auto-enable virtualization when logical row count exceeds this. */
-  virtualThreshold: 40,
-  rowHeight: 44,
-  overscan: 8,
-  scrollTop: 0,
-  _boundScroll: false,
-  /** @type {Set<string>} shot_ids marked stale by invalidation preview */
-  staleShotIds: new Set(),
-};
+// --- Storage (local durable for product path; server store via ingest when used) ---
 
-/** Last full IR document for incremental compile prior reconcile (session only). */
-let lastCompiledDocument = null;
+function loadProjects() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    projects = raw ? JSON.parse(raw) : {};
+  } catch {
+    projects = {};
+  }
+}
 
-/** Last breakdown package (handoff export). */
-let lastBreakdown = null;
-let lastBreakdownMarkdown = null;
-
-const els = {
-  script: $("script"),
-  documentKey: $("document-key"),
-  title: $("title"),
-  format: $("format"),
-  seed: $("seed"),
-  apiBase: $("api-base"),
-  apiKey: $("api-key"),
-  holder: $("holder"),
-  approvalKind: $("approval-kind"),
-  approvalRationale: $("approval-rationale"),
-  btnProof: $("btn-proof"),
-  btnBreakdown: $("btn-breakdown"),
-  btnImport: $("btn-import"),
-  scriptFile: $("script-file"),
-  btnBreakdownSticky: $("btn-breakdown-sticky"),
-  stickyCta: $("sticky-cta"),
-  stickyHint: $("sticky-hint"),
-  btnHealth: $("btn-health"),
-  btnCompile: $("btn-compile"),
-  btnCompileIncremental: $("btn-compile-incremental"),
-  btnSample: $("btn-sample"),
-  btnClear: $("btn-clear"),
-  btnBootstrap: $("btn-bootstrap"),
-  btnWhoami: $("btn-whoami"),
-  btnExport: $("btn-export"),
-  btnExportBreakdown: $("btn-export-breakdown"),
-  btnExportBreakdownMd: $("btn-export-breakdown-md"),
-  btnCopyHash: $("btn-copy-hash"),
-  btnStatus: $("btn-status"),
-  btnList: $("btn-list"),
-  btnLeaseAcquire: $("btn-lease-acquire"),
-  btnLeaseRelease: $("btn-lease-release"),
-  btnLeaseRefresh: $("btn-lease-refresh"),
-  btnApprovalRequest: $("btn-approval-request"),
-  btnApprovalsList: $("btn-approvals-list"),
-  btnRunsList: $("btn-runs-list"),
-  runState: $("run-state"),
-  runMeta: $("run-meta"),
-  metaElapsed: $("meta-elapsed"),
-  metaBudget: $("meta-budget"),
-  metaWithin: $("meta-within"),
-  metaShots: $("meta-shots"),
-  metaCost: $("meta-cost"),
-  workflowPanel: $("workflow-panel"),
-  workflowStepLabel: $("workflow-step-label"),
-  workflowPercent: $("workflow-percent"),
-  workflowBar: $("workflow-bar"),
-  workflowFill: $("workflow-fill"),
-  workflowRunId: $("workflow-run-id"),
-  workflowStatus: $("workflow-status"),
-  workflowLastOk: $("workflow-last-ok"),
-  workflowError: $("workflow-error"),
-  workflowEvents: $("workflow-events"),
-  workflowHint: $("workflow-hint"),
-  alert: $("alert"),
-  chipHealth: $("chip-health"),
-  chipBackend: $("chip-backend"),
-  chipVersion: $("chip-version"),
-  chipTenant: $("chip-tenant"),
-  receiptEmpty: $("receipt-empty"),
-  receiptBody: $("receipt-body"),
-  receiptExec: $("receipt-exec"),
-  receiptBudget: $("receipt-budget"),
-  receiptClaim: $("receipt-claim"),
-  resultStack: $("result-stack"),
-  resultBanner: $("result-banner"),
-  claimPostProof: $("claim-post-proof"),
-  claimExecLabel: $("claim-exec-label"),
-  claimBudgetLabel: $("claim-budget-label"),
-  costPanel: $("cost-panel"),
-  costTotal: $("cost-total"),
-  costEvents: $("cost-events"),
-  costRetries: $("cost-retries"),
-  costProviders: $("cost-providers"),
-  costAuthorityNote: $("cost-authority-note"),
-  rClaimCode: $("r-claim-code"),
-  rClaim: $("r-claim"),
-  rDoc: $("r-doc"),
-  rHash: $("r-hash"),
-  rSchema: $("r-schema"),
-  rSource: $("r-source"),
-  rIr: $("r-ir"),
-  rLedger: $("r-ledger"),
-  rShotsHash: $("r-shots-hash"),
-  shotRows: $("shot-rows"),
-  shotEmpty: $("shot-empty"),
-  shotTableWrap: $("shot-table-wrap"),
-  shotToolbar: $("shot-toolbar"),
-  shotToolbarMeta: $("shot-toolbar-meta"),
-  shotFilterStatus: $("shot-filter-status"),
-  shotFilterRepair: $("shot-filter-repair"),
-  shotSort: $("shot-sort"),
-  shotVirtual: $("shot-virtual"),
-  sceneNav: $("scene-nav"),
-  sceneList: $("scene-list"),
-  sceneFocusLabel: $("scene-focus-label"),
-  btnSceneAll: $("btn-scene-all"),
-  btnScenePrev: $("btn-scene-prev"),
-  btnSceneNext: $("btn-scene-next"),
-  btnStalePreview: $("btn-stale-preview"),
-  btnStaleClear: $("btn-stale-clear"),
-  rawJson: $("raw-json"),
-  statusGrid: $("status-grid"),
-  stDoc: $("st-doc"),
-  stTitle: $("st-title"),
-  stCounts: $("st-counts"),
-  stSource: $("st-source"),
-  stState: $("st-state"),
-  stRun: $("st-run"),
-  projectListWrap: $("project-list-wrap"),
-  projectRows: $("project-rows"),
-  canonEmpty: $("canon-empty"),
-  leaseGrid: $("lease-grid"),
-  leaseActive: $("lease-active"),
-  leaseHolder: $("lease-holder"),
-  leaseScope: $("lease-scope"),
-  leaseExpires: $("lease-expires"),
-  approvalListWrap: $("approval-list-wrap"),
-  approvalEmpty: $("approval-empty"),
-  approvalTable: $("approval-table"),
-  approvalRows: $("approval-rows"),
-  runListWrap: $("run-list-wrap"),
-  runRows: $("run-rows"),
-  controlEmpty: $("control-empty"),
-};
-
-/** Map repair action codes → short operator rationale labels. */
-const REPAIR_ACTION_RATIONALE = {
-  regenerate: "Regenerate candidate after validator failure",
-  include_missing_entities: "Include missing required entities",
-  drop_soft_target: "Drop soft target to satisfy constraints",
-};
+function saveProjects() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
+    if (current) localStorage.setItem(LAST_KEY, current.document_key);
+  } catch {
+    /* ignore quota */
+  }
+}
 
 function baseUrl() {
-  return (els.apiBase.value || "").trim().replace(/\/$/, "");
-}
-
-function headers() {
-  const h = { "Content-Type": "application/json", Accept: "application/json" };
-  const key = (els.apiKey.value || "").trim();
-  if (key) {
-    h.Authorization = key.startsWith("Bearer ") ? key : `Bearer ${key}`;
-  }
-  return h;
-}
-
-function showAlert(message, kind = "error") {
-  els.alert.hidden = !message;
-  els.alert.textContent = message || "";
-  els.alert.className = `alert alert--${kind}`;
-}
-
-function setRunState(state, label) {
-  if (!els.runState) return;
-  els.runState.dataset.state = state;
-  els.runState.textContent = label;
-  els.runState.className =
-    "chip " +
-    (state === "done"
-      ? "chip--ok"
-      : state === "error"
-        ? "chip--danger"
-        : state === "running"
-          ? "chip--accent"
-          : "chip--accent");
-  if (els.stickyHint) {
-    els.stickyHint.textContent =
-      state === "running"
-        ? "Working…"
-        : state === "done"
-          ? "Done"
-          : state === "error"
-            ? "Failed"
-            : "Script ready — Build breakdown";
-  }
-}
-
-function setBreakdownButtons({ disabled, state, label }) {
-  if (els.btnBreakdown) {
-    els.btnBreakdown.disabled = !!disabled;
-    if (label) els.btnBreakdown.textContent = label;
-  }
-  if (els.btnBreakdownSticky) {
-    els.btnBreakdownSticky.disabled = !!disabled;
-    if (label) els.btnBreakdownSticky.textContent = label;
-  }
-  if (state) setRunState(state, state === "running" ? "building" : state);
-}
-
-function setStep(n) {
-  for (let i = 1; i <= 3; i++) {
-    const el = $(`step-${i}`);
-    if (!el) continue;
-    el.classList.remove("is-current", "is-done");
-    if (i < n) el.classList.add("is-done");
-    if (i === n) el.classList.add("is-current");
-  }
-}
-
-function humanStatus(status) {
-  if (!status) return "—";
-  if (status === "accepted_proposed") return "accepted (proposed)";
-  return status.replaceAll("_", " ");
-}
-
-/**
- * Build a validator/repair rationale summary when repair_actions are present.
- * Prefers shot.repair_rationale / shot.validator_rationale if the receipt
- * includes them; otherwise derives labels from action codes.
- */
-function repairRationaleSummary(shot) {
-  const actions = Array.isArray(shot?.repair_actions) ? shot.repair_actions : [];
-  if (!actions.length) return null;
-
-  const explicit =
-    (typeof shot.repair_rationale === "string" && shot.repair_rationale.trim()) ||
-    (typeof shot.validator_rationale === "string" &&
-      shot.validator_rationale.trim()) ||
-    "";
-  if (explicit) {
-    return { actions, rationale: explicit };
-  }
-
-  const unique = [...new Set(actions.map((a) => String(a)))];
-  const labels = unique.map(
-    (code) => REPAIR_ACTION_RATIONALE[code] || humanStatus(code),
-  );
-  return {
-    actions: unique,
-    rationale: labels.join(" · "),
-  };
-}
-
-function setProofButtons(opts) {
-  const { disabled, state, label } = opts;
-  for (const btn of [els.btnProof, els.btnProofSticky]) {
-    if (!btn) continue;
-    btn.disabled = !!disabled;
-    if (state !== undefined) btn.dataset.state = state || "";
-    if (label !== undefined) btn.textContent = label;
-  }
-}
-
-function shortHash(value) {
-  if (!value) return "—";
-  const s = String(value);
-  return s.length > 16 ? `${s.slice(0, 12)}…${s.slice(-4)}` : s;
-}
-
-function setText(el, value) {
-  el.textContent = value == null || value === "" ? "—" : String(value);
-}
-
-function escapeHtml(value) {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
-}
-
-function activeDocumentKey() {
-  const raw = (els.documentKey.value || "").trim();
-  if (raw) return raw;
-  if (lastReceipt && lastReceipt.document_key) {
-    const full = String(lastReceipt.document_key);
-    const parts = full.split("::");
-    return parts.length > 1 ? parts.slice(1).join("::") : full;
-  }
-  return "";
-}
-
-function actorId() {
-  const fromField = (els.holder?.value || "").trim();
-  if (fromField) return fromField;
-  if (lastWhoami?.actor_id) return String(lastWhoami.actor_id);
-  return "proof-ui";
-}
-
-function requireDocumentKey() {
-  const key = activeDocumentKey();
-  if (!key) {
-    throw new Error("Set a Project ID under Script options first.");
-  }
-  return key;
-}
-
-function idempotencyKey(prefix) {
-  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  const el = $("api-base");
+  const v = el && el.value.trim();
+  return v ? v.replace(/\/$/, "") : "";
 }
 
 async function api(path, options = {}) {
   const url = `${baseUrl()}${path}`;
-  const res = await fetch(url, {
-    ...options,
-    headers: { ...headers(), ...(options.headers || {}) },
-  });
-  let body = null;
+  const headers = {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+    ...(options.headers || {}),
+  };
+  const res = await fetch(url, { ...options, headers });
   const text = await res.text();
-  if (text) {
-    try {
-      body = JSON.parse(text);
-    } catch {
-      body = { detail: text };
-    }
+  let body = null;
+  try {
+    body = text ? JSON.parse(text) : null;
+  } catch {
+    body = text;
   }
   if (!res.ok) {
-    const detail =
-      (body && (body.detail || body.message)) || `${res.status} ${res.statusText}`;
-    throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
+    const err = new Error(
+      (body && body.detail && (body.detail.what_happened || body.detail.title || JSON.stringify(body.detail))) ||
+        body?.detail ||
+        res.statusText ||
+        "Request failed"
+    );
+    err.status = res.status;
+    err.detail = body?.detail ?? body;
+    throw err;
   }
   return body;
 }
 
-async function pingHealth() {
-  try {
-    const data = await api("/health");
-    els.chipHealth.textContent = `api · ${data.status || "ok"}`;
-    els.chipHealth.className = "chip chip--ok";
-    els.chipBackend.textContent = `backend · ${data.backend || "—"}`;
-    els.chipVersion.textContent = `v · ${data.version || "—"}`;
-    return data;
-  } catch (err) {
-    els.chipHealth.textContent = "api · offline";
-    els.chipHealth.className = "chip chip--danger";
-    els.chipBackend.textContent = "backend · —";
-    els.chipVersion.textContent = "v · —";
-    throw err;
+function escapeHtml(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function showAlert(message, { kind = "error", technical = "" } = {}) {
+  const el = $("alert");
+  if (!el) return;
+  el.hidden = false;
+  el.className = `alert alert--${kind === "ok" ? "ok" : "error"}`;
+  let html = `<div>${escapeHtml(message)}</div>`;
+  if (technical) {
+    html += `<details><summary>Show technical details</summary><pre class="code-block">${escapeHtml(
+      typeof technical === "string" ? technical : JSON.stringify(technical, null, 2)
+    )}</pre></details>`;
+  }
+  el.innerHTML = html;
+}
+
+function clearAlert() {
+  const el = $("alert");
+  if (el) {
+    el.hidden = true;
+    el.innerHTML = "";
   }
 }
 
-async function pingWhoami() {
-  try {
-    const data = await api("/v1/whoami");
-    lastWhoami = data;
-    if (els.chipTenant) {
-      els.chipTenant.hidden = false;
-      els.chipTenant.textContent = `tenant · ${data.tenant_id || "—"}`;
-      els.chipTenant.className = "chip chip--accent";
-    }
-    if (data.actor_id && els.holder && els.holder.value === "proof-ui") {
-      /* keep default proof-ui unless user customized */
-    }
-    return data;
-  } catch {
-    lastWhoami = null;
-    if (els.chipTenant) {
-      els.chipTenant.hidden = true;
-    }
-    return null;
+function detectFormat(filename, text) {
+  const name = (filename || "").toLowerCase();
+  if (name.endsWith(".fdx") || /^\s*<\?xml/.test(text) || text.slice(0, 500).includes("<FinalDraft")) {
+    return "fdx";
   }
+  return "fountain";
 }
 
-function showControl() {
-  if (els.controlEmpty) els.controlEmpty.hidden = true;
-}
-
-function renderLease(payload) {
-  showControl();
-  els.leaseGrid.hidden = false;
-  if (!payload.active || !payload.lease) {
-    setText(els.leaseActive, "inactive");
-    setText(els.leaseHolder, "—");
-    setText(els.leaseScope, "—");
-    setText(els.leaseExpires, "—");
-    return;
-  }
-  setText(els.leaseActive, "active");
-  setText(els.leaseHolder, payload.lease.holder);
-  setText(els.leaseScope, payload.lease.scope);
-  setText(els.leaseExpires, payload.lease.expires_at);
-}
-
-function renderApprovals(payload) {
-  showControl();
-  els.approvalListWrap.hidden = false;
-  els.approvalRows.replaceChildren();
-  const rows = payload.approvals || [];
-  if (!rows.length) {
-    if (els.approvalEmpty) els.approvalEmpty.hidden = false;
-    if (els.approvalTable) els.approvalTable.hidden = true;
-    return;
-  }
-  if (els.approvalEmpty) els.approvalEmpty.hidden = true;
-  if (els.approvalTable) els.approvalTable.hidden = false;
-  for (const a of rows) {
-    const tr = document.createElement("tr");
-    const status = a.status || "";
-    const statusClass =
-      status === "granted"
-        ? "status-ok"
-        : status === "denied"
-          ? "status-fail"
-          : "";
-    tr.innerHTML = `
-      <td>${escapeHtml(a.kind || "—")}</td>
-      <td class="${statusClass}">${escapeHtml(status)}</td>
-      <td>${escapeHtml(a.actor_id || "—")}</td>
-      <td title="${escapeHtml(a.approval_id || "")}">${escapeHtml(
-        shortHash(a.approval_id),
-      )}</td>
-      <td class="decide-cell"></td>
-    `;
-    const cell = tr.querySelector(".decide-cell");
-    if (status === "requested" && cell) {
-      const grant = document.createElement("button");
-      grant.type = "button";
-      grant.className = "btn btn--ghost";
-      grant.textContent = "Grant";
-      grant.addEventListener("click", () => {
-        decideApproval(a.approval_id, "granted").catch((err) =>
-          showAlert(err instanceof Error ? err.message : String(err)),
-        );
-      });
-      const deny = document.createElement("button");
-      deny.type = "button";
-      deny.className = "btn btn--ghost";
-      deny.textContent = "Deny";
-      deny.addEventListener("click", () => {
-        decideApproval(a.approval_id, "denied").catch((err) =>
-          showAlert(err instanceof Error ? err.message : String(err)),
-        );
-      });
-      cell.append(grant, deny);
-    } else if (cell) {
-      cell.textContent = "—";
-    }
-    els.approvalRows.appendChild(tr);
-  }
-}
-
-/** Poll cursor for workflow events (resume without re-mutation). */
-const workflowPoll = {
-  runId: null,
-  afterSequence: 0,
-  lastEventId: null,
-  events: [],
-  timer: null,
-};
-
-function stopWorkflowPoll() {
-  if (workflowPoll.timer) {
-    window.clearInterval(workflowPoll.timer);
-    workflowPoll.timer = null;
-  }
-}
-
-function renderWorkflowProgress(page) {
-  if (!els.workflowPanel) return;
-  els.workflowPanel.hidden = false;
-  const progress = page.progress || {};
-  const percent = Number(progress.percent || 0);
-  const label =
-    progress.current_label ||
-    progress.current_step ||
-    page.status ||
-    "—";
-  setText(els.workflowStepLabel, label);
-  setText(els.workflowPercent, `${percent}%`);
-  if (els.workflowFill) {
-    els.workflowFill.style.width = `${Math.max(0, Math.min(100, percent))}%`;
-    els.workflowFill.classList.toggle(
-      "workflow-progress__fill--fail",
-      page.status === "failed",
-    );
-  }
-  if (els.workflowBar) {
-    els.workflowBar.setAttribute("aria-valuenow", String(percent));
-  }
-  setText(els.workflowRunId, shortHash(page.run_id || workflowPoll.runId));
-  setText(els.workflowStatus, page.status || progress.run_status || "—");
-  setText(
-    els.workflowLastOk,
-    progress.last_successful_checkpoint || "—",
-  );
-  const err =
-    progress.error_message ||
-    (progress.error_code ? progress.error_code : null);
-  setText(els.workflowError, err || "—");
-  if (els.workflowHint) {
-    els.workflowHint.textContent =
-      "Workflow complete ≠ production ready · poll observability · not film canon";
-  }
-  if (els.workflowEvents) {
-    els.workflowEvents.replaceChildren();
-    const list = workflowPoll.events;
-    for (const ev of list) {
-      const li = document.createElement("li");
-      const step = ev.label || ev.step || ev.kind || "event";
-      li.textContent = `${ev.sequence}. ${ev.kind} · ${step}` +
-        (ev.status ? ` · ${ev.status}` : "");
-      els.workflowEvents.appendChild(li);
-    }
-  }
-}
-
-async function pollWorkflowEvents(runId, { reset = false } = {}) {
-  if (!runId) return;
-  if (reset) {
-    workflowPoll.runId = runId;
-    workflowPoll.afterSequence = 0;
-    workflowPoll.lastEventId = null;
-    workflowPoll.events = [];
-  }
-  const params = new URLSearchParams();
-  if (workflowPoll.lastEventId) {
-    params.set("last_event_id", workflowPoll.lastEventId);
-  } else if (workflowPoll.afterSequence > 0) {
-    params.set("after", String(workflowPoll.afterSequence));
-  }
-  const qs = params.toString() ? `?${params}` : "";
-  const page = await api(
-    `/v1/pipeline/runs/${encodeURIComponent(runId)}/events${qs}`,
-  );
-  const batch = page.events || [];
-  for (const ev of batch) {
-    workflowPoll.events.push(ev);
-  }
-  if (page.last_event_id) {
-    workflowPoll.lastEventId = page.last_event_id;
-  }
-  if (page.next_after_sequence != null) {
-    workflowPoll.afterSequence = page.next_after_sequence;
-  }
-  renderWorkflowProgress(page);
-  const terminal =
-    page.status === "completed" ||
-    page.status === "failed" ||
-    page.status === "cancelled";
-  if (terminal) {
-    stopWorkflowPoll();
-  }
-  return page;
-}
-
-function startWorkflowPoll(runId) {
-  stopWorkflowPoll();
-  pollWorkflowEvents(runId, { reset: true }).catch((err) =>
-    showAlert(err instanceof Error ? err.message : String(err)),
-  );
-  // Short polls for in-process runs that may already be complete on first hit.
-  workflowPoll.timer = window.setInterval(() => {
-    if (!workflowPoll.runId) return;
-    pollWorkflowEvents(workflowPoll.runId).catch(() => stopWorkflowPoll());
-  }, 1500);
-}
-
-function renderRuns(payload) {
-  showControl();
-  els.runListWrap.hidden = false;
-  els.runRows.replaceChildren();
-  const rows = payload.runs || [];
-  if (!rows.length) {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `<td colspan="4">No pipeline runs for ${escapeHtml(
-      payload.document_key || "—",
-    )}</td>`;
-    els.runRows.appendChild(tr);
-    return;
-  }
-  for (const r of rows) {
-    const tr = document.createElement("tr");
-    tr.className = "run-row";
-    tr.tabIndex = 0;
-    tr.title = "Click to poll workflow events";
-    const status = r.status || "—";
-    const created = r.created_at || r.started_at || "—";
-    const idem = r.command?.idempotency_key || "—";
-    tr.innerHTML = `
-      <td title="${escapeHtml(r.run_id || "")}">${escapeHtml(shortHash(r.run_id))}</td>
-      <td>${escapeHtml(status)}</td>
-      <td>${escapeHtml(idem)}</td>
-      <td>${escapeHtml(created)}</td>
-    `;
-    const open = () => {
-      els.runRows.querySelectorAll(".run-row-active").forEach((el) => {
-        el.classList.remove("run-row-active");
-      });
-      tr.classList.add("run-row-active");
-      if (r.run_id) {
-        startWorkflowPoll(r.run_id);
-        showAlert(
-          `Polling workflow events · ${shortHash(r.run_id)} · not production ready`,
-          "ok",
-        );
-      }
-    };
-    tr.addEventListener("click", open);
-    tr.addEventListener("keydown", (ev) => {
-      if (ev.key === "Enter" || ev.key === " ") {
-        ev.preventDefault();
-        open();
-      }
-    });
-    els.runRows.appendChild(tr);
-  }
-}
-
-async function refreshLease() {
-  const key = requireDocumentKey();
-  const payload = await api(`/v1/projects/${encodeURIComponent(key)}/lease`);
-  renderLease(payload);
-  return payload;
-}
-
-async function acquireLease() {
-  const key = requireDocumentKey();
-  const holder = actorId();
-  const lease = await api("/v1/projects/lease", {
-    method: "POST",
-    body: JSON.stringify({
-      document_key: key,
-      holder,
-      scope: "project",
-      ttl_seconds: 600,
-    }),
+function setFormatLabels(fmt) {
+  const label = fmt === "fdx" ? "FDX" : "Fountain";
+  ["format-label", "format-label-active"].forEach((id) => {
+    const el = $(id);
+    if (el) el.textContent = label;
   });
-  renderLease({ active: true, lease, document_key: lease.document_key });
-  showAlert(`Lease acquired · holder ${lease.holder}`, "ok");
 }
 
-async function releaseLease() {
-  const key = requireDocumentKey();
-  const holder = actorId();
-  await api(
-    `/v1/projects/${encodeURIComponent(key)}/lease?holder=${encodeURIComponent(holder)}`,
-    { method: "DELETE" },
+// --- UI shell ---
+
+function setView(view) {
+  activeView = view;
+  document.querySelectorAll(".nav__item").forEach((btn) => {
+    const v = btn.getAttribute("data-view");
+    const on = v === view;
+    btn.classList.toggle("is-active", on);
+    if (on) btn.setAttribute("aria-current", "page");
+    else btn.removeAttribute("aria-current");
+  });
+  document.querySelectorAll("[data-view-panel]").forEach((panel) => {
+    panel.hidden = panel.getAttribute("data-view-panel") !== view;
+  });
+  updateStickyCta();
+  if (view === "scenes") renderScenes();
+  if (view === "continuity") renderContinuity();
+  if (view === "generate") renderGenerate();
+  if (view === "review") renderReview();
+  if (view === "export") {
+    /* static buttons */
+  }
+}
+
+function enableWorkflowNav(enabled) {
+  document.querySelectorAll(".nav__item").forEach((btn) => {
+    const v = btn.getAttribute("data-view");
+    if (v === "projects") {
+      btn.disabled = false;
+      return;
+    }
+    btn.disabled = !enabled;
+  });
+}
+
+function updateProjectChrome() {
+  const select = $("project-select");
+  const titleEl = $("project-title");
+  if (!select) return;
+  const keys = Object.keys(projects).sort((a, b) =>
+    (projects[b].updatedAt || "").localeCompare(projects[a].updatedAt || "")
   );
-  await refreshLease();
-  showAlert(`Lease released · holder ${holder}`, "ok");
-}
+  select.innerHTML =
+    `<option value="">No project</option>` +
+    keys
+      .map(
+        (k) =>
+          `<option value="${escapeHtml(k)}" ${
+            current && current.document_key === k ? "selected" : ""
+          }>${escapeHtml(projects[k].title || k)}</option>`
+      )
+      .join("");
+  if (titleEl) titleEl.textContent = current ? current.title : "—";
 
-async function requestApproval() {
-  const key = requireDocumentKey();
-  const actor = actorId();
-  const record = await api("/v1/approvals/request", {
-    method: "POST",
-    body: JSON.stringify({
-      document_key: key,
-      kind: (els.approvalKind.value || "commit_candidate").trim(),
-      actor_id: actor,
-      authorization_scope: "approvals",
-      idempotency_key: idempotencyKey("appr"),
-      rationale: (els.approvalRationale.value || "operator decision").trim(),
-    }),
-  });
-  showAlert(`Approval requested · ${shortHash(record.approval_id)}`, "ok");
-  await listApprovals();
-}
-
-async function decideApproval(approvalId, status) {
-  const actor = actorId();
-  const record = await api("/v1/approvals/decide", {
-    method: "POST",
-    body: JSON.stringify({
-      approval_id: approvalId,
-      status,
-      actor_id: actor,
-      authorization_scope: "approvals",
-      idempotency_key: idempotencyKey(`dec-${status}`),
-      rationale: (els.approvalRationale.value || `decision:${status}`).trim(),
-    }),
-  });
-  showAlert(`Approval ${status} · ${shortHash(record.approval_id)}`, "ok");
-  await listApprovals();
-}
-
-async function listApprovals() {
-  const key = requireDocumentKey();
-  const payload = await api(`/v1/projects/${encodeURIComponent(key)}/approvals`);
-  renderApprovals(payload);
-  showAlert(`Approvals · ${(payload.approvals || []).length}`, "ok");
-}
-
-async function listRuns() {
-  const key = requireDocumentKey();
-  const payload = await api(`/v1/projects/${encodeURIComponent(key)}/runs`);
-  renderRuns(payload);
-  showAlert(`Runs · ${(payload.runs || []).length}`, "ok");
-}
-
-function buildSceneIndex(shots) {
-  nav.scenes = new Map();
-  nav.sceneIds = [];
-  for (const shot of shots) {
-    const sid = String(shot.scene_id || "unknown");
-    if (!nav.scenes.has(sid)) {
-      nav.scenes.set(sid, {
-        scene_id: sid,
-        label: sceneLabelFromShot(shot, sid),
-        count: 0,
-      });
-      nav.sceneIds.push(sid);
-    }
-    const entry = nav.scenes.get(sid);
-    entry.count += 1;
-    // Prefer a scene-like label if shot label encodes scene-NNN-master
-    if (shot.label && String(shot.label).includes("scene-")) {
-      entry.label = sceneLabelFromShot(shot, sid);
+  const recent = $("recent-projects");
+  const list = $("recent-list");
+  if (recent && list) {
+    if (keys.length) {
+      recent.hidden = false;
+      list.innerHTML = keys
+        .slice(0, 8)
+        .map(
+          (k) =>
+            `<li><button type="button" class="btn btn--ghost btn--block" data-open-project="${escapeHtml(
+              k
+            )}">${escapeHtml(projects[k].title)} <span class="muted small">· ${escapeHtml(
+              projects[k].phase || ""
+            )}</span></button></li>`
+        )
+        .join("");
+    } else {
+      recent.hidden = true;
+      list.innerHTML = "";
     }
   }
 }
 
-function sceneLabelFromShot(shot, sceneId) {
-  const label = String(shot.label || "");
-  const m = label.match(/^(scene-\d+)/i);
-  if (m) return m[1];
-  return shortHash(sceneId);
+function showEmptyState() {
+  $("empty-state").hidden = false;
+  $("new-project-form").hidden = true;
+  $("project-workspace").hidden = true;
+  enableWorkflowNav(false);
+  updateStickyCta();
 }
 
-function sceneFilteredShots() {
-  const shots = lastReceipt?.shots || [];
-  if (!nav.focusSceneId) return shots.slice();
-  return shots.filter((s) => String(s.scene_id || "") === nav.focusSceneId);
-}
-
-/** Logical shot list: scene focus + status/repair filters + sort. */
-function logicalShots() {
-  let shots = sceneFilteredShots();
-
-  if (tableView.statusFilter === "accept") {
-    shots = shots.filter((s) => String(s.status || "").includes("accept"));
-  } else if (tableView.statusFilter === "breakdown") {
-    shots = shots.filter((s) => String(s.status || "") === "breakdown");
-  } else if (tableView.statusFilter === "fail") {
-    shots = shots.filter((s) => {
-      const st = String(s.status || "");
-      return !st.includes("accept") && st !== "breakdown";
-    });
+function showNewProjectForm() {
+  $("empty-state").hidden = true;
+  $("new-project-form").hidden = false;
+  $("project-workspace").hidden = true;
+  if (!$("script").value.trim()) {
+    /* keep empty for intentional create */
   }
-
-  if (tableView.repairFilter === "yes") {
-    shots = shots.filter(
-      (s) => Array.isArray(s.repair_actions) && s.repair_actions.length > 0,
-    );
-  } else if (tableView.repairFilter === "no") {
-    shots = shots.filter(
-      (s) => !Array.isArray(s.repair_actions) || s.repair_actions.length === 0,
-    );
-  }
-
-  if (tableView.sort === "label") {
-    shots.sort((a, b) =>
-      String(a.label || "").localeCompare(String(b.label || "")),
-    );
-  } else if (tableView.sort === "status") {
-    shots.sort((a, b) =>
-      String(a.status || "").localeCompare(String(b.status || "")),
-    );
-  } else if (tableView.sort === "attempts") {
-    shots.sort((a, b) => Number(b.attempts || 0) - Number(a.attempts || 0));
-  }
-
-  return shots;
 }
 
-/** @deprecated use logicalShots — kept name for call sites */
-function filteredShots() {
-  return logicalShots();
-}
-
-function useVirtualization(rowCount) {
-  if (!tableView.virtualEnabled) return false;
-  return rowCount >= tableView.virtualThreshold;
-}
-
-function buildShotRow(shot, index) {
-  const tr = document.createElement("tr");
-  if (index === nav.focusShotIndex) tr.classList.add("shot-row-focus");
-  const shotKey = String(shot.shot_id || "");
-  const isStale = tableView.staleShotIds.has(shotKey);
-  if (isStale) tr.classList.add("shot-row-stale");
-  tr.dataset.shotId = shotKey;
-  tr.dataset.sceneId = String(shot.scene_id || "");
-  tr.dataset.rowIndex = String(index);
-  const status = shot.status || "";
-  const statusClass =
-    status.includes("accept") || status === "accepted_proposed"
-      ? "status-ok"
-      : status.includes("fail") || status.includes("reject")
-        ? "status-fail"
-        : "";
-  const summary = repairRationaleSummary(shot);
-  let repairCell = "—";
-  if (summary) {
-    const actionCodes = summary.actions
-      .map((a) => escapeHtml(String(a)))
-      .join(", ");
-    repairCell = `
-      <div class="repair-summary">
-        <span class="repair-summary__actions">${actionCodes}</span>
-        <span class="repair-summary__rationale">${escapeHtml(summary.rationale)}</span>
-      </div>
-    `;
+function showProjectWorkspace() {
+  $("empty-state").hidden = true;
+  $("new-project-form").hidden = true;
+  $("project-workspace").hidden = false;
+  if (!current) return;
+  $("active-title").textContent = current.title;
+  $("production-type-label").textContent = current.production_type || "Production";
+  $("phase-label").textContent = `Phase: ${humanPhase(current.phase)}`;
+  $("script-active").value = current.text || "";
+  setFormatLabels(current.format || "fountain");
+  enableWorkflowNav(Boolean(current.breakdown || current.summary));
+  if (current.summary) {
+    renderAnalysisSummary(current.summary);
+    $("analysis-summary").hidden = false;
+  } else {
+    $("analysis-summary").hidden = true;
   }
-  const staleBadge = isStale
-    ? `<span class="stale-badge" title="Lineage retained; not elevated to canon">stale</span>`
-    : "—";
-  tr.innerHTML = `
-    <td>${escapeHtml(shot.label || shortHash(shot.shot_id))}</td>
-    <td class="${statusClass}">${escapeHtml(humanStatus(status))}</td>
-    <td>${escapeHtml(String(shot.attempts ?? "—"))}</td>
-    <td>${repairCell}</td>
-    <td title="${escapeHtml(shot.accepted_candidate_hash || "")}">${escapeHtml(
-      shortHash(shot.accepted_candidate_hash),
-    )}</td>
-    <td>${staleBadge}</td>
-  `;
-  tr.addEventListener("click", () => {
-    nav.focusShotIndex = index;
-    renderShotTable();
-    syncNavUrl();
-    announceShotFocus();
-  });
-  return tr;
+  $("analysis-progress").hidden = true;
+  updateStickyCta();
+  updateDevPanels();
 }
 
-async function previewStaleForFocus() {
-  showAlert("");
-  const text = els.script.value.trim();
-  if (!text) {
-    showAlert("Script required for invalidation preview.");
-    return;
-  }
-  const change = {
-    source_changed: false,
-    scene_ids: nav.focusSceneId ? [nav.focusSceneId] : [],
-    atom_ids: [],
-    entity_ids: [],
-    fact_ids: [],
-    shot_ids: [],
+function humanPhase(phase) {
+  const map = {
+    EMPTY: "Empty",
+    IMPORTED: "Script imported",
+    ANALYZING: "Analyzing",
+    NEEDS_REVIEW: "Needs review",
+    CONFLICTED: "Conflicts open",
+    READY: "Ready",
+    GENERATING: "Generating",
+    REVIEWING: "Reviewing",
+    APPROVED: "Approved",
+    STALE: "Stale",
+    ERROR: "Error",
   };
-  if (!nav.focusSceneId) {
-    // All scenes: treat as full source change for demo of force subgraph
-    change.source_changed = true;
+  return map[phase] || phase || "—";
+}
+
+function updateStickyCta() {
+  const sticky = $("sticky-cta");
+  if (!sticky) return;
+  const show =
+    current &&
+    activeView === "projects" &&
+    !$("project-workspace").hidden &&
+    !$("analysis-progress").hidden === false
+      ? false
+      : current && activeView === "projects" && !$("project-workspace").hidden;
+  sticky.classList.toggle("is-visible", Boolean(show));
+  sticky.hidden = !show;
+}
+
+// --- Project create / open ---
+
+async function createProjectFromForm(ev) {
+  ev?.preventDefault?.();
+  clearAlert();
+  const title = ($("np-title").value || "").trim();
+  const production_type = $("np-type").value;
+  const text = $("script").value || "";
+  if (!title) {
+    showAlert("Please enter a project title.");
+    return;
   }
   try {
-    const payload = await api("/v1/invalidation/preview", {
+    const created = await api("/v1/product/create-project", {
       method: "POST",
       body: JSON.stringify({
-        title: els.title.value.trim() || "Untitled",
+        title,
+        production_type,
         text,
-        document_key: els.documentKey.value.trim() || null,
-        format: els.format.value,
-        change,
-        force_full: false,
+        format: detectFormat(null, text),
       }),
     });
-    const ids = payload.stale_shot_ids || [];
-    tableView.staleShotIds = new Set(ids.map(String));
-    renderShotTable();
-    showAlert(
-      `Invalidation preview · ${ids.length} shot(s) stale · not a canon write · PROPOSED not elevated`,
-      "ok",
-    );
-  } catch (err) {
-    showAlert(err instanceof Error ? err.message : String(err));
-  }
-}
-
-function clearStaleMarks() {
-  tableView.staleShotIds = new Set();
-  renderShotTable();
-  showAlert("Cleared stale markers (hashes retained).", "ok");
-}
-
-function announceShotFocus() {
-  const shots = logicalShots();
-  const shot = shots[nav.focusShotIndex];
-  if (!shot || !els.shotToolbarMeta) return;
-  // live region update is on toolbar meta
-  const mode = useVirtualization(shots.length) ? "virtual" : "full";
-  els.shotToolbarMeta.textContent = `${shots.length} row(s) · ${mode} · focus ${nav.focusShotIndex + 1}/${shots.length} · ${shot.label || shortHash(shot.shot_id)} · not production film`;
-}
-
-function updateShotToolbar(shots) {
-  if (!els.shotToolbar) return;
-  if (!lastReceipt) {
-    els.shotToolbar.hidden = true;
-    return;
-  }
-  els.shotToolbar.hidden = false;
-  if (els.shotVirtual) {
-    els.shotVirtual.checked = tableView.virtualEnabled;
-  }
-  announceShotFocus();
-  if (!shots.length && els.shotToolbarMeta) {
-    els.shotToolbarMeta.textContent = "0 rows match filters · presentation only";
-  }
-}
-
-function renderShotTableFull(shots) {
-  els.shotRows.replaceChildren();
-  shots.forEach((shot, index) => {
-    els.shotRows.appendChild(buildShotRow(shot, index));
-  });
-}
-
-function renderShotTableVirtual(shots) {
-  const wrap = els.shotTableWrap;
-  if (!wrap || !els.shotRows) {
-    renderShotTableFull(shots);
-    return;
-  }
-
-  const viewportH = wrap.clientHeight || 400;
-  const rowH = tableView.rowHeight;
-  const total = shots.length;
-  const totalH = total * rowH;
-  const scrollTop = wrap.scrollTop;
-  tableView.scrollTop = scrollTop;
-
-  let start = Math.floor(scrollTop / rowH) - tableView.overscan;
-  if (start < 0) start = 0;
-  let end = Math.ceil((scrollTop + viewportH) / rowH) + tableView.overscan;
-  if (end > total) end = total;
-
-  // Keep focused row mounted for a11y
-  if (nav.focusShotIndex >= 0 && nav.focusShotIndex < total) {
-    if (nav.focusShotIndex < start) start = nav.focusShotIndex;
-    if (nav.focusShotIndex >= end) end = nav.focusShotIndex + 1;
-  }
-
-  const topPad = start * rowH;
-  const bottomPad = Math.max(0, totalH - end * rowH);
-
-  els.shotRows.replaceChildren();
-
-  if (topPad > 0) {
-    const spacer = document.createElement("tr");
-    spacer.className = "shot-spacer shot-spacer--top";
-    spacer.setAttribute("aria-hidden", "true");
-    const td = document.createElement("td");
-    td.colSpan = 6;
-    td.style.height = `${topPad}px`;
-    spacer.appendChild(td);
-    els.shotRows.appendChild(spacer);
-  }
-
-  for (let i = start; i < end; i++) {
-    els.shotRows.appendChild(buildShotRow(shots[i], i));
-  }
-
-  if (bottomPad > 0) {
-    const spacer = document.createElement("tr");
-    spacer.className = "shot-spacer shot-spacer--bottom";
-    spacer.setAttribute("aria-hidden", "true");
-    const td = document.createElement("td");
-    td.colSpan = 6;
-    td.style.height = `${bottomPad}px`;
-    spacer.appendChild(td);
-    els.shotRows.appendChild(spacer);
-  }
-
-  if (!tableView._boundScroll) {
-    wrap.addEventListener(
-      "scroll",
-      () => {
-        if (!lastReceipt) return;
-        if (!useVirtualization(logicalShots().length)) return;
-        renderShotTable();
-      },
-      { passive: true },
-    );
-    tableView._boundScroll = true;
-  }
-}
-
-function syncNavUrl() {
-  try {
-    const url = new URL(window.location.href);
-    const doc = activeDocumentKey();
-    if (doc) url.searchParams.set("document_key", doc);
-    else url.searchParams.delete("document_key");
-    if (nav.focusSceneId) url.searchParams.set("scene_id", nav.focusSceneId);
-    else url.searchParams.delete("scene_id");
-    const shots = filteredShots();
-    const focused = shots[nav.focusShotIndex];
-    if (focused?.shot_id) url.searchParams.set("shot_id", String(focused.shot_id));
-    else url.searchParams.delete("shot_id");
-    history.replaceState(null, "", url.pathname + url.search + url.hash);
-  } catch {
-    /* ignore */
-  }
-}
-
-function applyNavFromUrl() {
-  try {
-    const url = new URL(window.location.href);
-    const doc = url.searchParams.get("document_key");
-    if (doc && els.documentKey) els.documentKey.value = doc;
-    const sceneId = url.searchParams.get("scene_id");
-    const shotId = url.searchParams.get("shot_id");
-    if (sceneId && nav.sceneIds.includes(sceneId)) {
-      nav.focusSceneId = sceneId;
-    }
-    if (shotId && lastReceipt) {
-      const list = filteredShots();
-      const idx = list.findIndex((s) => String(s.shot_id) === shotId);
-      if (idx >= 0) nav.focusShotIndex = idx;
-    }
-  } catch {
-    /* ignore */
-  }
-}
-
-function renderSceneNav() {
-  if (!els.sceneNav || !els.sceneList) return;
-  if (!lastReceipt || !nav.sceneIds.length) {
-    els.sceneNav.hidden = true;
-    return;
-  }
-  // Always available; short fixtures still work without requiring expand chrome
-  els.sceneNav.hidden = false;
-  els.sceneList.replaceChildren();
-
-  for (const sid of nav.sceneIds) {
-    const meta = nav.scenes.get(sid);
-    const li = document.createElement("li");
-    li.setAttribute("role", "none");
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "scene-nav__item";
-    btn.setAttribute("role", "option");
-    btn.setAttribute(
-      "aria-selected",
-      nav.focusSceneId === sid ? "true" : "false",
-    );
-    btn.dataset.sceneId = sid;
-    btn.innerHTML = `${escapeHtml(meta?.label || shortHash(sid))}<span class="scene-nav__count">(${meta?.count ?? 0})</span>`;
-    btn.addEventListener("click", () => {
-      setSceneFocus(sid);
-    });
-    li.appendChild(btn);
-    els.sceneList.appendChild(li);
-  }
-
-  if (els.sceneFocusLabel) {
-    if (!nav.focusSceneId) {
-      els.sceneFocusLabel.textContent = `Showing all scenes · ${nav.sceneIds.length} scene(s) · ${lastReceipt.shots?.length || 0} shot(s)`;
-    } else {
-      const meta = nav.scenes.get(nav.focusSceneId);
-      els.sceneFocusLabel.textContent = `Focused · ${meta?.label || shortHash(nav.focusSceneId)} · ${meta?.count ?? 0} shot(s) · read-only`;
-    }
-  }
-}
-
-function renderShotTable() {
-  if (!els.shotRows) return;
-  const shots = logicalShots();
-  updateShotToolbar(shots);
-
-  if (!shots.length) {
-    els.shotRows.replaceChildren();
-    if (els.shotEmpty) els.shotEmpty.hidden = false;
-    return;
-  }
-  if (els.shotEmpty) els.shotEmpty.hidden = true;
-
-  if (nav.focusShotIndex >= shots.length) {
-    nav.focusShotIndex = Math.max(0, shots.length - 1);
-  }
-  if (nav.focusShotIndex < 0) nav.focusShotIndex = 0;
-
-  if (useVirtualization(shots.length)) {
-    renderShotTableVirtual(shots);
-  } else {
-    renderShotTableFull(shots);
-  }
-  announceShotFocus();
-}
-
-function setSceneFocus(sceneId) {
-  nav.focusSceneId = sceneId || null;
-  nav.focusShotIndex = 0;
-  renderSceneNav();
-  renderShotTable();
-  syncNavUrl();
-}
-
-function stepScene(delta) {
-  if (!nav.sceneIds.length) return;
-  if (!nav.focusSceneId) {
-    nav.focusSceneId = delta > 0 ? nav.sceneIds[0] : nav.sceneIds[nav.sceneIds.length - 1];
-  } else {
-    const i = nav.sceneIds.indexOf(nav.focusSceneId);
-    const next = i + delta;
-    if (next < 0 || next >= nav.sceneIds.length) {
-      nav.focusSceneId = null; // wrap to all
-    } else {
-      nav.focusSceneId = nav.sceneIds[next];
-    }
-  }
-  nav.focusShotIndex = 0;
-  renderSceneNav();
-  renderShotTable();
-  syncNavUrl();
-}
-
-function stepShot(delta) {
-  const shots = logicalShots();
-  if (!shots.length) return;
-  nav.focusShotIndex = Math.max(
-    0,
-    Math.min(shots.length - 1, nav.focusShotIndex + delta),
-  );
-  // Keep focused row in virtual viewport
-  if (els.shotTableWrap && useVirtualization(shots.length)) {
-    const targetTop = nav.focusShotIndex * tableView.rowHeight;
-    const viewTop = els.shotTableWrap.scrollTop;
-    const viewBottom = viewTop + els.shotTableWrap.clientHeight;
-    if (targetTop < viewTop) {
-      els.shotTableWrap.scrollTop = targetTop;
-    } else if (targetTop + tableView.rowHeight > viewBottom) {
-      els.shotTableWrap.scrollTop =
-        targetTop + tableView.rowHeight - els.shotTableWrap.clientHeight;
-    }
-  }
-  renderShotTable();
-  syncNavUrl();
-  const row = els.shotRows?.querySelector(".shot-row-focus");
-  row?.scrollIntoView({ block: "nearest" });
-  announceShotFocus();
-}
-
-function formatUsd(value) {
-  if (value == null || Number.isNaN(Number(value))) return "—";
-  return `$${Number(value).toFixed(4)}`;
-}
-
-function renderCostPanel(receipt) {
-  const summary = receipt.cost_summary;
-  const ledger = receipt.cost_ledger;
-  if (!summary && !ledger) {
-    if (els.costPanel) els.costPanel.hidden = true;
-    if (els.metaCost) setText(els.metaCost, "—");
-    return;
-  }
-  if (els.costPanel) els.costPanel.hidden = false;
-  const total = summary?.total_estimated_cost ?? 0;
-  const events = summary?.event_count ?? (ledger?.events || []).length;
-  const retries = summary?.retry_event_count ?? 0;
-  const byProvider = summary?.by_provider || {};
-  const providerLabel =
-    Object.keys(byProvider).length > 0
-      ? Object.entries(byProvider)
-          .map(([k, v]) => `${k}×${v}`)
-          .join(" · ")
-      : "—";
-  setText(els.costTotal, formatUsd(total));
-  setText(els.costEvents, String(events));
-  setText(
-    els.costRetries,
-    `${retries}` +
-      (summary?.retry_estimated_cost != null
-        ? ` (${formatUsd(summary.retry_estimated_cost)})`
-        : ""),
-  );
-  setText(els.costProviders, providerLabel);
-  if (els.metaCost) setText(els.metaCost, formatUsd(total));
-  if (els.costAuthorityNote) {
-    els.costAuthorityNote.textContent =
-      summary?.authority_note ||
-      "Cost ledger is run provenance only · not project canon · not production film";
-  }
-}
-
-function renderReceipt(receipt) {
-  lastReceipt = receipt;
-  els.receiptEmpty.hidden = true;
-  els.receiptBody.hidden = false;
-  els.runMeta.hidden = false;
-  setStep(3);
-
-  const claim = receipt.claim || "controlled_proof_not_production_ready";
-  const shots = receipt.shots || [];
-  const accepted = shots.filter(
-    (s) => String(s.status || "").includes("accept"),
-  ).length;
-  const onTime =
-    receipt.within_budget === true
-      ? "within budget"
-      : receipt.within_budget === false
-        ? "over budget"
-        : "budget n/a";
-
-  // Three-way honesty: execution · budget · production readiness.
-  if (els.receiptExec) {
-    els.receiptExec.textContent = "execution ok";
-    els.receiptExec.className = "chip chip--ok";
-  }
-  if (els.receiptBudget) {
-    els.receiptBudget.hidden = false;
-    if (receipt.within_budget === false) {
-      els.receiptBudget.textContent = "over budget";
-      els.receiptBudget.className = "chip chip--danger";
-    } else if (receipt.within_budget === true) {
-      els.receiptBudget.textContent = "within budget";
-      els.receiptBudget.className = "chip chip--ok";
-    } else {
-      els.receiptBudget.textContent = "budget n/a";
-      els.receiptBudget.className = "chip chip--warn";
-    }
-  }
-  if (els.receiptClaim) {
-    els.receiptClaim.hidden = false;
-    els.receiptClaim.textContent = "not production ready";
-    els.receiptClaim.className = "chip chip--warn";
-  }
-
-  if (els.resultStack) els.resultStack.hidden = false;
-
-  if (els.resultBanner) {
-    els.resultBanner.hidden = false;
-    els.resultBanner.textContent = `Execution succeeded · ${accepted}/${shots.length} shots accepted · ${onTime}`;
-    els.resultBanner.className = "result-banner result-banner--exec";
-  }
-
-  if (els.claimPostProof) {
-    els.claimPostProof.hidden = false;
-  }
-  if (els.claimExecLabel) {
-    setText(
-      els.claimExecLabel,
-      `${accepted}/${shots.length} accepted · ${onTime}`,
-    );
-  }
-  if (els.claimBudgetLabel) {
-    const summary = receipt.cost_summary || {};
-    const total =
-      summary.total_estimated_cost != null
-        ? `$${Number(summary.total_estimated_cost).toFixed(4)}`
-        : "—";
-    const budgetText =
-      receipt.within_budget === false
-        ? `over budget · est. ${total}`
-        : receipt.within_budget === true
-          ? `within budget · est. ${total}`
-          : `budget n/a · est. ${total}`;
-    setText(els.claimBudgetLabel, budgetText);
-    els.claimBudgetLabel.className =
-      "claim-banner__v" +
-      (receipt.within_budget === false ? " claim-banner__v--warn" : "");
-  }
-  if (els.rClaimCode) {
-    els.rClaimCode.textContent = claim;
-  }
-
-  setText(els.rClaim, claim);
-  setText(els.rDoc, receipt.document_key);
-  setText(els.rHash, receipt.receipt_hash);
-  setText(els.rSchema, receipt.schema_version);
-  setText(els.rSource, receipt.source_hash);
-  setText(els.rIr, receipt.production_ir_hash);
-  setText(els.rLedger, receipt.ledger_hash);
-  setText(els.rShotsHash, receipt.shot_contracts_hash);
-
-  const elapsed =
-    typeof receipt.elapsed_seconds === "number"
-      ? `${receipt.elapsed_seconds.toFixed(3)} s`
-      : "—";
-  setText(els.metaElapsed, elapsed);
-  setText(
-    els.metaBudget,
-    receipt.budget_seconds != null ? `${receipt.budget_seconds} s` : "—",
-  );
-  setText(
-    els.metaWithin,
-    receipt.within_budget === true
-      ? "yes"
-      : receipt.within_budget === false
-        ? "no"
-        : "—",
-  );
-  setText(els.metaShots, String(shots.length));
-
-  renderCostPanel(receipt);
-
-  buildSceneIndex(shots);
-  // Preserve URL focus if present; otherwise show all scenes
-  nav.focusSceneId = null;
-  nav.focusShotIndex = 0;
-  applyNavFromUrl();
-  renderSceneNav();
-  renderShotTable();
-  syncNavUrl();
-
-  els.rawJson.textContent = JSON.stringify(receipt, null, 2);
-}
-
-function renderStatus(status) {
-  els.canonEmpty.hidden = true;
-  els.statusGrid.hidden = false;
-  setText(els.stDoc, status.document_key);
-  setText(els.stTitle, status.title);
-  setText(
-    els.stCounts,
-    `${status.scene_count ?? "—"} / ${status.shot_count ?? "—"}`,
-  );
-  setText(els.stSource, status.source_hash);
-  setText(els.stState, status.state_hash);
-  setText(els.stRun, status.last_pipeline_run_id);
-}
-
-function renderProjectList(payload) {
-  const projects = payload.projects || [];
-  els.canonEmpty.hidden = true;
-  els.projectListWrap.hidden = false;
-  els.projectRows.replaceChildren();
-  if (!projects.length) {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `<td colspan="5">No projects for tenant ${escapeHtml(
-      payload.tenant_id || "—",
-    )}</td>`;
-    els.projectRows.appendChild(tr);
-    return;
-  }
-  for (const p of projects) {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td><button type="button" class="linkish" data-key="${escapeHtml(
-        p.document_key,
-      )}">${escapeHtml(p.document_key)}</button></td>
-      <td>${escapeHtml(p.title || "—")}</td>
-      <td>${escapeHtml(String(p.scene_count ?? "—"))}</td>
-      <td>${escapeHtml(String(p.shot_count ?? "—"))}</td>
-      <td title="${escapeHtml(p.state_hash || "")}">${escapeHtml(
-        shortHash(p.state_hash),
-      )}</td>
-    `;
-    const btn = tr.querySelector("button");
-    btn?.addEventListener("click", () => {
-      const full = String(p.document_key || "");
-      const parts = full.split("::");
-      els.documentKey.value = parts.length > 1 ? parts.slice(1).join("::") : full;
-      if (p.title) els.title.value = p.title;
-      loadProjectStatus().catch((err) =>
-        showAlert(err instanceof Error ? err.message : String(err)),
-      );
-    });
-    els.projectRows.appendChild(tr);
-  }
-}
-
-async function runProof() {
-  showAlert("");
-  const text = els.script.value.trim();
-  if (!text) {
-    showAlert("Add a screenplay first (or click Reset sample).");
-    els.script?.focus();
-    setStep(1);
-    return;
-  }
-
-  setStep(2);
-  setProofButtons({ disabled: true, state: "loading", label: "Running…" });
-  setRunState("running", "running");
-
-  try {
-    const receipt = await api("/v1/proof", {
-      method: "POST",
-      body: JSON.stringify({
-        title: els.title.value.trim() || "Untitled",
-        text,
-        document_key: els.documentKey.value.trim() || null,
-        format: els.format.value,
-        seed: els.seed.value.trim() || "proof",
-        budget_seconds: 60,
-        actor_id: actorId(),
-      }),
-    });
-    renderReceipt(receipt);
-    setRunState("done", "done");
-    setProofButtons({ disabled: true, state: "success", label: "Done" });
-    const n = (receipt.shots || []).length;
-    const claim = receipt.claim || "controlled_proof_not_production_ready";
-    showAlert(
-      `Proof finished · ${n} shot(s) · claim ${claim} · download the receipt below`,
-      "ok",
-    );
-    $("receipt")?.scrollIntoView({ behavior: "smooth", block: "start" });
-  } catch (err) {
-    setStep(2);
-    setRunState("error", "error");
-    setProofButtons({ disabled: true, state: "error", label: "Failed" });
-    const msg = err instanceof Error ? err.message : String(err);
-    showAlert(
-      msg.includes("Failed to fetch") || msg.includes("NetworkError")
-        ? "Cannot reach the API. Is the server running on this host?"
-        : msg,
-    );
-  } finally {
-    window.setTimeout(() => {
-      setProofButtons({ disabled: false, state: "", label: "Run proof" });
-    }, 900);
-  }
-}
-
-async function compileOnly() {
-  showAlert("");
-  const text = els.script.value.trim();
-  if (!text) {
-    showAlert("Script source is empty.");
-    return;
-  }
-  els.btnCompile.disabled = true;
-  try {
-    const doc = await api("/v1/compile", {
-      method: "POST",
-      body: JSON.stringify({
-        title: els.title.value.trim() || "Untitled",
-        text,
-        document_key: els.documentKey.value.trim() || null,
-        format: els.format.value,
-      }),
-    });
-    lastCompiledDocument = doc;
-    const scenes = (doc.scenes || []).length;
-    const coverage = doc.coverage?.ratio;
-    const diags = (doc.diagnostics || []).length;
-    showAlert(
-      `Compile ok · ${scenes} scene(s)` +
-        (coverage != null ? ` · coverage ${coverage}` : "") +
-        (diags ? ` · ${diags} diagnostic(s)` : "") +
-        ` · full path (default)`,
-      diags ? "error" : "ok",
-    );
-  } catch (err) {
-    showAlert(err instanceof Error ? err.message : String(err));
-  } finally {
-    els.btnCompile.disabled = false;
-  }
-}
-
-async function compileIncremental() {
-  showAlert("");
-  const text = els.script.value.trim();
-  if (!text) {
-    showAlert("Script source is empty.");
-    return;
-  }
-  if (els.btnCompileIncremental) els.btnCompileIncremental.disabled = true;
-  try {
-    const body = {
-      title: els.title.value.trim() || "Untitled",
+    const project = {
+      document_key: created.document_key,
+      title: created.title,
+      production_type: created.production_type,
+      format: created.format,
       text,
-      document_key: els.documentKey.value.trim() || null,
-      format: els.format.value,
+      phase: created.phase,
+      summary: null,
+      scenes: [],
+      entities: [],
+      breakdown: null,
+      sceneDetail: null,
+      scenePackage: null,
+      overrides: [],
+      resolvedConflictIds: [],
+      reviewDecisions: [],
+      updatedAt: new Date().toISOString(),
     };
-    if (lastCompiledDocument) {
-      body.prior_document = lastCompiledDocument;
-    }
-    const payload = await api("/v1/compile/incremental", {
-      method: "POST",
-      body: JSON.stringify(body),
-    });
-    if (payload.document) {
-      lastCompiledDocument = payload.document;
-    }
-    const ids = payload.stale_shot_ids || [];
-    tableView.staleShotIds = new Set(ids.map(String));
-    if (lastReceipt) renderShotTable();
-    const carried = (payload.carried_scene_ids || []).length;
-    const recompiled = (payload.recompiled_scene_ids || []).length;
-    const added = (payload.added_scene_ids || []).length;
-    const covOk =
-      payload.coverage_accounted_characters ===
-      payload.coverage_source_characters;
-    showAlert(
-      `Incremental compile · carried ${carried} · recompiled ${recompiled}` +
-        (added ? ` · added ${added}` : "") +
-        ` · stale shots ${ids.length}` +
-        (covOk ? " · coverage full partition" : " · coverage mismatch") +
-        " · not production film · PROPOSED not elevated",
-      covOk ? "ok" : "error",
-    );
-  } catch (err) {
-    showAlert(err instanceof Error ? err.message : String(err));
-  } finally {
-    if (els.btnCompileIncremental) els.btnCompileIncremental.disabled = false;
+    projects[project.document_key] = project;
+    current = project;
+    saveProjects();
+    updateProjectChrome();
+    showProjectWorkspace();
+    setView("projects");
+    showAlert("Project created. Review the script, then Analyze Script.", { kind: "ok" });
+  } catch (e) {
+    showAlert(e.message || "Could not create project", { technical: e.detail || String(e) });
   }
 }
 
-async function loadProjectStatus() {
-  const key = activeDocumentKey();
-  if (!key) {
-    showAlert("Set a Project ID under Script options first.");
+function openProject(key) {
+  const p = projects[key];
+  if (!p) return;
+  current = p;
+  saveProjects();
+  updateProjectChrome();
+  showProjectWorkspace();
+  setView("projects");
+  if (p.summary) enableWorkflowNav(true);
+}
+
+// --- Import ---
+
+function applyImportedText(text, filename) {
+  const fmt = detectFormat(filename, text);
+  setFormatLabels(fmt);
+  if (current) {
+    current.text = text;
+    current.format = fmt;
+    current.phase = "IMPORTED";
+    current.summary = null;
+    current.breakdown = null;
+    current.scenes = [];
+    current.updatedAt = new Date().toISOString();
+    projects[current.document_key] = current;
+    saveProjects();
+    $("script-active").value = text;
+    $("analysis-summary").hidden = true;
+    enableWorkflowNav(false);
+    showAlert(`Imported ${filename || "script"} · format ${fmt === "fdx" ? "FDX" : "Fountain"}. Click Analyze Script.`, {
+      kind: "ok",
+    });
+  } else {
+    $("script").value = text;
+    showAlert(`Loaded ${filename || "script"}. Create the project to continue.`, { kind: "ok" });
+  }
+}
+
+function handleFile(file) {
+  if (!file) return;
+  const name = file.name || "";
+  const lower = name.toLowerCase();
+  if (lower.endsWith(".pdf") || lower.endsWith(".docx") || lower.endsWith(".doc")) {
+    showAlert("Unsupported file type. Use .fountain, .fdx, or .txt. PDF and DOCX are not supported yet.", {
+      technical: name,
+    });
     return;
   }
-  const status = await api(`/v1/projects/${encodeURIComponent(key)}/status`);
-  renderStatus(status);
-  showAlert(`Status loaded · ${status.document_key}`, "ok");
+  const reader = new FileReader();
+  reader.onload = () => applyImportedText(String(reader.result || ""), name);
+  reader.onerror = () => showAlert("Could not read that file.");
+  reader.readAsText(file);
 }
 
-async function listProjects() {
-  const payload = await api("/v1/projects");
-  renderProjectList(payload);
-  showAlert(
-    `Projects · tenant ${payload.tenant_id} · count ${(payload.projects || []).length}`,
-    "ok",
-  );
+// --- Analyze ---
+
+function renderStages(activeIndex) {
+  const ol = $("stage-list");
+  if (!ol) return;
+  ol.innerHTML = ANALYSIS_STAGES.map((label, i) => {
+    let cls = "";
+    if (i < activeIndex) cls = "is-done";
+    if (i === activeIndex) cls = "is-current";
+    return `<li class="${cls}">${escapeHtml(label)}</li>`;
+  }).join("");
 }
 
-function downloadText(filename, text, mime) {
-  const blob = new Blob([text], { type: mime || "text/plain" });
+async function analyzeScript() {
+  if (!current) {
+    showAlert("Create or open a project first.");
+    return;
+  }
+  clearAlert();
+  const text = $("script-active").value || current.text || "";
+  if (!text.trim()) {
+    showAlert("Paste or import a screenplay before analyzing.", {
+      technical: "empty script",
+    });
+    return;
+  }
+  current.text = text;
+  current.format = detectFormat(null, text);
+  current.phase = "ANALYZING";
+  $("phase-label").textContent = `Phase: ${humanPhase(current.phase)}`;
+  $("analysis-progress").hidden = false;
+  $("analysis-summary").hidden = true;
+  $("btn-analyze").disabled = true;
+  $("btn-analyze-sticky").disabled = true;
+
+  let stage = 0;
+  renderStages(0);
+  const timer = setInterval(() => {
+    stage = Math.min(stage + 1, ANALYSIS_STAGES.length - 1);
+    renderStages(stage);
+  }, 450);
+
+  try {
+    const result = await api("/v1/product/analyze", {
+      method: "POST",
+      body: JSON.stringify({
+        title: current.title,
+        text,
+        document_key: current.document_key,
+        format: current.format,
+        production_type: current.production_type,
+        resolved_conflict_ids: current.resolvedConflictIds || [],
+      }),
+    });
+    clearInterval(timer);
+    renderStages(ANALYSIS_STAGES.length);
+    current.summary = result.summary;
+    current.scenes = result.scenes || [];
+    current.entities = result.entities || [];
+    current.breakdown = result.breakdown;
+    current.phase = result.summary?.phase || "NEEDS_REVIEW";
+    current.updatedAt = new Date().toISOString();
+    projects[current.document_key] = current;
+    saveProjects();
+    $("analysis-progress").hidden = true;
+    renderAnalysisSummary(result.summary);
+    $("analysis-summary").hidden = false;
+    $("phase-label").textContent = `Phase: ${humanPhase(current.phase)}`;
+    enableWorkflowNav(true);
+    updateDevPanels();
+    showAlert("Script analysis complete. Review the breakdown when ready.", { kind: "ok" });
+  } catch (e) {
+    clearInterval(timer);
+    $("analysis-progress").hidden = true;
+    current.phase = "ERROR";
+    $("phase-label").textContent = `Phase: ${humanPhase(current.phase)}`;
+    const detail = e.detail;
+    if (detail && typeof detail === "object" && detail.what_happened) {
+      showAlert(
+        `${detail.title || "Analysis error"}\n\n${detail.what_happened}\n\n${(detail.next_steps || []).join(" · ")}`,
+        { technical: detail.technical_detail || detail }
+      );
+    } else {
+      showAlert(e.message || "Analysis failed", { technical: detail || String(e) });
+    }
+  } finally {
+    $("btn-analyze").disabled = false;
+    $("btn-analyze-sticky").disabled = false;
+    updateStickyCta();
+  }
+}
+
+function renderAnalysisSummary(summary) {
+  const grid = $("count-grid");
+  if (!grid || !summary) return;
+  const c = summary.counts || {};
+  const items = [
+    ["Scenes", c.scenes],
+    ["Characters", c.characters],
+    ["Locations", c.locations],
+    ["Props", c.props],
+    ["Shots", c.shots],
+    ["Conflicts", c.conflicts],
+  ];
+  grid.innerHTML = items
+    .map(
+      ([k, v]) =>
+        `<li><span>${escapeHtml(k)}</span><strong>${escapeHtml(String(v ?? 0))}</strong></li>`
+    )
+    .join("");
+  const wrap = $("warning-list-wrap");
+  const list = $("warning-list");
+  const warnings = summary.warnings || [];
+  if (warnings.length) {
+    wrap.hidden = false;
+    list.innerHTML = warnings.map((w) => `<li>${escapeHtml(w)}</li>`).join("");
+  } else {
+    wrap.hidden = true;
+    list.innerHTML = "";
+  }
+}
+
+// --- Scenes ---
+
+function readinessBadge(r) {
+  const label = r || "Needs Review";
+  let cls = "badge--review";
+  if (/conflict/i.test(label)) cls = "badge--conflict";
+  if (/ready|approved|generated/i.test(label)) cls = "badge--ready";
+  return `<span class="badge ${cls}" title="Scene readiness">${escapeHtml(label)}</span>`;
+}
+
+function renderScenes() {
+  const host = $("scene-cards");
+  const empty = $("scenes-empty");
+  if (!host) return;
+  if (!current?.scenes?.length) {
+    host.innerHTML = "";
+    if (empty) empty.hidden = false;
+    $("scene-detail").hidden = true;
+    return;
+  }
+  if (empty) empty.hidden = true;
+  host.innerHTML = current.scenes
+    .map((s) => {
+      const selected = s.scene_id === selectedSceneId ? "is-selected" : "";
+      return `<button type="button" class="scene-card ${selected}" data-scene-id="${escapeHtml(
+        s.scene_id
+      )}">
+        <div class="scene-card__top">
+          <span class="scene-card__num">Scene ${escapeHtml(String(s.scene_number))}</span>
+          ${readinessBadge(s.readiness)}
+        </div>
+        <p class="scene-card__slug">${escapeHtml(s.slugline)}</p>
+        <p class="scene-card__meta">
+          ${escapeHtml((s.characters || []).slice(0, 3).join(", ") || "—")}
+          · ${escapeHtml(String(s.shot_count))} shots
+          ${s.warning_count ? ` · ${escapeHtml(String(s.warning_count))} warnings` : ""}
+        </p>
+      </button>`;
+    })
+    .join("");
+  if (selectedSceneId) {
+    loadSceneDetail(selectedSceneId);
+  } else if (current.scenes[0]) {
+    selectedSceneId = current.scenes[0].scene_id;
+    loadSceneDetail(selectedSceneId);
+  }
+}
+
+async function loadSceneDetail(sceneId) {
+  if (!current) return;
+  selectedSceneId = sceneId;
+  document.querySelectorAll(".scene-card").forEach((el) => {
+    el.classList.toggle("is-selected", el.getAttribute("data-scene-id") === sceneId);
+  });
+  try {
+    const detail = await api(`/v1/product/scenes/${encodeURIComponent(sceneId)}`, {
+      method: "POST",
+      body: JSON.stringify({
+        title: current.title,
+        text: current.text,
+        document_key: current.document_key,
+        format: current.format,
+        resolved_conflict_ids: current.resolvedConflictIds || [],
+      }),
+    });
+    current.sceneDetail = detail;
+    renderSceneDetail(detail);
+  } catch (e) {
+    showAlert(e.message || "Could not load scene", { technical: e.detail });
+  }
+}
+
+function renderProv(v) {
+  const p = v.provenance || {};
+  return `<span class="prov" title="${escapeHtml(p.title || p.label || "")}">${escapeHtml(
+    p.icon || ""
+  )} ${escapeHtml(p.label || "INFERRED")}</span>`;
+}
+
+function renderSceneDetail(detail) {
+  const panel = $("scene-detail");
+  if (!panel || !detail) return;
+  panel.hidden = false;
+  const s = detail.scene || {};
+  $("sd-status").textContent = s.readiness || "Needs Review";
+  $("sd-title").textContent = `Scene ${s.scene_number}`;
+  $("sd-slug").textContent = s.slugline || "";
+  $("sd-excerpt").textContent = detail.script_excerpt || "(No excerpt matched in source text.)";
+  $("sd-summary").textContent = s.summary || "No summary.";
+  const ent = detail.entities_present || {};
+  $("sd-entities").innerHTML = Object.entries(ent)
+    .map(
+      ([k, vals]) =>
+        `<dt>${escapeHtml(k)}</dt><dd>${escapeHtml((vals || []).join(", ") || "—")}</dd>`
+    )
+    .join("");
+  $("sd-entry").innerHTML = (detail.entry_state || [])
+    .map(
+      (v) =>
+        `<li><strong>${escapeHtml(v.field_name)}</strong> ${escapeHtml(v.value)} ${renderProv(
+          v
+        )}</li>`
+    )
+    .join("");
+  $("sd-exit").innerHTML = (detail.exit_state || [])
+    .map(
+      (v) =>
+        `<li><strong>${escapeHtml(v.field_name)}</strong> ${escapeHtml(v.value)} ${renderProv(
+          v
+        )}</li>`
+    )
+    .join("");
+  $("sd-shots").innerHTML = (detail.shots || [])
+    .map(
+      (sh) => `<article class="shot-card">
+      <h4>Shot ${escapeHtml(sh.shot_number)} · ${escapeHtml(sh.shot_type)}</h4>
+      <p>${escapeHtml(sh.description)}</p>
+      <p>Characters: ${escapeHtml((sh.characters || []).join(", ") || "—")}</p>
+      <p>Props: ${escapeHtml((sh.props || []).join(", ") || "—")}</p>
+      <p class="muted small">Status: ${escapeHtml(sh.status || "DRAFT")}</p>
+      <details>
+        <summary>Prompt &amp; advanced</summary>
+        <p>${escapeHtml(sh.prompt_preview || "")}</p>
+        <p class="muted">Start hash: ${escapeHtml((sh.start_state_hash || "").slice(0, 12))}…</p>
+      </details>
+      <div class="shot-card__actions">
+        <button type="button" class="btn btn--ghost btn--sm" data-copy-prompt="${escapeHtml(
+          sh.shot_id
+        )}">Copy Prompt</button>
+        <button type="button" class="btn btn--ghost btn--sm" data-export-shot="${escapeHtml(
+          sh.shot_id
+        )}">Export</button>
+      </div>
+    </article>`
+    )
+    .join("") || "<p class='muted'>No proposed shots.</p>";
+
+  const confWrap = $("sd-conflicts-wrap");
+  const confHost = $("sd-conflicts");
+  const conflicts = detail.conflicts || [];
+  if (conflicts.length) {
+    confWrap.hidden = false;
+    confHost.innerHTML = conflicts.map(renderConflictCard).join("");
+  } else {
+    confWrap.hidden = true;
+    confHost.innerHTML = "";
+  }
+
+  $("btn-scene-prev").disabled = !detail.prev_scene_id;
+  $("btn-scene-next").disabled = !detail.next_scene_id;
+  $("btn-prepare-scene").disabled = detail.blocking_conflict_count > 0;
+  $("btn-prepare-scene").title =
+    detail.blocking_conflict_count > 0
+      ? "Resolve blocking conflicts before preparing this scene"
+      : "Prepare Scene for Generation";
+}
+
+function renderConflictCard(c) {
+  const choices = (c.choices || [])
+    .map(
+      (ch) =>
+        `<button type="button" class="btn btn--ghost btn--sm" data-resolve="${escapeHtml(
+          c.conflict_id
+        )}" data-choice="${escapeHtml(ch.choice_id)}" ${c.resolved ? "disabled" : ""}>${escapeHtml(
+          ch.label
+        )}</button>`
+    )
+    .join("");
+  return `<article class="conflict-card" data-conflict-id="${escapeHtml(c.conflict_id)}">
+    <h4>${escapeHtml(c.category)} · ${escapeHtml(c.severity || "warning")}</h4>
+    <p>${escapeHtml(c.plain_language)}</p>
+    ${
+      c.resolved
+        ? `<p class="muted small">Resolved: ${escapeHtml(c.resolution_choice_id || "")}</p>`
+        : `<div class="choices">${choices}</div>`
+    }
+    <details><summary>Technical details</summary><pre class="code-block">${escapeHtml(
+      c.technical_detail || ""
+    )}</pre></details>
+  </article>`;
+}
+
+async function resolveConflictUi(conflictId, choiceId) {
+  if (!current) return;
+  const fromSummary = (current.summary?.conflicts || []).find((c) => c.conflict_id === conflictId);
+  const fromDetail = (current.sceneDetail?.conflicts || []).find((c) => c.conflict_id === conflictId);
+  const conflict = fromSummary || fromDetail;
+  if (!conflict) return;
+  try {
+    const res = await api("/v1/product/conflicts/resolve", {
+      method: "POST",
+      body: JSON.stringify({ conflict, choice_id: choiceId }),
+    });
+    current.resolvedConflictIds = Array.from(
+      new Set([...(current.resolvedConflictIds || []), conflictId])
+    );
+    if (current.summary?.conflicts) {
+      current.summary.conflicts = current.summary.conflicts.map((c) =>
+        c.conflict_id === conflictId ? res.conflict : c
+      );
+    }
+    saveProjects();
+    showAlert("Conflict resolved. Re-analyze if you need updated readiness.", { kind: "ok" });
+    if (selectedSceneId) await loadSceneDetail(selectedSceneId);
+    if (activeView === "continuity") renderContinuity();
+  } catch (e) {
+    showAlert(e.message || "Could not resolve conflict", { technical: e.detail });
+  }
+}
+
+// --- Continuity ---
+
+function renderContinuity() {
+  const host = $("continuity-panel");
+  if (!host) return;
+  document.querySelectorAll(".tabs__btn").forEach((btn) => {
+    const on = btn.getAttribute("data-ctab") === continuityTab;
+    btn.classList.toggle("is-active", on);
+    btn.setAttribute("aria-selected", on ? "true" : "false");
+  });
+  if (!current?.entities?.length && !current?.summary) {
+    host.innerHTML = "<p class='muted'>Analyze a script to open the continuity bible.</p>";
+    return;
+  }
+  if (continuityTab === "conflicts") {
+    const conflicts = current.summary?.conflicts || [];
+    host.innerHTML = conflicts.length
+      ? conflicts.map(renderConflictCard).join("")
+      : "<p class='muted'>No open conflicts from analysis.</p>";
+    return;
+  }
+  if (continuityTab === "timeline") {
+    host.innerHTML = `<div class="entity-list">${(current.scenes || [])
+      .map(
+        (s) => `<article class="entity-card">
+        <div class="entity-card__head">
+          <strong>Scene ${escapeHtml(String(s.scene_number))}</strong>
+          <span class="muted small">${escapeHtml(s.time_of_day || "—")}</span>
+        </div>
+        <p>${escapeHtml(s.slugline)}</p>
+        <p class="muted small">Screenplay order · story chronology follows script (non-linear markers noted in analysis warnings when detected).</p>
+      </article>`
+      )
+      .join("")}</div>`;
+    return;
+  }
+  if (continuityTab === "relationships") {
+    const links = current.breakdown?.setup_payoff_links || [];
+    host.innerHTML = links.length
+      ? `<div class="entity-list">${links
+          .map(
+            (l) => `<article class="entity-card">
+          <strong>${escapeHtml(l.entity_name || l.entity_id)}</strong>
+          <p class="muted small">Setup → payoff relationship (from continuity analysis)</p>
+        </article>`
+          )
+          .join("")}</div>`
+      : "<p class='muted'>No setup/payoff relationships extracted.</p>";
+    return;
+  }
+  const kindMap = {
+    characters: "character",
+    locations: "location",
+    wardrobe: "wardrobe",
+    props: "prop",
+  };
+  const kind = kindMap[continuityTab];
+  let entities = (current.entities || []).filter((e) => e.kind === kind);
+  if (continuityTab === "wardrobe" && !entities.length) {
+    host.innerHTML =
+      "<p class='muted'>No wardrobe entities extracted yet. Wardrobe is tracked when the script provides wearables; lock values after review.</p>";
+    return;
+  }
+  host.innerHTML = `<div class="entity-list">${entities
+    .map((e) => {
+      const values = (e.values || [])
+        .map(
+          (v) =>
+            `<li><strong>${escapeHtml(v.field_name)}</strong> ${escapeHtml(v.value)} ${renderProv(
+              v
+            )}
+            <button type="button" class="btn btn--ghost btn--sm" data-lock-entity="${escapeHtml(
+              e.entity_id
+            )}" data-field="${escapeHtml(v.field_name)}" data-original="${escapeHtml(
+              v.value
+            )}">Lock edit…</button></li>`
+        )
+        .join("");
+      return `<article class="entity-card">
+        <div class="entity-card__head">
+          <strong>${escapeHtml(e.name)}</strong>
+          <span class="badge">${escapeHtml(e.kind)}</span>
+        </div>
+        <p class="muted small">Scenes: ${(e.scene_ordinals || []).join(", ") || "—"}
+          · first ${escapeHtml(String(e.first_scene_ordinal ?? "—"))}
+          · last ${escapeHtml(String(e.last_scene_ordinal ?? "—"))}</p>
+        <ul class="value-list">${values}</ul>
+      </article>`;
+    })
+    .join("")}</div>`;
+}
+
+async function lockEntityValue(entityId, field, original) {
+  if (!current) return;
+  const locked = window.prompt(`Lock new value for ${field} (was: ${original})`, original);
+  if (locked == null || locked === original) return;
+  try {
+    const res = await api("/v1/product/override/preview", {
+      method: "POST",
+      body: JSON.stringify({
+        title: current.title,
+        text: current.text,
+        document_key: current.document_key,
+        format: current.format,
+        target_kind: "entity",
+        target_id: entityId,
+        field_name: field,
+        original_value: original,
+        locked_value: locked,
+        rationale: "Operator lock from Continuity workspace",
+      }),
+    });
+    pendingOverride = res;
+    $("inv-message").textContent = res.invalidation?.message || "This change affects downstream work.";
+    const inv = res.invalidation || {};
+    $("inv-stats").innerHTML = [
+      ["Scenes", inv.scene_count],
+      ["Shots", inv.shot_count],
+      ["Generated", inv.generated_candidate_count],
+      ["Approved downstream", inv.approved_downstream_count],
+    ]
+      .map(
+        ([k, v]) =>
+          `<li class="stat"><span class="stat__k">${escapeHtml(k)}</span><span class="stat__v">${escapeHtml(
+            String(v ?? 0)
+          )}</span></li>`
+      )
+      .join("");
+    $("invalidation-dialog").showModal();
+  } catch (e) {
+    showAlert(e.message || "Override preview failed", { technical: e.detail });
+  }
+}
+
+function confirmOverride() {
+  if (!current || !pendingOverride?.override) {
+    $("invalidation-dialog").close();
+    return;
+  }
+  current.overrides = [...(current.overrides || []), pendingOverride.override];
+  current.phase = "STALE";
+  current.updatedAt = new Date().toISOString();
+  projects[current.document_key] = current;
+  saveProjects();
+  pendingOverride = null;
+  $("invalidation-dialog").close();
+  $("phase-label").textContent = `Phase: ${humanPhase(current.phase)}`;
+  showAlert("Value locked (USER LOCKED). Original preserved. Dependents marked stale — re-analyze when ready.", {
+    kind: "ok",
+  });
+  renderContinuity();
+}
+
+// --- Generate / prepare ---
+
+async function prepareSelectedScene() {
+  if (!current || !selectedSceneId) {
+    showAlert("Select a scene first.");
+    return;
+  }
+  try {
+    const res = await api(`/v1/product/scenes/${encodeURIComponent(selectedSceneId)}/prepare`, {
+      method: "POST",
+      body: JSON.stringify({
+        title: current.title,
+        text: current.text,
+        document_key: current.document_key,
+        format: current.format,
+        scene_id: selectedSceneId,
+        warnings_acknowledged: true,
+        resolved_conflict_ids: current.resolvedConflictIds || [],
+      }),
+    });
+    current.scenePackage = res.package;
+    saveProjects();
+    setView("generate");
+    renderGenerate();
+    showAlert(
+      res.message ||
+        (res.provider_neutral
+          ? "Scene package prepared (provider-neutral). Export anytime."
+          : "Scene package prepared."),
+      { kind: "ok" }
+    );
+  } catch (e) {
+    showAlert(e.message || "Could not prepare scene", { technical: e.detail });
+  }
+}
+
+function renderGenerate() {
+  const pkg = current?.scenePackage;
+  const panel = $("scene-package-panel");
+  const missing = $("provider-missing");
+  if (!pkg) {
+    if (panel) panel.hidden = true;
+    if (missing) missing.hidden = false;
+    return;
+  }
+  if (missing) missing.hidden = false;
+  if (panel) {
+    panel.hidden = false;
+    $("pkg-meta").textContent = `Scene ${pkg.scene_number} · ${pkg.slugline} · ${pkg.readiness} · hash ${String(
+      pkg.package_hash || ""
+    ).slice(0, 12)}…`;
+    $("pkg-json").hidden = true;
+    $("pkg-json").textContent = JSON.stringify(pkg, null, 2);
+    $("gen-shot-cards").innerHTML = (pkg.shot_list || [])
+      .map((s, i) => {
+        const prompt = (pkg.shot_prompts || [])[i]?.prompt || "";
+        return `<article class="shot-card">
+          <h4>Shot ${escapeHtml(s.shot_number)}</h4>
+          <p>${escapeHtml(s.description || "")}</p>
+          <details open><summary>Prompt</summary><p>${escapeHtml(prompt)}</p></details>
+          <div class="shot-card__actions">
+            <button type="button" class="btn btn--ghost btn--sm" data-copy-text="${escapeHtml(
+              prompt
+            )}">Copy Prompt</button>
+          </div>
+        </article>`;
+      })
+      .join("");
+  }
+}
+
+// --- Review ---
+
+function renderReview() {
+  const empty = $("review-empty");
+  const list = $("review-list");
+  const decisions = current?.reviewDecisions || [];
+  if (!decisions.length) {
+    empty.hidden = false;
+    list.hidden = true;
+    list.innerHTML = "";
+    return;
+  }
+  empty.hidden = true;
+  list.hidden = false;
+  list.innerHTML = decisions
+    .map(
+      (d) => `<article class="card">
+      <h3>${escapeHtml(d.action)} · shot ${escapeHtml(d.shot_id)}</h3>
+      <p class="muted small">Lineage preserved · canon advances only via validated mutation paths (${
+        d.advances_canon ? "intent to accept" : "no canon advance"
+      })</p>
+      ${d.note ? `<p>${escapeHtml(d.note)}</p>` : ""}
+    </article>`
+    )
+    .join("");
+}
+
+async function recordReview(shotId, action) {
+  if (!current) return;
+  try {
+    const res = await api("/v1/product/review/decision", {
+      method: "POST",
+      body: JSON.stringify({ shot_id: shotId, action, actor_id: "ui-operator" }),
+    });
+    current.reviewDecisions = [...(current.reviewDecisions || []), res.decision];
+    saveProjects();
+    showAlert(res.note || "Decision recorded.", { kind: "ok" });
+    if (activeView === "review") renderReview();
+  } catch (e) {
+    showAlert(e.message || "Review decision failed", { technical: e.detail });
+  }
+}
+
+// --- Export ---
+
+function downloadText(filename, text, type = "text/plain") {
+  const blob = new Blob([text], { type });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = filename;
@@ -1617,599 +1070,307 @@ function downloadText(filename, text, mime) {
   URL.revokeObjectURL(a.href);
 }
 
-function exportStem() {
-  const key =
-    lastBreakdown?.document_key ||
-    lastReceipt?.document_key ||
-    els.documentKey?.value ||
-    "breakdown";
-  return String(key)
-    .replaceAll("::", "__")
-    .replaceAll(/[^\w.-]+/g, "_");
-}
-
-function exportReceipt() {
-  if (!lastReceipt) {
-    showAlert("Run a proof first, then download the receipt.");
-    return;
-  }
-  const name = `${exportStem()}.proof-receipt.json`;
-  downloadText(name, JSON.stringify(lastReceipt, null, 2), "application/json");
-  showAlert(`Downloaded ${name}`, "ok");
-}
-
 function exportBreakdownJson() {
-  if (!lastBreakdown) {
-    showAlert("Build a breakdown first, then download JSON.");
+  if (!current?.breakdown) {
+    showAlert("Analyze a script first.");
     return;
   }
-  const name = `${exportStem()}.breakdown.json`;
-  downloadText(name, JSON.stringify(lastBreakdown, null, 2), "application/json");
-  showAlert(`Downloaded ${name} · connector-ready · not production film`, "ok");
-}
-
-function exportBreakdownMarkdown() {
-  if (!lastBreakdownMarkdown && !lastBreakdown) {
-    showAlert("Build a breakdown first, then download Markdown.");
-    return;
-  }
-  const body =
-    lastBreakdownMarkdown ||
-    JSON.stringify(lastBreakdown, null, 2);
-  const name = `${exportStem()}.breakdown.md`;
-  downloadText(name, body, "text/markdown");
-  showAlert(`Downloaded ${name}`, "ok");
-}
-
-/**
- * Map breakdown package into the shot table (no mock media / proof required).
- */
-function renderBreakdown(package) {
-  lastBreakdown = package;
-  els.receiptEmpty.hidden = true;
-  els.receiptBody.hidden = false;
-  els.runMeta.hidden = false;
-  setStep(3);
-
-  if (els.receiptExec) {
-    els.receiptExec.textContent = "breakdown ok";
-    els.receiptExec.className = "chip chip--ok";
-  }
-  if (els.receiptBudget) {
-    els.receiptBudget.hidden = true;
-  }
-  if (els.receiptClaim) {
-    els.receiptClaim.hidden = false;
-    els.receiptClaim.textContent = "not production film";
-    els.receiptClaim.className = "chip chip--warn";
-  }
-  if (els.resultStack) els.resultStack.hidden = false;
-  if (els.resultBanner) {
-    els.resultBanner.hidden = false;
-    els.resultBanner.textContent =
-      `Breakdown · ${package.shot_count || 0} shots · ` +
-      `${package.entity_count || 0} entities · connector-ready JSON`;
-    els.resultBanner.className = "result-banner result-banner--exec";
-  }
-  if (els.claimPostProof) els.claimPostProof.hidden = false;
-  if (els.claimExecLabel) {
-    setText(
-      els.claimExecLabel,
-      `${package.scene_count || 0} scenes · ${package.shot_count || 0} shots`,
-    );
-  }
-  if (els.claimBudgetLabel) {
-    setText(els.claimBudgetLabel, "n/a (no media generation)");
-  }
-  if (els.rClaimCode) {
-    els.rClaimCode.textContent =
-      package.claim || "shot_breakdown_with_continuity_not_production_film";
-  }
-
-  setText(els.rClaim, package.claim || "—");
-  setText(els.rDoc, package.document_key || "—");
-  setText(els.rHash, package.package_hash || "—");
-  setText(els.rSchema, package.schema_version || "cf.breakdown.v1");
-  setText(els.rSource, package.source_hash || "—");
-  setText(els.rIr, package.production_ir_hash || "—");
-  setText(els.rLedger, package.ledger_hash || "—");
-  setText(els.rShotsHash, package.shot_contracts_hash || "—");
-
-  setText(els.metaElapsed, "—");
-  setText(els.metaBudget, "—");
-  setText(els.metaWithin, "—");
-  setText(els.metaShots, String(package.shot_count || 0));
-  if (els.metaCost) setText(els.metaCost, "—");
-  if (els.costPanel) els.costPanel.hidden = true;
-
-  // Shape shots for existing table (status = breakdown; no repair media)
-  const shots = (package.shots || []).map((s) => ({
-    shot_id: s.shot_id,
-    scene_id: s.scene_id,
-    label: s.label || s.slugline,
-    status: "breakdown",
-    attempts: 0,
-    accepted_candidate_hash: null,
-    repair_actions: [],
-    repair_rationale: s.constraints?.length
-      ? s.constraints
-          .map((c) => c.description || c.code)
-          .filter(Boolean)
-          .slice(0, 3)
-          .join("; ")
-      : s.characters_present?.length
-        ? `cast: ${s.characters_present.join(", ")}`
-        : null,
-    _breakdown: s,
-  }));
-
-  // Synthetic receipt-like object so table helpers work
-  lastReceipt = {
-    claim: package.claim,
-    document_key: package.document_key,
-    receipt_hash: package.package_hash,
-    schema_version: package.schema_version,
-    source_hash: package.source_hash,
-    production_ir_hash: package.production_ir_hash,
-    ledger_hash: package.ledger_hash,
-    shot_contracts_hash: package.shot_contracts_hash,
-    shots,
-    _kind: "breakdown",
-  };
-
-  buildSceneIndex(shots);
-  nav.focusSceneId = null;
-  nav.focusShotIndex = 0;
-  applyNavFromUrl();
-  renderSceneNav();
-  renderShotTable();
-  syncNavUrl();
-
-  els.rawJson.textContent = JSON.stringify(package, null, 2);
-}
-
-function stemFromFilename(name) {
-  const base = String(name || "script").split(/[/\\]/).pop() || "script";
-  return base.replace(/\.(fountain|fdx|txt)$/i, "") || "script";
-}
-
-function importScriptFile(file) {
-  if (!file) return;
-  const name = file.name || "script.fountain";
-  const lower = name.toLowerCase();
-  const isFdx = lower.endsWith(".fdx");
-  const reader = new FileReader();
-  reader.onload = () => {
-    const text = String(reader.result || "");
-    if (!text.trim()) {
-      showAlert("Imported file is empty.");
-      return;
-    }
-    els.script.value = text;
-    if (els.format) els.format.value = isFdx ? "fdx" : "fountain";
-    const stem = stemFromFilename(name);
-    if (els.title && (!els.title.value || els.title.value === "Continuity Sample")) {
-      els.title.value = stem;
-    }
-    if (els.documentKey && (!els.documentKey.value || els.documentKey.value === "continuity")) {
-      els.documentKey.value = stem.replaceAll(/[^\w.-]+/g, "-").toLowerCase();
-    }
-    showAlert(
-      `Imported ${name} · format ${isFdx ? "FDX" : "Fountain"} · click Build breakdown`,
-      "ok",
-    );
-  };
-  reader.onerror = () => showAlert("Could not read the selected file.");
-  reader.readAsText(file);
-}
-
-async function buildBreakdown() {
-  showAlert("");
-  const text = els.script.value.trim();
-  if (!text) {
-    showAlert("Paste a screenplay or use Import file first.");
-    return;
-  }
-  setBreakdownButtons({
-    disabled: true,
-    state: "running",
-    label: "Building…",
-  });
-  try {
-    const body = {
-      title: els.title.value.trim() || "Untitled",
-      text,
-      document_key: els.documentKey.value.trim() || null,
-      format: els.format.value,
-    };
-    const package = await api("/v1/breakdown", {
-      method: "POST",
-      body: JSON.stringify(body),
-    });
-    let markdown = null;
-    try {
-      const mdPayload = await api("/v1/breakdown/markdown", {
-        method: "POST",
-        body: JSON.stringify(body),
-      });
-      markdown = mdPayload.markdown || null;
-    } catch {
-      markdown = null;
-    }
-    lastBreakdownMarkdown = markdown;
-    renderBreakdown(package);
-    setRunState("done", "breakdown ready");
-    showAlert(
-      `Breakdown ready · ${package.shot_count} shot(s) · ` +
-        `${package.entity_count} entit(y/ies) · download JSON for connectors · not production film`,
-      "ok",
-    );
-  } catch (err) {
-    setRunState("error", "failed");
-    showAlert(err instanceof Error ? err.message : String(err));
-  } finally {
-    setBreakdownButtons({
-      disabled: false,
-      state: "",
-      label: "Build breakdown",
-    });
-  }
-}
-
-async function copyReceiptHash() {
-  const hash =
-    lastBreakdown?.package_hash ||
-    lastReceipt?.receipt_hash ||
-    null;
-  if (!hash) {
-    showAlert("No package/receipt hash to copy.");
-    return;
-  }
-  try {
-    await navigator.clipboard.writeText(String(hash));
-    showAlert("Hash copied.", "ok");
-  } catch {
-    showAlert("Clipboard unavailable — copy from the receipt panel.");
-  }
-}
-
-async function bootstrapDevKey() {
-  showAlert("");
-  try {
-    const data = await api("/v1/tenants/bootstrap-dev", { method: "POST" });
-    if (data.api_key) {
-      els.apiKey.value = data.api_key;
-      persistPrefs();
-    }
-    await pingWhoami();
-    showAlert(
-      `Dev tenant ${data.tenant_id} · key stored in field (localStorage)`,
-      "ok",
-    );
-  } catch (err) {
-    showAlert(err instanceof Error ? err.message : String(err));
-  }
-}
-
-function loadSample() {
-  els.script.value = SAMPLE_SCRIPT;
-  els.documentKey.value = "continuity";
-  els.title.value = "Continuity Sample";
-  els.format.value = "fountain";
-  els.seed.value = "proof";
-  setStep(1);
-  setRunState("idle", "ready");
-  showAlert("Sample script loaded — click Run proof.", "ok");
-}
-
-function clearScript() {
-  els.script.value = "";
-  setStep(1);
-  setRunState("idle", "ready");
-  showAlert("Script cleared.");
-  els.script?.focus();
-}
-
-function wireStickyCta() {
-  const primary = els.btnBreakdown || $("btn-breakdown") || $("btn-proof");
-  if (!els.stickyCta || !primary) return;
-  const io = new IntersectionObserver(
-    ([entry]) => {
-      els.stickyCta.classList.toggle("is-visible", !entry.isIntersecting);
-    },
-    { threshold: 0.2 },
+  downloadText(
+    `${current.document_key || "breakdown"}.breakdown.json`,
+    JSON.stringify(current.breakdown, null, 2),
+    "application/json"
   );
-  io.observe(primary);
 }
 
-/** Close other open menus; keep one details.menu open at a time. */
-function wireMenus() {
-  const menus = document.querySelectorAll("details.menu");
-  menus.forEach((menu) => {
-    menu.addEventListener("toggle", () => {
-      if (!menu.open) return;
-      menus.forEach((other) => {
-        if (other !== menu) other.open = false;
-      });
-    });
-    // Close menu after choosing an item
-    menu.querySelectorAll(".menu__item").forEach((item) => {
-      item.addEventListener("click", () => {
-        menu.open = false;
-      });
-    });
-  });
-  document.addEventListener("click", (ev) => {
-    menus.forEach((menu) => {
-      if (menu.open && !menu.contains(ev.target)) menu.open = false;
-    });
-  });
-  document.addEventListener("keydown", (ev) => {
-    if (ev.key === "Escape") {
-      menus.forEach((menu) => {
-        menu.open = false;
-      });
-    }
-  });
-}
-
-/** Accessible tip buttons + data-tooltip has-tip elements. */
-function wireTooltips() {
-  document.querySelectorAll("button.tip").forEach((btn) => {
-    const bubble = btn.querySelector(".tip__bubble");
-    if (!bubble) return;
-    const text = btn.getAttribute("data-tooltip") || bubble.textContent.trim();
-    if (text && !bubble.textContent.trim()) bubble.textContent = text;
-    btn.setAttribute("aria-expanded", "false");
-    btn.addEventListener("click", (ev) => {
-      ev.preventDefault();
-      const open = btn.getAttribute("aria-expanded") === "true";
-      document.querySelectorAll("button.tip[aria-expanded='true']").forEach((b) => {
-        if (b !== btn) {
-          b.setAttribute("aria-expanded", "false");
-          b.classList.remove("is-open");
-        }
-      });
-      btn.setAttribute("aria-expanded", open ? "false" : "true");
-      btn.classList.toggle("is-open", !open);
-    });
-  });
-  // Native title fallback for compact chips/stats using data-tooltip
-  document.querySelectorAll("[data-tooltip]").forEach((el) => {
-    if (el.classList.contains("tip")) return;
-    const t = el.getAttribute("data-tooltip");
-    if (t && !el.getAttribute("title")) el.setAttribute("title", t);
-  });
-}
-
-function restorePrefs() {
+async function exportBreakdownMd() {
+  if (!current) return;
   try {
-    const base = localStorage.getItem("cf.apiBase");
-    const key = localStorage.getItem("cf.apiKey");
-    if (base) els.apiBase.value = base;
-    if (key) els.apiKey.value = key;
-  } catch {
-    /* ignore */
+    const res = await api("/v1/breakdown/markdown", {
+      method: "POST",
+      body: JSON.stringify({
+        title: current.title,
+        text: current.text,
+        document_key: current.document_key,
+        format: current.format,
+      }),
+    });
+    downloadText(`${current.document_key || "breakdown"}.breakdown.md`, res.markdown || "");
+  } catch (e) {
+    showAlert(e.message || "Markdown export failed", { technical: e.detail });
   }
 }
 
-function persistPrefs() {
+function exportShotListMd() {
+  if (!current?.breakdown?.shots) {
+    showAlert("Analyze a script first.");
+    return;
+  }
+  const lines = [`# Shot list — ${current.title}`, ""];
+  for (const s of current.breakdown.shots) {
+    lines.push(`- **${s.scene_ordinal}.${s.shot_ordinal}** ${s.slugline} — ${s.label}`);
+  }
+  downloadText(`${current.document_key || "shots"}.shot-list.md`, lines.join("\n"));
+}
+
+function exportConflictReport() {
+  const conflicts = current?.summary?.conflicts || [];
+  const lines = [`# Conflict report — ${current?.title || ""}`, ""];
+  if (!conflicts.length) lines.push("_No conflicts._");
+  for (const c of conflicts) {
+    lines.push(`## ${c.category} (${c.severity})`);
+    lines.push(c.plain_language);
+    lines.push(c.resolved ? `Resolved: ${c.resolution_choice_id}` : "Unresolved");
+    lines.push("");
+  }
+  downloadText(`${current?.document_key || "conflicts"}.conflicts.md`, lines.join("\n"));
+}
+
+function exportScenePackage() {
+  if (!current?.scenePackage) {
+    showAlert("Prepare a scene for generation first (Scenes → Prepare Scene for Generation).");
+    return;
+  }
+  downloadText(
+    `${current.document_key || "scene"}.scene-package.json`,
+    JSON.stringify(current.scenePackage, null, 2),
+    "application/json"
+  );
+}
+
+// --- Developer ---
+
+function updateDevPanels() {
+  const b = current?.breakdown;
+  if (!b) {
+    if ($("dev-hashes")) $("dev-hashes").textContent = "No analysis yet.";
+    if ($("dev-raw-json")) $("dev-raw-json").textContent = "—";
+    return;
+  }
+  $("dev-hashes").textContent = JSON.stringify(
+    {
+      package_hash: b.package_hash,
+      source_hash: b.source_hash,
+      production_ir_hash: b.production_ir_hash,
+      ledger_hash: b.ledger_hash,
+      shot_contracts_hash: b.shot_contracts_hash,
+    },
+    null,
+    2
+  );
+  $("dev-raw-json").textContent = JSON.stringify(b, null, 2);
+}
+
+async function pingHealth() {
   try {
-    localStorage.setItem("cf.apiBase", els.apiBase.value.trim());
-    localStorage.setItem("cf.apiKey", els.apiKey.value.trim());
+    const h = await api("/health");
+    if ($("health-line")) {
+      $("health-line").textContent = `Status: ${h.status} · backend ${h.backend} · v${h.version}`;
+    }
   } catch {
-    /* ignore */
+    if ($("health-line")) $("health-line").textContent = "Status: unreachable";
   }
 }
 
-function wire() {
-  restorePrefs();
-  els.script.value = SAMPLE_SCRIPT;
-  setStep(1);
-  setRunState("idle", "ready");
-  wireStickyCta();
-  wireMenus();
-  wireTooltips();
-  applyNavFromUrl();
+async function runMockProof() {
+  if (!current?.text) {
+    showAlert("Open a project with a script first.");
+    return;
+  }
+  try {
+    const receipt = await api("/v1/proof", {
+      method: "POST",
+      body: JSON.stringify({
+        title: current.title,
+        text: current.text,
+        document_key: current.document_key,
+        format: current.format,
+        seed: 0,
+        budget_seconds: 30,
+      }),
+    });
+    const out = $("dev-proof-out");
+    out.hidden = false;
+    out.textContent = JSON.stringify(receipt, null, 2);
+    showAlert("Mock pipeline test finished (not production film).", { kind: "ok" });
+  } catch (e) {
+    showAlert(e.message || "Mock proof failed", { technical: e.detail });
+  }
+}
 
-  els.btnSceneAll?.addEventListener("click", () => setSceneFocus(null));
-  els.btnScenePrev?.addEventListener("click", () => stepScene(-1));
-  els.btnSceneNext?.addEventListener("click", () => stepScene(1));
-  els.btnStalePreview?.addEventListener("click", () => {
-    previewStaleForFocus().catch((err) =>
-      showAlert(err instanceof Error ? err.message : String(err)),
-    );
+// --- Events ---
+
+function bindEvents() {
+  document.querySelectorAll(".nav__item").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (btn.disabled) return;
+      setView(btn.getAttribute("data-view"));
+    });
   });
-  els.btnStaleClear?.addEventListener("click", clearStaleMarks);
 
-  const onTableControls = () => {
-    if (els.shotFilterStatus) {
-      tableView.statusFilter = els.shotFilterStatus.value || "all";
-    }
-    if (els.shotFilterRepair) {
-      tableView.repairFilter = els.shotFilterRepair.value || "all";
-    }
-    if (els.shotSort) {
-      tableView.sort = els.shotSort.value || "default";
-    }
-    if (els.shotVirtual) {
-      tableView.virtualEnabled = !!els.shotVirtual.checked;
-    }
-    nav.focusShotIndex = 0;
-    renderShotTable();
-    syncNavUrl();
-  };
-  els.shotFilterStatus?.addEventListener("change", onTableControls);
-  els.shotFilterRepair?.addEventListener("change", onTableControls);
-  els.shotSort?.addEventListener("change", onTableControls);
-  els.shotVirtual?.addEventListener("change", onTableControls);
+  $("btn-new-project")?.addEventListener("click", showNewProjectForm);
+  $("form-new-project")?.addEventListener("submit", createProjectFromForm);
+  $("btn-create-project")?.addEventListener("click", createProjectFromForm);
 
-  document.addEventListener("keydown", (ev) => {
-    // Skip when typing in fields
-    const tag = (ev.target && /** @type {HTMLElement} */ (ev.target).tagName) || "";
-    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-    if (!lastReceipt) return;
-    if (ev.key === "[") {
-      ev.preventDefault();
-      stepScene(-1);
-    } else if (ev.key === "]") {
-      ev.preventDefault();
-      stepScene(1);
-    } else if (ev.key === "ArrowLeft") {
-      ev.preventDefault();
-      stepShot(-1);
-    } else if (ev.key === "ArrowRight") {
-      ev.preventDefault();
-      stepShot(1);
+  $("project-select")?.addEventListener("change", (e) => {
+    const v = e.target.value;
+    if (v) openProject(v);
+    else {
+      current = null;
+      showEmptyState();
+      updateProjectChrome();
     }
   });
 
-  if (els.btnBreakdown) {
-    els.btnBreakdown.addEventListener("click", () => {
-      buildBreakdown().catch((err) =>
-        showAlert(err instanceof Error ? err.message : String(err)),
-      );
-    });
-  }
-  if (els.btnImport && els.scriptFile) {
-    els.btnImport.addEventListener("click", () => els.scriptFile.click());
-    els.scriptFile.addEventListener("change", () => {
-      const file = els.scriptFile.files && els.scriptFile.files[0];
-      importScriptFile(file);
-      els.scriptFile.value = "";
-    });
-  }
-  // Drag-and-drop import onto the script field
-  if (els.script) {
-    els.script.addEventListener("dragover", (ev) => {
-      ev.preventDefault();
-      ev.stopPropagation();
-    });
-    els.script.addEventListener("drop", (ev) => {
-      ev.preventDefault();
-      ev.stopPropagation();
-      const file = ev.dataTransfer?.files?.[0];
-      if (file) importScriptFile(file);
-    });
-  }
-  els.btnProof.addEventListener("click", runProof);
-  if (els.btnBreakdownSticky) {
-    els.btnBreakdownSticky.addEventListener("click", () => {
-      buildBreakdown().catch((err) =>
-        showAlert(err instanceof Error ? err.message : String(err)),
-      );
-    });
-  }
-  els.btnHealth.addEventListener("click", async () => {
-    showAlert("");
-    try {
-      const data = await pingHealth();
-      await pingWhoami();
-      showAlert(`API ok · ${data.backend} · v${data.version}`, "ok");
-    } catch (err) {
-      showAlert(
-        err instanceof Error
-          ? `API offline: ${err.message}`
-          : "API offline",
+  document.addEventListener("click", (e) => {
+    const t = e.target.closest?.("[data-open-project]");
+    if (t) openProject(t.getAttribute("data-open-project"));
+    const sc = e.target.closest?.("[data-scene-id]");
+    if (sc && sc.classList.contains("scene-card")) {
+      loadSceneDetail(sc.getAttribute("data-scene-id"));
+    }
+    const res = e.target.closest?.("[data-resolve]");
+    if (res) {
+      resolveConflictUi(res.getAttribute("data-resolve"), res.getAttribute("data-choice"));
+    }
+    const lock = e.target.closest?.("[data-lock-entity]");
+    if (lock) {
+      lockEntityValue(
+        lock.getAttribute("data-lock-entity"),
+        lock.getAttribute("data-field"),
+        lock.getAttribute("data-original")
       );
     }
-  });
-  els.btnCompile.addEventListener("click", compileOnly);
-  if (els.btnCompileIncremental) {
-    els.btnCompileIncremental.addEventListener("click", () => {
-      compileIncremental().catch((err) =>
-        showAlert(err instanceof Error ? err.message : String(err)),
-      );
-    });
-  }
-  els.btnSample.addEventListener("click", loadSample);
-  els.btnClear.addEventListener("click", clearScript);
-  els.btnBootstrap.addEventListener("click", bootstrapDevKey);
-  els.btnWhoami.addEventListener("click", async () => {
-    showAlert("");
-    try {
-      const data = await pingWhoami();
-      if (!data) {
-        showAlert("Could not identify you — set an API key if auth is required.");
-        return;
+    const copyP = e.target.closest?.("[data-copy-prompt]");
+    if (copyP && current?.sceneDetail?.shots) {
+      const shot = current.sceneDetail.shots.find((s) => s.shot_id === copyP.getAttribute("data-copy-prompt"));
+      if (shot?.prompt_preview) {
+        navigator.clipboard?.writeText(shot.prompt_preview);
+        showAlert("Prompt copied.", { kind: "ok" });
       }
-      showAlert(`Signed in · tenant ${data.tenant_id} · actor ${data.actor_id}`, "ok");
-    } catch (err) {
-      showAlert(err instanceof Error ? err.message : String(err));
+    }
+    const copyT = e.target.closest?.("[data-copy-text]");
+    if (copyT) {
+      navigator.clipboard?.writeText(copyT.getAttribute("data-copy-text") || "");
+      showAlert("Copied.", { kind: "ok" });
     }
   });
-  els.btnExport.addEventListener("click", exportReceipt);
-  if (els.btnExportBreakdown) {
-    els.btnExportBreakdown.addEventListener("click", exportBreakdownJson);
-  }
-  if (els.btnExportBreakdownMd) {
-    els.btnExportBreakdownMd.addEventListener("click", exportBreakdownMarkdown);
-  }
-  els.btnCopyHash.addEventListener("click", () => {
-    copyReceiptHash().catch((err) =>
-      showAlert(err instanceof Error ? err.message : String(err)),
-    );
-  });
-  els.btnStatus.addEventListener("click", () => {
-    loadProjectStatus().catch((err) =>
-      showAlert(err instanceof Error ? err.message : String(err)),
-    );
-  });
-  els.btnList.addEventListener("click", () => {
-    listProjects().catch((err) =>
-      showAlert(err instanceof Error ? err.message : String(err)),
-    );
-  });
-  els.btnLeaseAcquire.addEventListener("click", () => {
-    acquireLease().catch((err) =>
-      showAlert(err instanceof Error ? err.message : String(err)),
-    );
-  });
-  els.btnLeaseRelease.addEventListener("click", () => {
-    releaseLease().catch((err) =>
-      showAlert(err instanceof Error ? err.message : String(err)),
-    );
-  });
-  els.btnLeaseRefresh.addEventListener("click", () => {
-    refreshLease()
-      .then((p) =>
-        showAlert(p.active ? "Lease active" : "No active lease", "ok"),
-      )
-      .catch((err) => showAlert(err instanceof Error ? err.message : String(err)));
-  });
-  els.btnApprovalRequest.addEventListener("click", () => {
-    requestApproval().catch((err) =>
-      showAlert(err instanceof Error ? err.message : String(err)),
-    );
-  });
-  els.btnApprovalsList.addEventListener("click", () => {
-    listApprovals().catch((err) =>
-      showAlert(err instanceof Error ? err.message : String(err)),
-    );
-  });
-  els.btnRunsList.addEventListener("click", () => {
-    listRuns().catch((err) =>
-      showAlert(err instanceof Error ? err.message : String(err)),
-    );
-  });
-  els.apiBase.addEventListener("change", persistPrefs);
-  els.apiKey.addEventListener("change", persistPrefs);
 
-  document.addEventListener("keydown", (ev) => {
-    if ((ev.metaKey || ev.ctrlKey) && ev.key === "Enter") {
-      ev.preventDefault();
-      // Primary handoff path: build breakdown (not mock proof)
-      if (els.btnBreakdown && !els.btnBreakdown.disabled) {
-        buildBreakdown().catch((err) =>
-          showAlert(err instanceof Error ? err.message : String(err)),
-        );
+  $("btn-import")?.addEventListener("click", () => $("script-file").click());
+  $("btn-import-active")?.addEventListener("click", () => $("script-file").click());
+  $("script-file")?.addEventListener("change", (e) => {
+    const f = e.target.files?.[0];
+    handleFile(f);
+    e.target.value = "";
+  });
+  $("btn-sample")?.addEventListener("click", () => {
+    $("script").value = SAMPLE_SCRIPT;
+    setFormatLabels("fountain");
+  });
+  $("btn-sample-active")?.addEventListener("click", () => {
+    applyImportedText(SAMPLE_SCRIPT, "sample.fountain");
+  });
+  $("btn-clear")?.addEventListener("click", () => {
+    $("script").value = "";
+  });
+
+  const dz = $("dropzone");
+  const scriptEl = $("script");
+  ["dragenter", "dragover"].forEach((ev) => {
+    dz?.addEventListener(ev, (e) => {
+      e.preventDefault();
+      dz.classList.add("is-drag");
+    });
+    scriptEl?.addEventListener(ev, (e) => e.preventDefault());
+  });
+  ["dragleave", "drop"].forEach((ev) => {
+    dz?.addEventListener(ev, (e) => {
+      e.preventDefault();
+      dz.classList.remove("is-drag");
+      if (ev === "drop" && e.dataTransfer?.files?.[0]) handleFile(e.dataTransfer.files[0]);
+    });
+  });
+  $("script-active")?.addEventListener("dragover", (e) => e.preventDefault());
+  $("script-active")?.addEventListener("drop", (e) => {
+    e.preventDefault();
+    if (e.dataTransfer?.files?.[0]) handleFile(e.dataTransfer.files[0]);
+  });
+
+  $("btn-analyze")?.addEventListener("click", analyzeScript);
+  $("btn-analyze-sticky")?.addEventListener("click", analyzeScript);
+  $("btn-review-breakdown")?.addEventListener("click", () => setView("scenes"));
+  $("btn-prepare-scene")?.addEventListener("click", prepareSelectedScene);
+  $("btn-scene-prev")?.addEventListener("click", () => {
+    if (current?.sceneDetail?.prev_scene_id) loadSceneDetail(current.sceneDetail.prev_scene_id);
+  });
+  $("btn-scene-next")?.addEventListener("click", () => {
+    if (current?.sceneDetail?.next_scene_id) loadSceneDetail(current.sceneDetail.next_scene_id);
+  });
+
+  document.querySelectorAll(".tabs__btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      continuityTab = btn.getAttribute("data-ctab");
+      renderContinuity();
+    });
+  });
+
+  $("btn-export-json")?.addEventListener("click", exportBreakdownJson);
+  $("btn-export-md")?.addEventListener("click", exportBreakdownMd);
+  $("btn-export-shot-list")?.addEventListener("click", exportShotListMd);
+  $("btn-export-conflict-report")?.addEventListener("click", exportConflictReport);
+  $("btn-export-scene-pkg")?.addEventListener("click", exportScenePackage);
+  $("btn-export-from-gen")?.addEventListener("click", () => {
+    if (current?.scenePackage) exportScenePackage();
+    else setView("export");
+  });
+  $("btn-download-pkg")?.addEventListener("click", exportScenePackage);
+  $("btn-copy-prompts")?.addEventListener("click", () => {
+    const prompts = (current?.scenePackage?.shot_prompts || []).map((p) => p.prompt).join("\n\n");
+    navigator.clipboard?.writeText(prompts || "");
+    showAlert("Prompts copied.", { kind: "ok" });
+  });
+
+  $("btn-settings")?.addEventListener("click", () => {
+    updateDevPanels();
+    pingHealth();
+    $("settings-dialog").showModal();
+  });
+  $("btn-open-dev-providers")?.addEventListener("click", () => {
+    $("settings-dialog").showModal();
+  });
+  $("btn-mock-proof")?.addEventListener("click", runMockProof);
+  $("btn-inv-cancel")?.addEventListener("click", () => {
+    pendingOverride = null;
+    $("invalidation-dialog").close();
+  });
+  $("btn-inv-confirm")?.addEventListener("click", confirmOverride);
+
+  $("btn-change-script")?.addEventListener("click", () => {
+    $("script-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    $("script-active")?.focus();
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+      if (current && !$("project-workspace").hidden) {
+        e.preventDefault();
+        analyzeScript();
       }
     }
   });
-
-  Promise.all([pingHealth(), pingWhoami()]).catch(() => {
-    /* offline until API is up */
-  });
 }
 
-wire();
+function init() {
+  loadProjects();
+  bindEvents();
+  updateProjectChrome();
+  const last = localStorage.getItem(LAST_KEY);
+  if (last && projects[last]) {
+    openProject(last);
+  } else {
+    showEmptyState();
+  }
+  setView("projects");
+  pingHealth();
+}
+
+document.addEventListener("DOMContentLoaded", init);

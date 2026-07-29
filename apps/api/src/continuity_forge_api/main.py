@@ -24,6 +24,18 @@ from continuity_forge_operator import (
     OperatorError,
     ProjectRecord,
     WriteLease,
+    apply_operator_override,
+    build_analysis_summary,
+    build_entity_profiles,
+    build_scene_cards,
+    build_scene_detail,
+    detect_script_format,
+    friendly_parser_error,
+    generate_document_key,
+    make_review_decision,
+    package_is_provider_neutral,
+    prepare_scene_package,
+    resolve_conflict,
 )
 from continuity_forge_providers import ArtifactCandidate
 from continuity_forge_repair import LoopResult, ProofReceipt, run_controlled_proof, run_repair_loop
@@ -671,6 +683,257 @@ def controlled_proof(
     except (OperatorError, PipelineError, ValueError) as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     return receipt
+
+
+# --- Product workflow adapters (view models; do not replace kernel contracts) -
+
+
+class ProductAnalyzeRequest(BaseModel):
+    title: str = "Untitled"
+    text: str
+    document_key: str | None = None
+    format: Literal["fountain", "fdx"] = "fountain"
+    revision: str = "0.1.0"
+    production_type: str | None = None
+    resolved_conflict_ids: list[str] = Field(default_factory=list)
+
+
+class ProductCreateProjectRequest(BaseModel):
+    title: str = Field(min_length=1)
+    production_type: str = "Other"
+    text: str = ""
+    format: Literal["fountain", "fdx"] | None = None
+    filename: str | None = None
+    document_key: str | None = None
+
+
+class ProductPrepareSceneRequest(BaseModel):
+    title: str = "Untitled"
+    text: str
+    document_key: str | None = None
+    format: Literal["fountain", "fdx"] = "fountain"
+    revision: str = "0.1.0"
+    scene_id: str
+    warnings_acknowledged: bool = False
+    resolved_conflict_ids: list[str] = Field(default_factory=list)
+
+
+class ProductOverrideRequest(BaseModel):
+    title: str = "Untitled"
+    text: str
+    document_key: str | None = None
+    format: Literal["fountain", "fdx"] = "fountain"
+    revision: str = "0.1.0"
+    target_kind: str
+    target_id: str
+    field_name: str
+    original_value: str
+    locked_value: str
+    rationale: str = ""
+
+
+class ProductResolveConflictRequest(BaseModel):
+    conflict: dict[str, Any]
+    choice_id: str
+
+
+class ProductReviewDecisionRequest(BaseModel):
+    shot_id: str
+    action: Literal["accept", "accept_with_note", "repair", "regenerate", "reject"]
+    candidate_id: str | None = None
+    note: str = ""
+    actor_id: str = "operator"
+
+
+@app.post("/v1/product/create-project")
+def product_create_project(request: ProductCreateProjectRequest) -> dict[str, Any]:
+    """Create product metadata for a new project (auto document key).
+
+    Does not write film canon. Pair with analyze / ingest as needed.
+    """
+    key = request.document_key or generate_document_key(request.title)
+    fmt = request.format
+    if fmt is None and request.text:
+        fmt = detect_script_format(request.filename, request.text)
+    if fmt is None:
+        fmt = "fountain"
+    return {
+        "document_key": key,
+        "title": request.title.strip(),
+        "production_type": request.production_type,
+        "format": fmt,
+        "phase": "IMPORTED" if request.text.strip() else "EMPTY",
+        "supported_inputs": [".fountain", ".fdx", ".txt"],
+    }
+
+
+@app.post("/v1/product/analyze")
+def product_analyze(request: ProductAnalyzeRequest) -> dict[str, Any]:
+    """Analyze script → creative-language summary + scene cards + continuity profiles.
+
+    Wraps stable ``build_breakdown_from_text``; does not change ``cf.breakdown.v1``.
+    """
+    if not request.text.strip():
+        err = friendly_parser_error("empty script")
+        raise HTTPException(status_code=400, detail=err.model_dump(mode="json"))
+    try:
+        package = build_breakdown_from_text(
+            request.text,
+            title=request.title,
+            document_key=request.document_key,
+            format=request.format,
+            revision=request.revision,
+        )
+    except Exception as exc:
+        err = friendly_parser_error(exc)
+        raise HTTPException(status_code=400, detail=err.model_dump(mode="json")) from exc
+
+    resolved = set(request.resolved_conflict_ids)
+    summary = build_analysis_summary(
+        package,
+        production_type=request.production_type,
+        resolved_conflict_ids=resolved,
+    )
+    scenes = build_scene_cards(package, conflicts=summary.conflicts)
+    entities = build_entity_profiles(package)
+    return {
+        "summary": summary.model_dump(mode="json"),
+        "scenes": [s.model_dump(mode="json") for s in scenes],
+        "entities": [e.model_dump(mode="json") for e in entities],
+        "breakdown": package.model_dump(mode="json"),
+        "analysis_stages": [
+            "Reading screenplay",
+            "Detecting scenes",
+            "Extracting characters and locations",
+            "Building continuity timeline",
+            "Preparing shot suggestions",
+            "Checking for conflicts",
+        ],
+    }
+
+
+@app.post("/v1/product/scenes/{scene_id}")
+def product_scene_detail(
+    scene_id: str,
+    request: ProductAnalyzeRequest,
+) -> dict[str, Any]:
+    """Scene detail view model (entry/exit, shots as cards, conflicts)."""
+    package = build_breakdown_from_text(
+        request.text,
+        title=request.title,
+        document_key=request.document_key,
+        format=request.format,
+        revision=request.revision,
+    )
+    detail = build_scene_detail(
+        package,
+        scene_id,
+        source_text=request.text,
+        resolved_conflict_ids=set(request.resolved_conflict_ids),
+    )
+    if detail is None:
+        raise HTTPException(status_code=404, detail="scene not found")
+    return detail.model_dump(mode="json")
+
+
+@app.post("/v1/product/scenes/{scene_id}/prepare")
+def product_prepare_scene(
+    scene_id: str,
+    request: ProductPrepareSceneRequest,
+) -> dict[str, Any]:
+    """Compile a provider-neutral Scene Generation Package."""
+    if request.scene_id and request.scene_id != scene_id:
+        raise HTTPException(status_code=400, detail="scene_id mismatch")
+    package = build_breakdown_from_text(
+        request.text,
+        title=request.title,
+        document_key=request.document_key,
+        format=request.format,
+        revision=request.revision,
+    )
+    try:
+        scene_pkg = prepare_scene_package(
+            package,
+            scene_id,
+            source_text=request.text,
+            warnings_acknowledged=request.warnings_acknowledged,
+            resolved_conflict_ids=set(request.resolved_conflict_ids),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return {
+        "package": scene_pkg.model_dump(mode="json"),
+        "provider_neutral": package_is_provider_neutral(scene_pkg),
+        "export_only": True,
+        "providers_configured": False,
+        "message": (
+            "No generation provider is connected. "
+            "You can still export the complete scene and shot packages."
+        ),
+    }
+
+
+@app.post("/v1/product/override/preview")
+def product_override_preview(request: ProductOverrideRequest) -> dict[str, Any]:
+    """Preview operator override + invalidation without mutating canon."""
+    package = build_breakdown_from_text(
+        request.text,
+        title=request.title,
+        document_key=request.document_key,
+        format=request.format,
+        revision=request.revision,
+    )
+    override, preview = apply_operator_override(
+        target_kind=request.target_kind,
+        target_id=request.target_id,
+        field_name=request.field_name,
+        original_value=request.original_value,
+        locked_value=request.locked_value,
+        package=package,
+        rationale=request.rationale,
+    )
+    return {
+        "override": override.model_dump(mode="json"),
+        "invalidation": preview.model_dump(mode="json"),
+        "requires_confirmation": True,
+        "note": "Override is not applied until you confirm; original value is preserved.",
+    }
+
+
+@app.post("/v1/product/conflicts/resolve")
+def product_resolve_conflict(request: ProductResolveConflictRequest) -> dict[str, Any]:
+    """Record an explicit conflict resolution choice (no silent pick)."""
+    from continuity_forge_operator.product_workflow import ConflictCard
+
+    try:
+        card = ConflictCard.model_validate(request.conflict)
+        resolved = resolve_conflict(card, request.choice_id)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"conflict": resolved.model_dump(mode="json")}
+
+
+@app.post("/v1/product/review/decision")
+def product_review_decision(request: ProductReviewDecisionRequest) -> dict[str, Any]:
+    """Record accept/repair/regenerate/reject intent with lineage preserved.
+
+    Does not silently mutate canon — acceptance flags intent only.
+    Canon advancement requires MutationEnvelope-backed store paths.
+    """
+    decision = make_review_decision(
+        shot_id=request.shot_id,
+        action=request.action,
+        candidate_id=request.candidate_id,
+        note=request.note,
+        actor_id=request.actor_id,
+    )
+    return {
+        "decision": decision.model_dump(mode="json"),
+        "note": (
+            "Lineage preserved. Canonical state advances only through validated "
+            "mutation paths — not silent model or UI writes."
+        ),
+    }
 
 
 def _mount_web_ui() -> None:
