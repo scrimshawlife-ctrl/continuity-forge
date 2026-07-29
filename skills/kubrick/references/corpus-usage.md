@@ -58,3 +58,8 @@ Tests live in evals/cases/ with expected behaviors that enforce the above.
 - Retrieval rules + gates + tests: documented and partially implemented in evals/.
 
 Next wave: full 10 domain packs with 2-3 PRIMARY/SCHOLARLY anchored patterns each; expansion of cinematic corpus with specific film shot breakdowns; integration with continuity-forge IR for symbolic_architecture export.
+
+
+## Corpus Index
+
+Use `references/corpus-index.yaml` for fast routing from dramatic problem to primary grammar, affordances, and patterns. Always fall back to full pattern files and registries for provenance and details.

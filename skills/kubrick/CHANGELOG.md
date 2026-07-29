@@ -1,3 +1,31 @@
+## [0.6.0] - 2026-07-28
+### Added — Symbolic Retrieval and Continuity Hardening (P0)
+- Machine-readable schemas/ (symbolic-narrative-pattern, cinematic-pattern, transformation-grammar, narrative-affordance, symbolic-architecture, continuity-forge-symbolic-export)
+- Retrieval scoring model with composite formula and NOT_COMPUTABLE threshold
+- Negative retrieval / exclusion_profiles
+- Project symbolic ledger (governing/supporting grammars, active/retired/prohibited motifs, symbolic_debt, saturation_score)
+- Symbolic saturation control + SYMBOLIC_OVERLOAD
+- Motif collision detection (REDUNDANT, CONTRADICTORY, etc.)
+- Symbolic counterpoint rules
+- Sequence-level symbolic_architecture and symbolic_character_arc compilation
+- Symbolic revision diff engine
+- Production feasibility weights
+- Cultural review gates
+- Corpus versioning and source_status (DRAFT → VALIDATED → DEPRECATED)
+- Expanded cinematic corpus (genre packs, production scales, formal traditions: Soviet montage, Neorealism, Japanese, Hong Kong action, etc.)
+- Film-pattern provenance depth (transferable_structure vs non_transferable_surface)
+- references/retrieval-and-continuity.md
+- Updated corpus-index.yaml with scoring, exclusions, ledger templates
+- New validation cases for scoring, exclusion+collision, ledger+saturation+revision
+- Forge round-trip validation expectations
+
+### Changed
+- SKILL.md now documents deterministic retrieval procedures as first-class
+- All pattern work now expected to be schema-normalized + scored + collision-checked + ledger-tracked
+- Cinematic examples now include production_cost and transferable vs surface distinction
+
+This sprint converts the rich corpus into a reliable, auditable retrieval-and-continuity system.
+
 ## [0.5.0] - 2026-07-28
 ### Added
 - Full provenance-linked Symbolic Narrative Pattern System

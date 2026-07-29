@@ -39,6 +39,16 @@ See `references/symbolic-dramaturgy.md`, `references/symbolic-narrative-patterns
 
 Companion operator skill: `hermes-continuity-forge` for leases, ingest, and proof.
 
+
+
+## Deterministic Retrieval & Continuity (v0.6.0+)
+
+Kubrick now includes machine schemas, scored retrieval, exclusion profiles, project symbolic ledger, saturation control, motif collision detection, revision diffing, counterpoint, sequence/character arc layers, production feasibility, cultural review gates, and versioning.
+
+See `references/retrieval-and-continuity.md` and `schemas/`.
+
+Use `kubrick` + `hermes-continuity-forge` together for full symbolic-to-production pipeline with memory and revision safety.
+
 ## Core Artifacts
 
 - symbolic_intent contract

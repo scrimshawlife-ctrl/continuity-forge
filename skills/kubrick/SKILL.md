@@ -208,6 +208,17 @@ Same 1-5 rubric. When Forge is in play, also score "Forge alignment". When symbo
 
 ## Quick Reference
 
+**New Deterministic Tools (v0.5.0+)**
+- "Score these patterns for this dramatic problem and character using the retrieval model"
+- "Run exclusion profile for identity fragmentation on this premise"
+- "Initialize project symbolic ledger with governing grammar X"
+- "Check saturation and collisions for this sequence"
+- "Produce symbolic revision diff for this scene deletion"
+- "Generate symbolic character arc for this internal change using pressure operations"
+- "Apply symbolic counterpoint: image vs dialogue"
+- "Export symbolic_architecture using Forge round-trip schema"
+
+
 **Key Commands / Behaviors**
 - "Develop this premise with strong symbolic architecture and motif lifecycle" → DEVELOP + symbolic_intent + motif_registry (observed first) + cinematic_encoding.
 - "Diagnose this scene for motif mutation and geometric pressure" → DIAGNOSE with rubric + Gates A–W.
@@ -251,6 +262,7 @@ Then hand off: "compile this to Continuity Forge and ingest under lease with sym
 - `references/cinematic-symbolism-corpus.md`
 - `references/source-hierarchy.md`, `source-registry.md`, `cross-tradition-relationships.md`
 - `references/corpus-usage.md` (retrieval rules, gates, validation)
+- `references/corpus-index.yaml` (lightweight retrieval index)
 - `references/corpus/` (domain packs with provenance)
 
 - `references/story-structure.md`
