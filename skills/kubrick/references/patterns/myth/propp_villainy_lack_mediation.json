@@ -1,0 +1,13 @@
+{
+  "pattern_id": "propp_villainy_lack_mediation",
+  "title": "Proppian Villainy / Lack / Mediation",
+  "version": "0.6.0",
+  "domain": "myth-folklore",
+  "source_tier": "PRIMARY",
+  "source_refs": [{"author": "Vladimir Propp", "title": "Morphology of the Folktale", "date": "1928"}],
+  "dramatic_operations": ["lack", "villainy", "mediation"],
+  "transformation_grammars": ["lack", "mediation"],
+  "cinematic_affordances": ["call to adventure framing", "disruption of home"],
+  "transferable_structure": "clear lack introduced, hero sent out to resolve",
+  "confidence": 0.8
+}

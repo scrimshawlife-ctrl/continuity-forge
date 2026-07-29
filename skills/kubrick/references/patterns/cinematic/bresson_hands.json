@@ -1,0 +1,13 @@
+{
+  "pattern_id": "bresson_hands",
+  "title": "Bresson Hands as Moral Action Site",
+  "version": "0.6.0",
+  "domain": "cinematic",
+  "source_tier": "SCHOLARLY",
+  "dramatic_operations": ["gesture as character", "moral transformation through action"],
+  "transformation_grammars": ["substitute"],
+  "cinematic_affordances": ["extreme close-up on hands", "object sound emphasized"],
+  "transferable_structure": "isolation of precise gesture; withholding face to let action carry symbol",
+  "non_transferable_surface": "specific Bresson models, Catholic framing",
+  "confidence": 0.85
+}

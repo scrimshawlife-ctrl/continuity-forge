@@ -1,0 +1,12 @@
+{
+  "pattern_id": "denis_marching",
+  "title": "Bodies in Formation (Beau Travail)",
+  "version": "0.6.0",
+  "domain": "cinematic",
+  "source_tier": "SCHOLARLY",
+  "dramatic_operations": ["group discipline vs individual desire"],
+  "transformation_grammars": ["bind", "fragment"],
+  "cinematic_affordances": ["repetitive formation", "body as geometry", "rhythm mutating to collapse"],
+  "transferable_structure": "repetitive physical action that starts ordered and frays",
+  "confidence": 0.8
+}

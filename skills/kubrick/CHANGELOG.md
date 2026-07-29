@@ -1,3 +1,18 @@
+## [0.7.0] - 2026-07-29
+### Added — Executable Retrieval (P0 of next campaign)
+- `scripts/retrieve_symbolic_patterns.py` — deterministic retrieval helper
+  - Loads index + sidecars
+  - Scores with decomposition
+  - Applies exclusions/prohibited
+  - Emits structured retrieval_receipt
+  - Fails closed below threshold
+- Initial sidecar patterns in `references/patterns/` (9 high-value: alchemical nigredo, Kubrick monolith, Tarkovsky reflection, Bresson hands, Propp, Peirce, liminal, acousmatic, Denis marching)
+- `evals/retrieval/` structure with inputs/ and expected/ golden fixtures
+- 3 new formal tradition packs: Soviet montage, Japanese cinema, Animation
+- SKILL.md documentation for the retrieval script
+
+This begins the shift from reference skill to operational symbolic compiler.
+
 ## [0.6.2] - 2026-07-28 (further continuation)
 ### Added
 - Additional genre packs: melodrama, comedy, low-budget/TV/short-form

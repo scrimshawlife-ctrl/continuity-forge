@@ -1,0 +1,11 @@
+{
+  "pattern_id": "acousmatic_sound_offscreen_power",
+  "title": "Acousmatic / Offscreen Sound Power",
+  "version": "0.6.0",
+  "domain": "sound-rhythmic",
+  "source_tier": "SCHOLARLY",
+  "dramatic_operations": ["unseen power", "threat"],
+  "cinematic_affordances": ["reaction to unseen source", "sound bridge", "empty frame"],
+  "transferable_structure": "sound source withheld longer than image; sound dominates space",
+  "confidence": 0.8
+}

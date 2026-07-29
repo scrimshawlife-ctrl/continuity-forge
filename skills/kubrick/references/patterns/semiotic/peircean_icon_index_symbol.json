@@ -1,0 +1,11 @@
+{
+  "pattern_id": "peircean_icon_index_symbol",
+  "title": "Peircean Icon / Index / Symbol Triad",
+  "version": "0.6.0",
+  "domain": "semiotic",
+  "source_tier": "PRIMARY",
+  "dramatic_operations": ["representation", "hidden connection"],
+  "cinematic_affordances": ["parallel framing micro/macro", "graphic match across scales"],
+  "transferable_structure": "use of visual resemblance, causal trace, or conventional sign",
+  "confidence": 0.75
+}
