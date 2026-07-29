@@ -7,7 +7,7 @@
       name="description"
       content="Continuity Forge — run a controlled proof and read the receipt."
     />
-    <title>Continuity Forge · Proof</title>
+    <title>Continuity Forge · Breakdown</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -30,17 +30,18 @@
     <main id="main" class="shell">
       <header class="mast">
         <div class="mast__row">
-          <h1>Run a proof</h1>
+          <h1>Shot breakdown</h1>
           <div class="meta-strip" id="health" aria-live="polite">
-            <span class="chip" id="chip-health">api · …</span>
-            <span class="chip" id="chip-backend">backend · …</span>
-            <span class="chip" id="chip-version">v · …</span>
-            <span class="chip" id="chip-tenant" hidden>tenant · …</span>
+            <span class="chip has-tip" id="chip-health" data-tooltip="API liveness from GET /health">api · …</span>
+            <span class="chip has-tip" id="chip-backend" data-tooltip="Persistence backend (memory, file, or production-shaped)">backend · …</span>
+            <span class="chip has-tip" id="chip-version" data-tooltip="API package version">v · …</span>
+            <span class="chip has-tip" id="chip-tenant" hidden data-tooltip="Authenticated tenant id when auth is on">tenant · …</span>
           </div>
         </div>
         <p class="mast__lede">
-          Paste a screenplay (or use the sample). Press
-          <strong>Run proof</strong>. Read the receipt. Mock media only — not production film.
+          Paste or import a screenplay. Press <strong>Build breakdown</strong> for a
+          shot-by-shot list with continuity — download JSON for connectors.
+          Optional <strong>Run proof</strong> is mock media only — not production film.
         </p>
         <ol class="steps" aria-label="How it works">
           <li class="steps__item is-current" id="step-1" data-step="1">
@@ -49,17 +50,28 @@
           </li>
           <li class="steps__item" id="step-2" data-step="2">
             <span class="steps__n">2</span>
-            <span class="steps__label">Proof</span>
+            <span class="steps__label">Breakdown</span>
           </li>
           <li class="steps__item" id="step-3" data-step="3">
             <span class="steps__n">3</span>
-            <span class="steps__label">Receipt</span>
+            <span class="steps__label">Export</span>
           </li>
         </ol>
         <div class="claim-banner" role="note">
           <strong>Claim:</strong>
-          <code>controlled_proof_not_production_ready</code>
-          — mock only
+          <code>shot_breakdown_with_continuity_not_production_film</code>
+          <button
+            type="button"
+            class="tip"
+            data-tooltip="Deterministic kernel output only. Not ACCEPTED media or production film. Provider candidates stay PROPOSED until approved."
+            aria-label="About non-production claim"
+          >
+            ?
+            <span class="tip__bubble" role="tooltip">
+              Deterministic kernel output only. Not ACCEPTED media or production film.
+              Provider candidates stay PROPOSED until approved.
+            </span>
+          </button>
         </div>
       </header>
 
@@ -74,7 +86,21 @@
           </div>
           <div class="panel__body">
             <div class="field">
-              <label for="script">Screenplay text</label>
+              <div class="field__label-row">
+                <label for="script">Screenplay text</label>
+                <button
+                  type="button"
+                  class="tip"
+                  data-tooltip="Fountain plain text or Final Draft XML (FDX). Drag a file onto this field or use More → Import file."
+                  aria-label="About screenplay input"
+                >
+                  ?
+                  <span class="tip__bubble" role="tooltip">
+                    Fountain plain text or Final Draft XML (FDX). Drag a file onto this
+                    field or use More → Import file.
+                  </span>
+                </button>
+              </div>
               <textarea
                 id="script"
                 name="script"
@@ -84,7 +110,7 @@
                 placeholder="Paste Fountain or FDX text…"
               ></textarea>
               <p class="field__hint" id="script-hint">
-                Sample continuity script is loaded. Edit freely, then run proof.
+                Sample continuity script is loaded. Edit freely, then build breakdown.
                 <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>Enter</kbd> builds breakdown.
               </p>
             </div>
@@ -94,7 +120,7 @@
                 type="button"
                 class="btn btn--primary btn--xl"
                 id="btn-breakdown"
-                title="Paste script → shot-by-shot breakdown with continuity (exportable JSON)"
+                data-tooltip="Compile → continuity ledger → shot contracts. Export JSON for connectors. Not production film."
               >
                 Build breakdown
               </button>
@@ -102,48 +128,58 @@
                 type="button"
                 class="btn btn--ghost btn--xl"
                 id="btn-proof"
-                title="Mock controlled proof (not production film)"
+                data-tooltip="Optional mock generate/validate/repair loop. Claim: controlled_proof_not_production_ready."
               >
                 Run proof
               </button>
-              <button type="button" class="btn btn--ghost" id="btn-import">
-                Import file
-              </button>
+              <details class="menu" id="menu-script-more">
+                <summary class="menu__trigger" aria-label="More script actions">More</summary>
+                <div class="menu__panel" role="menu">
+                  <button type="button" class="menu__item" id="btn-import" role="menuitem">
+                    Import file
+                    <span class="menu__hint">.fountain · .fdx · .txt</span>
+                  </button>
+                  <button type="button" class="menu__item" id="btn-sample" role="menuitem">
+                    Reset sample
+                    <span class="menu__hint">Reload continuity fixture</span>
+                  </button>
+                  <hr class="menu__sep" />
+                  <button type="button" class="menu__item" id="btn-clear" role="menuitem">
+                    Clear script
+                  </button>
+                </div>
+              </details>
               <input
                 type="file"
                 id="script-file"
                 accept=".fountain,.fdx,.txt,text/plain,application/xml"
                 hidden
               />
-              <button type="button" class="btn btn--ghost" id="btn-sample">
-                Reset sample
-              </button>
-              <button type="button" class="btn btn--ghost" id="btn-clear">Clear</button>
             </div>
             <p class="field__hint" id="breakdown-hint">
-              <strong>Handoff path:</strong> paste, <strong>Import file</strong>
-              (.fountain / .fdx), or edit → <strong>Build breakdown</strong> →
-              download JSON (or Markdown) for connectors. Not production film.
+              <strong>Handoff path:</strong> paste, import, or edit →
+              <strong>Build breakdown</strong> → download JSON (or Markdown) for
+              connectors. Not production film.
             </p>
 
             <div class="run-summary" id="run-meta" hidden aria-live="polite">
-              <div class="stat">
+              <div class="stat has-tip" data-tooltip="Wall-clock seconds for last proof run (n/a for breakdown-only)">
                 <span class="stat__k">Time</span>
                 <span class="stat__v" id="meta-elapsed">—</span>
               </div>
-              <div class="stat">
+              <div class="stat has-tip" data-tooltip="Proof wall-clock budget in seconds">
                 <span class="stat__k">Budget</span>
                 <span class="stat__v" id="meta-budget">—</span>
               </div>
-              <div class="stat">
+              <div class="stat has-tip" data-tooltip="Whether proof finished within budget_seconds">
                 <span class="stat__k">On time</span>
                 <span class="stat__v" id="meta-within">—</span>
               </div>
-              <div class="stat">
+              <div class="stat has-tip" data-tooltip="Number of shot rows in the current result">
                 <span class="stat__k">Shots</span>
                 <span class="stat__v" id="meta-shots">—</span>
               </div>
-              <div class="stat">
+              <div class="stat has-tip" data-tooltip="Sum of run-scoped cost ledger (mock is $0.00)">
                 <span class="stat__k">Est. cost</span>
                 <span class="stat__v" id="meta-cost">—</span>
               </div>
@@ -154,7 +190,21 @@
               <div class="fold__body">
                 <div class="field-row">
                   <div class="field">
-                    <label for="document-key">Project ID</label>
+                    <div class="field__label-row">
+                      <label for="document-key">Project ID</label>
+                      <button
+                        type="button"
+                        class="tip"
+                        data-tooltip="Stable slug for this project. Tenant prefix is applied when auth is on (tenant::id)."
+                        aria-label="About project ID"
+                      >
+                        ?
+                        <span class="tip__bubble" role="tooltip">
+                          Stable slug for this project. Tenant prefix is applied when
+                          auth is on (tenant::id).
+                        </span>
+                      </button>
+                    </div>
                     <input
                       id="document-key"
                       name="document_key"
@@ -165,20 +215,60 @@
                     />
                   </div>
                   <div class="field">
-                    <label for="title">Title</label>
+                    <div class="field__label-row">
+                      <label for="title">Title</label>
+                      <button
+                        type="button"
+                        class="tip"
+                        data-tooltip="Display title stored on the Production IR document."
+                        aria-label="About title"
+                      >
+                        ?
+                        <span class="tip__bubble" role="tooltip">
+                          Display title stored on the Production IR document.
+                        </span>
+                      </button>
+                    </div>
                     <input id="title" name="title" type="text" value="Continuity Sample" />
                   </div>
                 </div>
                 <div class="field-row">
                   <div class="field">
-                    <label for="format">Format</label>
+                    <div class="field__label-row">
+                      <label for="format">Format</label>
+                      <button
+                        type="button"
+                        class="tip"
+                        data-tooltip="Fountain = plain screenplay text. FDX = Final Draft XML."
+                        aria-label="About format"
+                      >
+                        ?
+                        <span class="tip__bubble" role="tooltip">
+                          Fountain = plain screenplay text. FDX = Final Draft XML.
+                        </span>
+                      </button>
+                    </div>
                     <select id="format" name="format">
                       <option value="fountain" selected>Fountain</option>
                       <option value="fdx">Final Draft (FDX)</option>
                     </select>
                   </div>
                   <div class="field">
-                    <label for="seed">Seed</label>
+                    <div class="field__label-row">
+                      <label for="seed">Seed</label>
+                      <button
+                        type="button"
+                        class="tip"
+                        data-tooltip="Deterministic seed for mock proof / generation only. Does not change compile breakdown."
+                        aria-label="About seed"
+                      >
+                        ?
+                        <span class="tip__bubble" role="tooltip">
+                          Deterministic seed for mock proof / generation only. Does not
+                          change compile breakdown.
+                        </span>
+                      </button>
+                    </div>
                     <input
                       id="seed"
                       name="seed"
@@ -206,10 +296,10 @@
           </div>
           <div class="panel__body">
             <div id="receipt-empty" class="empty empty--friendly">
-              <p class="empty__lead">No receipt yet</p>
+              <p class="empty__lead">No result yet</p>
               <p>
-                Click <strong>Run proof</strong> above. You’ll see shot outcomes, hashes, and
-                a downloadable receipt here.
+                Click <strong>Build breakdown</strong> above for shots + continuity, or
+                optional <strong>Run proof</strong> for mock media. Export JSON for connectors.
               </p>
             </div>
             <div id="receipt-body" hidden>
@@ -271,33 +361,54 @@
                 </p>
               </div>
               <div class="btn-row">
-                <button type="button" class="btn btn--primary" id="btn-export-breakdown">
-                  Download breakdown JSON
-                </button>
-                <button type="button" class="btn btn--ghost" id="btn-export-breakdown-md">
-                  Download breakdown MD
-                </button>
-                <button type="button" class="btn btn--ghost" id="btn-export">
-                  Download proof receipt
-                </button>
-                <button type="button" class="btn btn--ghost" id="btn-copy-hash">
-                  Copy receipt hash
-                </button>
+                <details class="menu" id="menu-export">
+                  <summary class="menu__trigger btn btn--primary" id="btn-export-menu">
+                    Download
+                  </summary>
+                  <div class="menu__panel" role="menu">
+                    <button
+                      type="button"
+                      class="menu__item"
+                      id="btn-export-breakdown"
+                      role="menuitem"
+                    >
+                      Breakdown JSON
+                      <span class="menu__hint">cf.breakdown.v1 · connectors</span>
+                    </button>
+                    <button
+                      type="button"
+                      class="menu__item"
+                      id="btn-export-breakdown-md"
+                      role="menuitem"
+                    >
+                      Breakdown Markdown
+                      <span class="menu__hint">Human-readable export</span>
+                    </button>
+                    <hr class="menu__sep" />
+                    <button type="button" class="menu__item" id="btn-export" role="menuitem">
+                      Proof receipt JSON
+                      <span class="menu__hint">Mock proof only</span>
+                    </button>
+                    <button type="button" class="menu__item" id="btn-copy-hash" role="menuitem">
+                      Copy package / receipt hash
+                    </button>
+                  </div>
+                </details>
               </div>
               <div class="receipt-meta">
-                <div class="stat">
+                <div class="stat has-tip" data-tooltip="Authority claim for this result (not production film)">
                   <span class="stat__k">Claim</span>
                   <span class="stat__v" id="r-claim">—</span>
                 </div>
-                <div class="stat">
+                <div class="stat has-tip" data-tooltip="Project / document key for this run">
                   <span class="stat__k">Project</span>
                   <span class="stat__v" id="r-doc">—</span>
                 </div>
-                <div class="stat">
+                <div class="stat has-tip" data-tooltip="Content hash of the package or proof receipt">
                   <span class="stat__k">Receipt hash</span>
                   <span class="stat__v" id="r-hash">—</span>
                 </div>
-                <div class="stat">
+                <div class="stat has-tip" data-tooltip="Schema version of the result payload">
                   <span class="stat__k">Schema</span>
                   <span class="stat__v" id="r-schema">—</span>
                 </div>
@@ -343,23 +454,63 @@
               <div class="shot-toolbar" id="shot-toolbar" hidden>
                 <div class="field-row shot-toolbar__filters">
                   <div class="field">
-                    <label for="shot-filter-status">Status</label>
+                    <div class="field__label-row">
+                      <label for="shot-filter-status">Status</label>
+                      <button
+                        type="button"
+                        class="tip"
+                        data-tooltip="Filter by proof acceptance or breakdown rows. Presentation only."
+                        aria-label="About status filter"
+                      >
+                        ?
+                        <span class="tip__bubble" role="tooltip">
+                          Filter by proof acceptance or breakdown rows. Presentation only.
+                        </span>
+                      </button>
+                    </div>
                     <select id="shot-filter-status">
-                      <option value="all" selected>All</option>
-                      <option value="accept">Accepted</option>
+                      <option value="all" selected>All statuses</option>
+                      <option value="accept">Accepted (proof)</option>
                       <option value="fail">Failed / other</option>
+                      <option value="breakdown">Breakdown only</option>
                     </select>
                   </div>
                   <div class="field">
-                    <label for="shot-filter-repair">Repair</label>
+                    <div class="field__label-row">
+                      <label for="shot-filter-repair">Repair</label>
+                      <button
+                        type="button"
+                        class="tip"
+                        data-tooltip="Show rows with validator/repair rationale from mock proof loops."
+                        aria-label="About repair filter"
+                      >
+                        ?
+                        <span class="tip__bubble" role="tooltip">
+                          Show rows with validator/repair rationale from mock proof loops.
+                        </span>
+                      </button>
+                    </div>
                     <select id="shot-filter-repair">
-                      <option value="all" selected>All</option>
+                      <option value="all" selected>All repair states</option>
                       <option value="yes">Has repair</option>
                       <option value="no">No repair</option>
                     </select>
                   </div>
                   <div class="field">
-                    <label for="shot-sort">Sort</label>
+                    <div class="field__label-row">
+                      <label for="shot-sort">Sort</label>
+                      <button
+                        type="button"
+                        class="tip"
+                        data-tooltip="Reorder visible rows. Does not change kernel canon."
+                        aria-label="About sort"
+                      >
+                        ?
+                        <span class="tip__bubble" role="tooltip">
+                          Reorder visible rows. Does not change kernel canon.
+                        </span>
+                      </button>
+                    </div>
                     <select id="shot-sort">
                       <option value="default" selected>Receipt order</option>
                       <option value="label">Label</option>
@@ -373,7 +524,7 @@
                       Virtualize rows
                     </label>
                     <p class="field__hint" id="shot-virtual-hint">
-                      Off-screen rows unmounted for large receipts. Presentation only —
+                      Off-screen rows unmounted for large tables. Presentation only —
                       not production readiness.
                     </p>
                   </div>
@@ -455,7 +606,20 @@
               <summary>Connection</summary>
               <div class="fold__body">
                 <div class="field">
-                  <label for="api-base">API base URL</label>
+                  <div class="field__label-row">
+                    <label for="api-base">API base URL</label>
+                    <button
+                      type="button"
+                      class="tip"
+                      data-tooltip="Leave blank when this UI is served from the same host as the API."
+                      aria-label="About API base URL"
+                    >
+                      ?
+                      <span class="tip__bubble" role="tooltip">
+                        Leave blank when this UI is served from the same host as the API.
+                      </span>
+                    </button>
+                  </div>
                   <input
                     id="api-base"
                     name="api_base"
@@ -465,7 +629,21 @@
                   />
                 </div>
                 <div class="field">
-                  <label for="api-key">API key</label>
+                  <div class="field__label-row">
+                    <label for="api-key">API key</label>
+                    <button
+                      type="button"
+                      class="tip"
+                      data-tooltip="Bearer key when CF_AUTH_REQUIRED is set. Use Get local dev key in non-production."
+                      aria-label="About API key"
+                    >
+                      ?
+                      <span class="tip__bubble" role="tooltip">
+                        Bearer key when CF_AUTH_REQUIRED is set. Use Get local dev key in
+                        non-production.
+                      </span>
+                    </button>
+                  </div>
                   <input
                     id="api-key"
                     name="api_key"
@@ -476,26 +654,48 @@
                   />
                 </div>
                 <div class="btn-row">
-                  <button type="button" class="btn btn--ghost" id="btn-bootstrap">
+                  <button
+                    type="button"
+                    class="btn btn--ghost"
+                    id="btn-bootstrap"
+                    data-tooltip="Create/reset local dev tenant key (blocked in production env)."
+                  >
                     Get local dev key
-                  </button>
-                  <button type="button" class="btn btn--ghost" id="btn-whoami">
-                    Who am I
-                  </button>
-                  <button type="button" class="btn btn--ghost" id="btn-health">
-                    Check API
-                  </button>
-                  <button type="button" class="btn btn--ghost" id="btn-compile">
-                    Compile only
                   </button>
                   <button
                     type="button"
                     class="btn btn--ghost"
-                    id="btn-compile-incremental"
-                    title="Full validate + prior-IR reconcile + stale preview (not production film)"
+                    id="btn-whoami"
+                    data-tooltip="Show tenant and actor from current API key."
                   >
-                    Compile incremental
+                    Who am I
                   </button>
+                  <button
+                    type="button"
+                    class="btn btn--ghost"
+                    id="btn-health"
+                    data-tooltip="GET /health — liveness, backend, version."
+                  >
+                    Check API
+                  </button>
+                  <details class="menu" id="menu-compile">
+                    <summary class="menu__trigger" aria-label="Compile actions">Compile</summary>
+                    <div class="menu__panel" role="menu">
+                      <button type="button" class="menu__item" id="btn-compile" role="menuitem">
+                        Compile only
+                        <span class="menu__hint">Production IR JSON · full path</span>
+                      </button>
+                      <button
+                        type="button"
+                        class="menu__item"
+                        id="btn-compile-incremental"
+                        role="menuitem"
+                      >
+                        Compile incremental
+                        <span class="menu__hint">Prior-IR + invalidation · not film</span>
+                      </button>
+                    </div>
+                  </details>
                 </div>
               </div>
             </details>
@@ -562,7 +762,20 @@
               <div class="fold__body">
                 <div class="field-row">
                   <div class="field">
-                    <label for="holder">Actor / lease holder</label>
+                    <div class="field__label-row">
+                      <label for="holder">Actor / lease holder</label>
+                      <button
+                        type="button"
+                        class="tip"
+                        data-tooltip="Identity that holds the exclusive write lease for mutations."
+                        aria-label="About lease holder"
+                      >
+                        ?
+                        <span class="tip__bubble" role="tooltip">
+                          Identity that holds the exclusive write lease for mutations.
+                        </span>
+                      </button>
+                    </div>
                     <input
                       id="holder"
                       name="holder"
@@ -573,15 +786,28 @@
                     />
                   </div>
                   <div class="field">
-                    <label for="approval-kind">Approval type</label>
-                    <input
-                      id="approval-kind"
-                      name="approval_kind"
-                      type="text"
-                      autocomplete="off"
-                      spellcheck="false"
-                      value="commit_candidate"
-                    />
+                    <div class="field__label-row">
+                      <label for="approval-kind">Approval type</label>
+                      <button
+                        type="button"
+                        class="tip"
+                        data-tooltip="Kind of human decision recorded on the project. Does not auto-elevate PROPOSED media."
+                        aria-label="About approval type"
+                      >
+                        ?
+                        <span class="tip__bubble" role="tooltip">
+                          Kind of human decision recorded on the project. Does not
+                          auto-elevate PROPOSED media.
+                        </span>
+                      </button>
+                    </div>
+                    <select id="approval-kind" name="approval_kind">
+                      <option value="commit_candidate" selected>Commit candidate</option>
+                      <option value="continuity_waiver">Continuity waiver</option>
+                      <option value="identity_lock">Identity lock</option>
+                      <option value="high_cost_campaign">High-cost campaign</option>
+                      <option value="other">Other (operator)</option>
+                    </select>
                   </div>
                 </div>
                 <div class="field">

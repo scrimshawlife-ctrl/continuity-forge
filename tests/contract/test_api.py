@@ -275,16 +275,22 @@ def test_web_ui_is_served() -> None:
     client = TestClient(app)
     index = client.get("/")
     assert index.status_code == 200
-    assert "Run a proof" in index.text or "Build breakdown" in index.text
     assert "Build breakdown" in index.text
     assert "Run proof" in index.text
+    assert "Shot breakdown" in index.text
     assert "Import file" in index.text
     assert 'id="btn-import"' in index.text
     assert 'id="script-file"' in index.text
-    assert "Download breakdown JSON" in index.text
     assert 'id="btn-breakdown"' in index.text
     assert 'id="btn-breakdown-sticky"' in index.text
-    assert "Build breakdown" in index.text
+    assert 'id="menu-script-more"' in index.text
+    assert 'id="menu-export"' in index.text
+    assert "Breakdown JSON" in index.text
+    assert "tip__bubble" in index.text
+    assert "data-tooltip" in index.text
+    assert "menu__panel" in index.text
+    assert "Approval type" in index.text
+    assert "commit_candidate" in index.text
     assert "controlled_proof_not_production_ready" in index.text
     assert 'id="claim-post-proof"' in index.text
     assert "not ready — mock controlled proof only" in index.text
@@ -313,6 +319,8 @@ def test_web_ui_is_served() -> None:
     assert "Hallmark" in styles.text
     assert "claim-banner--post-proof" in styles.text
     assert "cost-panel" in styles.text
+    assert ".tip" in styles.text
+    assert ".menu__panel" in styles.text
     tokens = client.get("/tokens.css")
     assert tokens.status_code == 200
     assert "--color-accent" in tokens.text
@@ -342,6 +350,8 @@ def test_web_ui_is_served() -> None:
     assert "buildBreakdown" in app_js.text
     assert "exportBreakdownJson" in app_js.text
     assert "importScriptFile" in app_js.text
+    assert "wireMenus" in app_js.text
+    assert "wireTooltips" in app_js.text
     assert 'id="workflow-panel"' in index.text
     assert "workflow complete ≠ production ready" in index.text or (
         "workflow complete" in index.text and "production ready" in index.text

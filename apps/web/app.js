@@ -827,8 +827,13 @@ function logicalShots() {
 
   if (tableView.statusFilter === "accept") {
     shots = shots.filter((s) => String(s.status || "").includes("accept"));
+  } else if (tableView.statusFilter === "breakdown") {
+    shots = shots.filter((s) => String(s.status || "") === "breakdown");
   } else if (tableView.statusFilter === "fail") {
-    shots = shots.filter((s) => !String(s.status || "").includes("accept"));
+    shots = shots.filter((s) => {
+      const st = String(s.status || "");
+      return !st.includes("accept") && st !== "breakdown";
+    });
   }
 
   if (tableView.repairFilter === "yes") {
@@ -1852,13 +1857,17 @@ async function buildBreakdown() {
 }
 
 async function copyReceiptHash() {
-  if (!lastReceipt?.receipt_hash) {
-    showAlert("No receipt hash to copy.");
+  const hash =
+    lastBreakdown?.package_hash ||
+    lastReceipt?.receipt_hash ||
+    null;
+  if (!hash) {
+    showAlert("No package/receipt hash to copy.");
     return;
   }
   try {
-    await navigator.clipboard.writeText(String(lastReceipt.receipt_hash));
-    showAlert("Receipt hash copied.", "ok");
+    await navigator.clipboard.writeText(String(hash));
+    showAlert("Hash copied.", "ok");
   } catch {
     showAlert("Clipboard unavailable — copy from the receipt panel.");
   }
@@ -1913,6 +1922,66 @@ function wireStickyCta() {
   io.observe(primary);
 }
 
+/** Close other open menus; keep one details.menu open at a time. */
+function wireMenus() {
+  const menus = document.querySelectorAll("details.menu");
+  menus.forEach((menu) => {
+    menu.addEventListener("toggle", () => {
+      if (!menu.open) return;
+      menus.forEach((other) => {
+        if (other !== menu) other.open = false;
+      });
+    });
+    // Close menu after choosing an item
+    menu.querySelectorAll(".menu__item").forEach((item) => {
+      item.addEventListener("click", () => {
+        menu.open = false;
+      });
+    });
+  });
+  document.addEventListener("click", (ev) => {
+    menus.forEach((menu) => {
+      if (menu.open && !menu.contains(ev.target)) menu.open = false;
+    });
+  });
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape") {
+      menus.forEach((menu) => {
+        menu.open = false;
+      });
+    }
+  });
+}
+
+/** Accessible tip buttons + data-tooltip has-tip elements. */
+function wireTooltips() {
+  document.querySelectorAll("button.tip").forEach((btn) => {
+    const bubble = btn.querySelector(".tip__bubble");
+    if (!bubble) return;
+    const text = btn.getAttribute("data-tooltip") || bubble.textContent.trim();
+    if (text && !bubble.textContent.trim()) bubble.textContent = text;
+    btn.setAttribute("aria-expanded", "false");
+    btn.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      const open = btn.getAttribute("aria-expanded") === "true";
+      document.querySelectorAll("button.tip[aria-expanded='true']").forEach((b) => {
+        if (b !== btn) {
+          b.setAttribute("aria-expanded", "false");
+          b.classList.remove("is-open");
+        }
+      });
+      btn.setAttribute("aria-expanded", open ? "false" : "true");
+      btn.classList.toggle("is-open", !open);
+    });
+  });
+  // Native title fallback for compact chips/stats using data-tooltip
+  document.querySelectorAll("[data-tooltip]").forEach((el) => {
+    if (el.classList.contains("tip")) return;
+    const t = el.getAttribute("data-tooltip");
+    if (t && !el.getAttribute("title")) el.setAttribute("title", t);
+  });
+}
+
 function restorePrefs() {
   try {
     const base = localStorage.getItem("cf.apiBase");
@@ -1939,6 +2008,8 @@ function wire() {
   setStep(1);
   setRunState("idle", "ready");
   wireStickyCta();
+  wireMenus();
+  wireTooltips();
   applyNavFromUrl();
 
   els.btnSceneAll?.addEventListener("click", () => setSceneFocus(null));
