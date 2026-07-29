@@ -8,14 +8,14 @@ Continuity Forge converts a screenplay into a provenance-preserving Production I
 
 > Models generate pixels and proposals. Continuity Forge governs identity, memory, causality, approvals, and production truth.
 
-**Version 1.5.2** — handoff tag **`v1.5.2`** (breakdown default path for UI/Hermes/connectors).  
+**Version 1.5.3** — handoff tag **`v1.5.3`** (breakdown path + UI dropdowns/tooltips).  
 Baseline freeze remains **`v1.4.0`**. Default PR gate: `make validate` (includes handoff harness). Phase 2: packaging + Postgres/MinIO smoke — see `docs/SETUP.md` §3.
 
 | Doc | Contents |
 |-----|----------|
 | **[docs/HANDOFF.md](docs/HANDOFF.md)** | **Working product path:** paste/import → shot breakdown + continuity → JSON/API |
-| **[docs/releases/1.5.2.md](docs/releases/1.5.2.md)** | **Current handoff pin** |
-| **[docs/releases/1.5.1.md](docs/releases/1.5.1.md)** | File import + harness in CI |
+| **[docs/releases/1.5.3.md](docs/releases/1.5.3.md)** | **Current handoff pin** (UI polish) |
+| **[docs/releases/1.5.2.md](docs/releases/1.5.2.md)** | Integrator alignment |
 | **[docs/releases/1.4.0.md](docs/releases/1.4.0.md)** | **Baseline freeze** (pre-handoff kernel) |
 | **[docs/SETUP.md](docs/SETUP.md)** | Full install, env, UI, MCP, Docker |
 | **[docs/hermes/README.md](docs/hermes/README.md)** | Hermes skill + MCP integration |
@@ -74,11 +74,11 @@ Nothing in this table is **Production-validated**. Controlled proof and mock pat
 **Pin a known-good tree:**
 
 ```bash
-git checkout v1.5.2   # recommended handoff pin — see docs/releases/1.5.2.md
+git checkout v1.5.3   # recommended handoff pin — see docs/releases/1.5.3.md
 git checkout v1.4.0   # baseline freeze only — see docs/releases/1.4.0.md
 ```
 
-Forward work continues on `main` (1.6+). `1.5.x` = handoff bugfixes; `1.4.x` = freeze-story patches only.
+Forward work continues on `main` (1.6+). `1.5.x` = handoff / UI fixes; `1.4.x` = freeze-story patches only.
 
 ---
 
@@ -218,7 +218,7 @@ Canonical mutations require schema validation, provenance, deterministic diagnos
 
 **Public research repository** ([github.com/scrimshawlife-ctrl/continuity-forge](https://github.com/scrimshawlife-ctrl/continuity-forge)). Source is published for research and collaboration; this is **not** a production-supported product release and does not imply production readiness.
 
-Package version: **1.5.2** (kept in sync with [`pyproject.toml`](pyproject.toml) `[project].version`).
+Package version: **1.5.3** (kept in sync with [`pyproject.toml`](pyproject.toml) `[project].version`).
 
 Controlled proof uses mock media; production providers and durability backends are optional and env-gated. See milestone labels above for Implemented vs Integration-tested vs Production-validated.
 
