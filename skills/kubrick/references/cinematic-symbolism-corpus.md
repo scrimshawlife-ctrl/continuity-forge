@@ -208,3 +208,36 @@ These are analyzed patterns from specific films/directors. Meaning is never fixe
 - Music Video: rapid motif transfer across image, editing, and sound; high mutation rate required.
 
 Rule: When genre/scale/tradition is specified, select cinematic patterns whose production_cost and transferable_structure match the constraints. Prefer low-cost operations (blocking, sound, editing, recurring prop) over high-cost (new locations, heavy VFX, complex lighting).
+
+
+### Film-Pattern Provenance Depth Examples (selected)
+
+**Kubrick Monolith (expanded)**
+film_pattern:
+  observed_technique: "Perfect black rectangle appearing at evolutionary thresholds; graphic match from bone to spacecraft; long silent holds; low symmetrical framing."
+  scene_context: "Humanity encounters the unknown at key moments of advancement or crisis."
+  recurring_pattern: "Monolith appears four times with increasing scale and abstraction."
+  inferred_function: "Catalyst for transformation without explanation; enclosure of mystery."
+  alternate_readings: ["Alien artifact", "Divine intervention", "Psychological projection", "Narrative MacGuffin"]
+  filmmaker_statement: "Kubrick deliberately avoided explicit explanation."
+  critic_interpretation: "Often read as evolutionary or spiritual threshold (e.g., Clarke's novel vs film differences)."
+  audience_common_reading: "Mysterious black slab that 'does something' at key moments."
+  transferable_structure: "Repetition with escalating scale and abstraction; graphic match across time; silence as charge carrier; symmetry that feels unnatural."
+  non_transferable_surface: "Literal black rectangle, monolith shape, specific Jupiter alignment, HAL's red eye."
+
+**Tarkovsky Water/Reflection (expanded)**
+film_pattern:
+  observed_technique: "Long takes of water surfaces, rain, reflections that distort faces/rooms; sound of water often acousmatic or dominant."
+  scene_context: "Memory, the Zone, or emotional states bleed into physical reality."
+  recurring_pattern: "Water appears in personal and metaphysical contexts with increasing distortion."
+  inferred_function: "Medium for memory and transformation; boundary between inner and outer."
+  transferable_structure: "Reflection as doubling with distortion; sound that outlasts image; slow camera movement into or across liquid."
+  non_transferable_surface: "Specific Russian locations, exact Tarkovsky pacing and Orthodox imagery."
+
+**Bresson Hands (expanded)**
+film_pattern:
+  observed_technique: "Extreme close-ups on hands performing precise actions (theft, labor, prayer); sound of objects emphasized; faces often withheld or minimal."
+  scene_context: "Moral or spiritual transformation shown through physical gesture rather than psychology."
+  recurring_pattern: "Hands as the primary site of action and meaning across multiple films."
+  transferable_structure: "Isolation of gesture; sound design that gives objects weight; withholding of face to focus on action as symbol."
+  non_transferable_surface: "Specific Bresson models, Catholic context, black-and-white photography."
