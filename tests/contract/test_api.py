@@ -272,93 +272,45 @@ def test_controlled_proof_endpoint() -> None:
 
 
 def test_web_ui_is_served() -> None:
+    """Creative product shell is served at / (not the old proof-console primary)."""
     client = TestClient(app)
     index = client.get("/")
     assert index.status_code == 200
-    assert "Build breakdown" in index.text
-    assert "Run proof" in index.text
-    assert "Shot breakdown" in index.text
+    # Primary creative language
+    assert "Analyze Script" in index.text
+    assert "Start a Production" in index.text or "New Project" in index.text
     assert "Import file" in index.text
+    for nav in ("Projects", "Scenes", "Continuity", "Generate", "Review", "Export"):
+        assert nav in index.text
     assert 'id="btn-import"' in index.text
     assert 'id="script-file"' in index.text
-    assert 'id="btn-breakdown"' in index.text
-    assert 'id="btn-breakdown-sticky"' in index.text
-    assert 'id="menu-script-more"' in index.text
-    assert 'id="menu-export"' in index.text
-    assert "Breakdown JSON" in index.text
-    assert "tip__bubble" in index.text
-    assert "data-tooltip" in index.text
-    assert "menu__panel" in index.text
-    assert "Approval type" in index.text
-    assert "commit_candidate" in index.text
-    assert "controlled_proof_not_production_ready" in index.text
-    assert 'id="claim-post-proof"' in index.text
-    assert "not ready — mock controlled proof only" in index.text
-    assert "Approval queue empty" in index.text
-    assert "Request approval" in index.text
-    assert "Repair / rationale" in index.text
-    assert 'id="scene-nav"' in index.text
-    assert "All scenes" in index.text
-    assert 'id="shot-empty"' in index.text
-    assert 'id="shot-virtual"' in index.text
-    assert "Virtualize rows" in index.text
-    assert 'id="shot-filter-status"' in index.text
-    assert "Preview stale" in index.text
-    assert ">Stale<" in index.text or "Stale</th>" in index.text
-    assert 'id="canon"' in index.text
-    assert 'id="control"' in index.text
-    assert "Acquire lease" in index.text
-    assert "Compile incremental" in index.text
-    assert 'id="btn-compile-incremental"' in index.text
-    assert 'id="receipt-budget"' in index.text
-    assert 'id="cost-panel"' in index.text
-    assert 'id="claim-budget-label"' in index.text
-    assert "Cost ledger" in index.text
+    assert 'id="btn-analyze"' in index.text
+    assert 'id="btn-analyze-sticky"' in index.text
+    assert 'id="btn-new-project"' in index.text
+    assert 'id="view-scenes"' in index.text
+    assert 'id="view-continuity"' in index.text
+    assert 'id="view-generate"' in index.text
+    assert 'id="view-export"' in index.text
+    assert "Prepare Scene for Generation" in index.text
+    # Developer progressive disclosure (not peer primary CTA)
+    assert "Settings" in index.text
+    assert "Run Mock Pipeline Test" in index.text
+    assert "Developer" in index.text
+    assert "claim-banner" not in index.text
+    assert "Acquire lease" not in index.text
     styles = client.get("/styles.css")
     assert styles.status_code == 200
-    assert "Hallmark" in styles.text
-    assert "claim-banner--post-proof" in styles.text
-    assert "cost-panel" in styles.text
-    assert ".tip" in styles.text
-    assert ".menu__panel" in styles.text
-    tokens = client.get("/tokens.css")
-    assert tokens.status_code == 200
-    assert "--color-accent" in tokens.text
-    assert "Terminal" in tokens.text
+    assert ".nav__item" in styles.text or ".topbar" in styles.text
+    assert "btn--primary" in styles.text
     app_js = client.get("/app.js")
     assert app_js.status_code == 200
-    assert "/v1/proof" in app_js.text
-    assert "/v1/projects" in app_js.text
-    assert "controlled_proof_not_production_ready" in app_js.text
-    assert "repairRationaleSummary" in app_js.text
-    assert "Approval queue empty" in app_js.text or "approval-empty" in app_js.text
-    assert "not production ready" in app_js.text
-    assert "buildSceneIndex" in app_js.text
-    assert "setSceneFocus" in app_js.text
-    assert "scene_id" in app_js.text
-    assert "logicalShots" in app_js.text
-    assert "renderShotTableVirtual" in app_js.text
-    assert "useVirtualization" in app_js.text
-    assert "virtualThreshold" in app_js.text
-    assert "/v1/compile/incremental" in app_js.text
-    assert "compileIncremental" in app_js.text
-    assert "lastCompiledDocument" in app_js.text
-    assert "renderCostPanel" in app_js.text
-    assert "over budget" in app_js.text
-    assert "cost_summary" in app_js.text
-    assert "/v1/breakdown" in app_js.text
-    assert "buildBreakdown" in app_js.text
+    assert "analyzeScript" in app_js.text
+    assert "/v1/product/analyze" in app_js.text
+    assert "/v1/breakdown" in app_js.text or "exportBreakdownJson" in app_js.text
+    assert "/v1/proof" in app_js.text  # mock proof remains under Developer
     assert "exportBreakdownJson" in app_js.text
-    assert "importScriptFile" in app_js.text
-    assert "wireMenus" in app_js.text
-    assert "wireTooltips" in app_js.text
-    assert 'id="workflow-panel"' in index.text
-    assert "workflow complete ≠ production ready" in index.text or (
-        "workflow complete" in index.text and "production ready" in index.text
-    )
-    assert "pollWorkflowEvents" in app_js.text
-    assert "/events" in app_js.text
-    assert "workflow_complete" in app_js.text or "not production ready" in app_js.text
+    tokens = client.get("/tokens.css")
+    assert tokens.status_code == 200
 
 
 def test_health_reports_version() -> None:

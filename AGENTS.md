@@ -28,8 +28,10 @@ M0–M7 controlled-proof path is complete. Prefer campaign docs under `docs/camp
 Post-proof foundations (providers, Temporal, Postgres/S3, multi-tenant auth, runtime wiring)
 and operator UI v1.3 are on `main`.
 
-Operator UI: `apps/web/` (Hallmark Terminal · Workbench). Served from the API at `/`.
-Default UX: script → Run proof → receipt. Advanced: leases, approvals, runs, connection.
+Operator UI: `apps/web/` (creative production workspace). Served from the API at `/`.
+Default UX: New Project → Analyze Script → Scenes / Continuity → Export.
+Developer: Settings → mock proof, hashes, raw JSON. Product adapters: `/v1/product/*`.
+See `docs/PRODUCT_WORKFLOW.md` and `docs/architecture/OPERATOR_UI_ARCHITECTURE.md`.
 
 Hermes skill (agentic operator): `skills/hermes-continuity-forge/`.
 Install + MCP wiring: `docs/hermes/README.md`.

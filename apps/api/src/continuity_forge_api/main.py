@@ -24,7 +24,20 @@ from continuity_forge_operator import (
     OperatorError,
     ProjectRecord,
     WriteLease,
+    apply_operator_override,
+    build_analysis_summary,
+    build_entity_profiles,
+    build_scene_cards,
+    build_scene_detail,
+    detect_script_format,
+    friendly_parser_error,
+    generate_document_key,
+    make_review_decision,
+    package_is_provider_neutral,
+    prepare_scene_package,
+    resolve_conflict,
 )
+from continuity_forge_operator.product_workflow import OperatorOverride
 from continuity_forge_providers import ArtifactCandidate
 from continuity_forge_repair import LoopResult, ProofReceipt, run_controlled_proof, run_repair_loop
 from continuity_forge_runtime import RuntimeContext, get_runtime
@@ -671,6 +684,460 @@ def controlled_proof(
     except (OperatorError, PipelineError, ValueError) as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     return receipt
+
+
+# --- Product workflow adapters (view models; do not replace kernel contracts) -
+
+
+class ProductAnalyzeRequest(BaseModel):
+    title: str = "Untitled"
+    text: str
+    document_key: str | None = None
+    format: Literal["fountain", "fdx"] = "fountain"
+    revision: str = "0.1.0"
+    production_type: str | None = None
+    resolved_conflict_ids: list[str] = Field(default_factory=list)
+    overrides: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class ProductCreateProjectRequest(BaseModel):
+    title: str = Field(min_length=1)
+    production_type: str = "Other"
+    text: str = ""
+    format: Literal["fountain", "fdx"] | None = None
+    filename: str | None = None
+    document_key: str | None = None
+    actor_id: str = "product-ui"
+    persist: bool = True
+
+
+class ProductPrepareSceneRequest(BaseModel):
+    title: str = "Untitled"
+    text: str
+    document_key: str | None = None
+    format: Literal["fountain", "fdx"] = "fountain"
+    revision: str = "0.1.0"
+    scene_id: str
+    warnings_acknowledged: bool = False
+    resolved_conflict_ids: list[str] = Field(default_factory=list)
+    overrides: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class ProductOverrideRequest(BaseModel):
+    title: str = "Untitled"
+    text: str
+    document_key: str | None = None
+    format: Literal["fountain", "fdx"] = "fountain"
+    revision: str = "0.1.0"
+    target_kind: str
+    target_id: str
+    field_name: str
+    original_value: str
+    locked_value: str
+    rationale: str = ""
+    confirm: bool = False
+    existing_overrides: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class ProductResolveConflictRequest(BaseModel):
+    conflict: dict[str, Any]
+    choice_id: str
+    document_key: str | None = None
+
+
+class ProductReviewDecisionRequest(BaseModel):
+    shot_id: str
+    action: Literal["accept", "accept_with_note", "repair", "regenerate", "reject"]
+    candidate_id: str | None = None
+    note: str = ""
+    actor_id: str = "operator"
+    document_key: str | None = None
+
+
+def _parse_overrides(raw: list[dict[str, Any]]) -> list[OperatorOverride]:
+    out: list[OperatorOverride] = []
+    for item in raw:
+        try:
+            out.append(OperatorOverride.model_validate(item))
+        except Exception as exc:  # noqa: BLE001 — skip malformed overlay entries
+            _ = exc
+            continue
+    return out
+
+
+def _product_store_key(document_key: str | None, tenant_id: str = "anonymous") -> str | None:
+    if not document_key:
+        return None
+    if "::" in document_key:
+        return document_key
+    return tenant_document_key(tenant_id, document_key)
+
+
+def _meta_list(meta: dict[str, object], key: str) -> list[Any]:
+    raw = meta.get(key)
+    if isinstance(raw, list):
+        return list(raw)
+    return []
+
+
+def _merged_overrides(
+    request_overrides: list[dict[str, Any]],
+    document_key: str | None,
+) -> list[OperatorOverride]:
+    """Client overrides plus durable ProjectStore product_meta locks."""
+    overrides = _parse_overrides(request_overrides)
+    store_key = _product_store_key(document_key)
+    if store_key:
+        meta = _rt().project_store.get_product_meta(store_key)
+        if meta:
+            # Store first so later request overrides can supersede same field
+            overrides = _parse_overrides(_meta_list(meta, "overrides")) + overrides
+    return overrides
+
+
+def _product_package_and_overrides(
+    *,
+    text: str,
+    title: str = "Untitled",
+    document_key: str | None = None,
+    format: Literal["fountain", "fdx"] = "fountain",
+    revision: str = "0.1.0",
+    request_overrides: list[dict[str, Any]] | None = None,
+) -> tuple[BreakdownPackage, list[OperatorOverride]]:
+    """Single product load path: kernel package + merged USER_LOCKED overrides.
+
+    Every product read/mutation that returns scene/entity view models must use
+    this helper so durable locks cannot be forgotten on a single surface.
+    """
+    if not text.strip():
+        err = friendly_parser_error("empty script")
+        raise HTTPException(status_code=400, detail=err.model_dump(mode="json"))
+    try:
+        package = build_breakdown_from_text(
+            text,
+            title=title,
+            document_key=document_key,
+            format=format,
+            revision=revision,
+        )
+    except Exception as exc:
+        err = friendly_parser_error(exc)
+        raise HTTPException(status_code=400, detail=err.model_dump(mode="json")) from exc
+    overrides = _merged_overrides(request_overrides or [], document_key)
+    return package, overrides
+
+
+@app.post("/v1/product/create-project")
+def product_create_project(
+    request: ProductCreateProjectRequest,
+    principal: Principal = Depends(require_principal),
+) -> dict[str, Any]:
+    """Create a durable project via ProjectStore when script text is present.
+
+    Uses MutationEnvelope + ingest_script(require_lease=False). Product meta
+    (production_type, phase) is stored on the same runtime store overlay.
+    """
+    key_raw = request.document_key or generate_document_key(request.title)
+    key = tenant_document_key(principal.tenant_id, key_raw)
+    fmt = request.format
+    if fmt is None and request.text:
+        fmt = detect_script_format(request.filename, request.text)
+    if fmt is None:
+        fmt = "fountain"
+    phase = "IMPORTED" if request.text.strip() else "EMPTY"
+    project_dump: dict[str, Any] | None = None
+    if request.persist and request.text.strip():
+        envelope = MutationEnvelope.from_parts(
+            actor_id=request.actor_id or principal.actor_id,
+            authorization_scope="product.create",
+            idempotency_key=f"product-create-{key}-{content_hash_safe(request.text)}",
+            rationale="Product UI project create / import",
+        )
+        try:
+            project, _run = _rt().project_store.ingest_script(
+                document_key=key,
+                title=request.title.strip(),
+                text=request.text,
+                revision="0.1.0",
+                format=fmt,
+                envelope=envelope,
+                require_lease=False,
+            )
+            project_dump = project.model_dump(mode="json")
+            phase = "IMPORTED"
+        except (OperatorError, PipelineError) as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+    meta = _rt().project_store.put_product_meta(
+        key,
+        {
+            "production_type": request.production_type,
+            "phase": phase,
+            "title": request.title.strip(),
+            "format": fmt,
+            "document_key": key_raw,
+            "tenant_document_key": key,
+            "overrides": [],
+            "resolved_conflict_ids": [],
+            "review_decisions": [],
+        },
+    )
+    return {
+        "document_key": key_raw,
+        "tenant_document_key": key,
+        "title": request.title.strip(),
+        "production_type": request.production_type,
+        "format": fmt,
+        "phase": phase,
+        "persisted": project_dump is not None,
+        "project": project_dump,
+        "product_meta": meta,
+        "supported_inputs": [".fountain", ".fdx", ".txt"],
+    }
+
+
+def content_hash_safe(text: str) -> str:
+    from continuity_forge_ir import content_hash
+
+    return content_hash(text)[:16]
+
+
+@app.post("/v1/product/analyze")
+def product_analyze(request: ProductAnalyzeRequest) -> dict[str, Any]:
+    """Analyze script → creative-language summary + scene cards + continuity profiles.
+
+    Wraps stable ``build_breakdown_from_text``; does not change ``cf.breakdown.v1``.
+    """
+    package, overrides = _product_package_and_overrides(
+        text=request.text,
+        title=request.title,
+        document_key=request.document_key,
+        format=request.format,
+        revision=request.revision,
+        request_overrides=request.overrides,
+    )
+    resolved = set(request.resolved_conflict_ids)
+    summary = build_analysis_summary(
+        package,
+        production_type=request.production_type,
+        resolved_conflict_ids=resolved,
+    )
+    scenes = build_scene_cards(package, conflicts=summary.conflicts, overrides=overrides)
+    entities = build_entity_profiles(package, overrides=overrides)
+    return {
+        "summary": summary.model_dump(mode="json"),
+        "scenes": [s.model_dump(mode="json") for s in scenes],
+        "entities": [e.model_dump(mode="json") for e in entities],
+        "breakdown": package.model_dump(mode="json"),
+        "overrides_applied": [o.model_dump(mode="json") for o in overrides],
+        "analysis_stages": [
+            "Reading screenplay",
+            "Detecting scenes",
+            "Extracting characters and locations",
+            "Building continuity timeline",
+            "Preparing shot suggestions",
+            "Checking for conflicts",
+        ],
+    }
+
+
+@app.post("/v1/product/scenes/{scene_id}")
+def product_scene_detail(
+    scene_id: str,
+    request: ProductAnalyzeRequest,
+) -> dict[str, Any]:
+    """Scene detail view model (entry/exit, shots as cards, conflicts).
+
+    Merges durable product_meta overrides from ProjectStore so scene metadata
+    locks apply even when the client omits the overrides list.
+    """
+    package, overrides = _product_package_and_overrides(
+        text=request.text,
+        title=request.title,
+        document_key=request.document_key,
+        format=request.format,
+        revision=request.revision,
+        request_overrides=request.overrides,
+    )
+    detail = build_scene_detail(
+        package,
+        scene_id,
+        source_text=request.text,
+        resolved_conflict_ids=set(request.resolved_conflict_ids),
+        overrides=overrides,
+    )
+    if detail is None:
+        raise HTTPException(status_code=404, detail="scene not found")
+    return detail.model_dump(mode="json")
+
+
+@app.post("/v1/product/scenes/{scene_id}/prepare")
+def product_prepare_scene(
+    scene_id: str,
+    request: ProductPrepareSceneRequest,
+) -> dict[str, Any]:
+    """Compile a provider-neutral Scene Generation Package (USER_LOCKED applied)."""
+    if request.scene_id and request.scene_id != scene_id:
+        raise HTTPException(status_code=400, detail="scene_id mismatch")
+    package, overrides = _product_package_and_overrides(
+        text=request.text,
+        title=request.title,
+        document_key=request.document_key,
+        format=request.format,
+        revision=request.revision,
+        request_overrides=request.overrides,
+    )
+    try:
+        scene_pkg = prepare_scene_package(
+            package,
+            scene_id,
+            source_text=request.text,
+            warnings_acknowledged=request.warnings_acknowledged,
+            resolved_conflict_ids=set(request.resolved_conflict_ids),
+            overrides=overrides,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return {
+        "package": scene_pkg.model_dump(mode="json"),
+        "provider_neutral": package_is_provider_neutral(scene_pkg),
+        "export_only": True,
+        "providers_configured": False,
+        "overrides_applied": [o.model_dump(mode="json") for o in overrides],
+        "message": (
+            "No generation provider is connected. "
+            "You can still export the complete scene and shot packages."
+        ),
+    }
+
+
+@app.post("/v1/product/override/preview")
+def product_override_preview(request: ProductOverrideRequest) -> dict[str, Any]:
+    """Preview or confirm operator override + invalidation.
+
+    When ``confirm=true``, persists USER_LOCKED override on product meta and
+    returns profiles with locked values applied. Does not rewrite kernel package.
+    """
+    package, store_overrides = _product_package_and_overrides(
+        text=request.text,
+        title=request.title,
+        document_key=request.document_key,
+        format=request.format,
+        revision=request.revision,
+        request_overrides=request.existing_overrides,
+    )
+    override, preview = apply_operator_override(
+        target_kind=request.target_kind,
+        target_id=request.target_id,
+        field_name=request.field_name,
+        original_value=request.original_value,
+        locked_value=request.locked_value,
+        package=package,
+        rationale=request.rationale,
+    )
+    all_overrides = store_overrides + [override]
+    profiles = build_entity_profiles(package, overrides=all_overrides)
+    result: dict[str, Any] = {
+        "override": override.model_dump(mode="json"),
+        "invalidation": preview.model_dump(mode="json"),
+        "requires_confirmation": not request.confirm,
+        "entities": [e.model_dump(mode="json") for e in profiles],
+        "note": "Override preserves original extracted value; locked value is USER_LOCKED.",
+    }
+    if request.confirm and request.document_key:
+        store_key = _product_store_key(request.document_key) or request.document_key
+        meta = _rt().project_store.get_product_meta(store_key) or {}
+        prior = _meta_list(meta, "overrides")
+        prior.append(override.model_dump(mode="json"))
+        stored = _rt().project_store.put_product_meta(
+            store_key,
+            {
+                **meta,
+                "overrides": prior,
+                "phase": "STALE",
+            },
+        )
+        result["confirmed"] = True
+        result["product_meta"] = stored
+    return result
+
+
+@app.post("/v1/product/conflicts/resolve")
+def product_resolve_conflict(request: ProductResolveConflictRequest) -> dict[str, Any]:
+    """Record an explicit conflict resolution choice (no silent pick)."""
+    from continuity_forge_operator.product_workflow import ConflictCard
+
+    try:
+        card = ConflictCard.model_validate(request.conflict)
+        resolved = resolve_conflict(card, request.choice_id)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    store_key = _product_store_key(request.document_key)
+    if store_key:
+        meta = _rt().project_store.get_product_meta(store_key) or {}
+        ids = _meta_list(meta, "resolved_conflict_ids")
+        if resolved.conflict_id not in ids:
+            ids.append(resolved.conflict_id)
+        _rt().project_store.put_product_meta(store_key, {**meta, "resolved_conflict_ids": ids})
+    return {"conflict": resolved.model_dump(mode="json")}
+
+
+@app.post("/v1/product/review/decision")
+def product_review_decision(request: ProductReviewDecisionRequest) -> dict[str, Any]:
+    """Record accept/repair/regenerate/reject intent with lineage preserved.
+
+    Does not silently mutate canon — acceptance flags intent only.
+    Canon advancement requires MutationEnvelope-backed store paths.
+    """
+    decision = make_review_decision(
+        shot_id=request.shot_id,
+        action=request.action,
+        candidate_id=request.candidate_id,
+        note=request.note,
+        actor_id=request.actor_id,
+    )
+    store_key = _product_store_key(request.document_key)
+    if store_key:
+        meta = _rt().project_store.get_product_meta(store_key) or {}
+        decisions = _meta_list(meta, "review_decisions")
+        decisions.append(decision.model_dump(mode="json"))
+        _rt().project_store.put_product_meta(store_key, {**meta, "review_decisions": decisions})
+        # Optional: request approval via validated mutation path when accepting
+        if decision.advances_canon:
+            try:
+                envelope = MutationEnvelope.from_parts(
+                    actor_id=request.actor_id,
+                    authorization_scope="product.review.accept",
+                    idempotency_key=f"review-{decision.decision_id}",
+                    rationale=(
+                        f"Accept candidate for shot {request.shot_id}: "
+                        f"{request.note or 'operator accept'}"
+                    ),
+                )
+                if _rt().project_store.get_project(store_key) is not None:
+                    # Lease required by store — acquire briefly for approval path
+                    try:
+                        _rt().project_store.acquire_lease(
+                            store_key, request.actor_id, scope="project", ttl_seconds=60
+                        )
+                    except OperatorError:
+                        pass
+                    _rt().project_store.request_approval(
+                        document_key=store_key,
+                        kind="commit_candidate",
+                        envelope=envelope,
+                        target_ref=request.shot_id,
+                    )
+            except OperatorError:
+                pass  # approval optional when lease/project missing
+    return {
+        "decision": decision.model_dump(mode="json"),
+        "lineage_preserved": decision.lineage_preserved,
+        "advances_canon_via_mutation_envelope": decision.advances_canon,
+        "note": (
+            "Lineage preserved. Canonical state advances only through validated "
+            "mutation paths — not silent model or UI writes."
+        ),
+    }
 
 
 def _mount_web_ui() -> None:

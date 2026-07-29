@@ -5,985 +5,440 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="Continuity Forge — run a controlled proof and read the receipt."
+      content="Continuity Forge — turn a screenplay into continuity-aware scenes and shot packages."
     />
-    <title>Continuity Forge · Breakdown</title>
+    <title>Continuity Forge</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap"
       rel="stylesheet"
     />
+    <link rel="stylesheet" href="./tokens.css" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <a class="visually-hidden" href="#main">Skip to workbench</a>
+    <a class="skip-link" href="#workspace">Skip to workspace</a>
 
-    <header class="nav-term" role="navigation" aria-label="Primary">
-      <pre class="nav-term__line"><span class="prompt">&gt;</span> continuity-forge
-<a href="#proof" id="nav-source">proof</a>
-<a href="#receipt" id="nav-receipt">results</a>
-<a href="#advanced" id="nav-advanced">advanced</a>
-<a href="#health" id="nav-health">status</a><span class="caret" aria-hidden="true">▮</span></pre>
-    </header>
-
-    <main id="main" class="shell">
-      <header class="mast">
-        <div class="mast__row">
-          <h1>Shot breakdown</h1>
-          <div class="meta-strip" id="health" aria-live="polite">
-            <span class="chip has-tip" id="chip-health" data-tooltip="API liveness from GET /health">api · …</span>
-            <span class="chip has-tip" id="chip-backend" data-tooltip="Persistence backend (memory, file, or production-shaped)">backend · …</span>
-            <span class="chip has-tip" id="chip-version" data-tooltip="API package version">v · …</span>
-            <span class="chip has-tip" id="chip-tenant" hidden data-tooltip="Authenticated tenant id when auth is on">tenant · …</span>
-          </div>
+    <div class="app" id="app">
+      <!-- Top bar -->
+      <header class="topbar" role="banner">
+        <div class="topbar__brand">
+          <span class="topbar__mark" aria-hidden="true">CF</span>
+          <span class="topbar__name">Continuity Forge</span>
         </div>
-        <p class="mast__lede">
-          Paste or import a screenplay. Press <strong>Build breakdown</strong> for a
-          shot-by-shot list with continuity — download JSON for connectors.
-          Optional <strong>Run proof</strong> is mock media only — not production film.
-        </p>
-        <ol class="steps" aria-label="How it works">
-          <li class="steps__item is-current" id="step-1" data-step="1">
-            <span class="steps__n">1</span>
-            <span class="steps__label">Script</span>
-          </li>
-          <li class="steps__item" id="step-2" data-step="2">
-            <span class="steps__n">2</span>
-            <span class="steps__label">Breakdown</span>
-          </li>
-          <li class="steps__item" id="step-3" data-step="3">
-            <span class="steps__n">3</span>
-            <span class="steps__label">Export</span>
-          </li>
-        </ol>
-        <div class="claim-banner" role="note">
-          <strong>Claim:</strong>
-          <code>shot_breakdown_with_continuity_not_production_film</code>
-          <button
-            type="button"
-            class="tip"
-            data-tooltip="Deterministic kernel output only. Not ACCEPTED media or production film. Provider candidates stay PROPOSED until approved."
-            aria-label="About non-production claim"
-          >
-            ?
-            <span class="tip__bubble" role="tooltip">
-              Deterministic kernel output only. Not ACCEPTED media or production film.
-              Provider candidates stay PROPOSED until approved.
-            </span>
+        <div class="topbar__project" id="project-switcher">
+          <label class="visually-hidden" for="project-select">Current project</label>
+          <select id="project-select" class="project-select" aria-label="Current project">
+            <option value="">No project</option>
+          </select>
+          <span class="project-title" id="project-title" aria-live="polite">—</span>
+        </div>
+        <div class="topbar__actions">
+          <button type="button" class="btn btn--ghost btn--sm" id="btn-settings" aria-haspopup="dialog">
+            Settings
           </button>
         </div>
       </header>
 
-      <div id="alert" class="alert alert--error" hidden role="alert"></div>
+      <div class="app__body">
+        <!-- Primary nav (desktop sidebar / mobile bottom) -->
+        <nav class="nav" id="primary-nav" aria-label="Primary">
+          <button type="button" class="nav__item is-active" data-view="projects" aria-current="page">
+            <span class="nav__icon" aria-hidden="true">📁</span>
+            <span class="nav__label">Projects</span>
+          </button>
+          <button type="button" class="nav__item" data-view="scenes" disabled>
+            <span class="nav__icon" aria-hidden="true">🎬</span>
+            <span class="nav__label">Scenes</span>
+          </button>
+          <button type="button" class="nav__item" data-view="continuity" disabled>
+            <span class="nav__icon" aria-hidden="true">🔗</span>
+            <span class="nav__label">Continuity</span>
+          </button>
+          <button type="button" class="nav__item" data-view="generate" disabled>
+            <span class="nav__icon" aria-hidden="true">✦</span>
+            <span class="nav__label">Generate</span>
+          </button>
+          <button type="button" class="nav__item" data-view="review" disabled>
+            <span class="nav__icon" aria-hidden="true">👁</span>
+            <span class="nav__label">Review</span>
+          </button>
+          <button type="button" class="nav__item" data-view="export" disabled>
+            <span class="nav__icon" aria-hidden="true">↓</span>
+            <span class="nav__label">Export</span>
+          </button>
+        </nav>
 
-      <div class="workbench workbench--simple">
-        <!-- PRIMARY: script + run -->
-        <section class="panel panel--wide panel--primary" id="proof" aria-labelledby="proof-title">
-          <div class="panel__head">
-            <h2 class="panel__title" id="proof-title">Your script</h2>
-            <span class="chip chip--accent" id="run-state" data-state="idle">ready</span>
-          </div>
-          <div class="panel__body">
-            <div class="field">
-              <div class="field__label-row">
-                <label for="script">Screenplay text</label>
-                <button
-                  type="button"
-                  class="tip"
-                  data-tooltip="Fountain plain text or Final Draft XML (FDX). Drag a file onto this field or use More → Import file."
-                  aria-label="About screenplay input"
-                >
-                  ?
-                  <span class="tip__bubble" role="tooltip">
-                    Fountain plain text or Final Draft XML (FDX). Drag a file onto this
-                    field or use More → Import file.
-                  </span>
-                </button>
-              </div>
-              <textarea
-                id="script"
-                name="script"
-                spellcheck="false"
-                rows="14"
-                aria-describedby="script-hint"
-                placeholder="Paste Fountain or FDX text…"
-              ></textarea>
-              <p class="field__hint" id="script-hint">
-                Sample continuity script is loaded. Edit freely, then build breakdown.
-                <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>Enter</kbd> builds breakdown.
+        <main id="workspace" class="workspace" tabindex="-1">
+          <div id="alert" class="alert" hidden role="alert"></div>
+
+          <!-- PROJECTS -->
+          <section class="view" id="view-projects" data-view-panel="projects" aria-labelledby="projects-heading">
+            <!-- Empty / start state -->
+            <div id="empty-state" class="empty-state">
+              <h1 id="projects-heading">Start a Production</h1>
+              <p class="lede">
+                Turn a screenplay into continuity-aware scenes and shot packages.
+                Import a script, review the detected story state, resolve conflicts,
+                and prepare consistent generation instructions for every scene.
               </p>
-            </div>
-
-            <div class="primary-actions">
-              <button
-                type="button"
-                class="btn btn--primary btn--xl"
-                id="btn-breakdown"
-                data-tooltip="Compile → continuity ledger → shot contracts. Export JSON for connectors. Not production film."
-              >
-                Build breakdown
+              <button type="button" class="btn btn--primary btn--xl" id="btn-new-project">
+                New Project
               </button>
-              <button
-                type="button"
-                class="btn btn--ghost btn--xl"
-                id="btn-proof"
-                data-tooltip="Optional mock generate/validate/repair loop. Claim: controlled_proof_not_production_ready."
-              >
-                Run proof
-              </button>
-              <details class="menu" id="menu-script-more">
-                <summary class="menu__trigger" aria-label="More script actions">More</summary>
-                <div class="menu__panel" role="menu">
-                  <button type="button" class="menu__item" id="btn-import" role="menuitem">
-                    Import file
-                    <span class="menu__hint">.fountain · .fdx · .txt</span>
-                  </button>
-                  <button type="button" class="menu__item" id="btn-sample" role="menuitem">
-                    Reset sample
-                    <span class="menu__hint">Reload continuity fixture</span>
-                  </button>
-                  <hr class="menu__sep" />
-                  <button type="button" class="menu__item" id="btn-clear" role="menuitem">
-                    Clear script
-                  </button>
-                </div>
-              </details>
-              <input
-                type="file"
-                id="script-file"
-                accept=".fountain,.fdx,.txt,text/plain,application/xml"
-                hidden
-              />
-            </div>
-            <p class="field__hint" id="breakdown-hint">
-              <strong>Handoff path:</strong> paste, import, or edit →
-              <strong>Build breakdown</strong> → download JSON (or Markdown) for
-              connectors. Not production film.
-            </p>
-
-            <div class="run-summary" id="run-meta" hidden aria-live="polite">
-              <div class="stat has-tip" data-tooltip="Wall-clock seconds for last proof run (n/a for breakdown-only)">
-                <span class="stat__k">Time</span>
-                <span class="stat__v" id="meta-elapsed">—</span>
-              </div>
-              <div class="stat has-tip" data-tooltip="Proof wall-clock budget in seconds">
-                <span class="stat__k">Budget</span>
-                <span class="stat__v" id="meta-budget">—</span>
-              </div>
-              <div class="stat has-tip" data-tooltip="Whether proof finished within budget_seconds">
-                <span class="stat__k">On time</span>
-                <span class="stat__v" id="meta-within">—</span>
-              </div>
-              <div class="stat has-tip" data-tooltip="Number of shot rows in the current result">
-                <span class="stat__k">Shots</span>
-                <span class="stat__v" id="meta-shots">—</span>
-              </div>
-              <div class="stat has-tip" data-tooltip="Sum of run-scoped cost ledger (mock is $0.00)">
-                <span class="stat__k">Est. cost</span>
-                <span class="stat__v" id="meta-cost">—</span>
+              <div class="recent" id="recent-projects" hidden>
+                <h2 class="recent__title">Recent Projects</h2>
+                <ul class="recent__list" id="recent-list"></ul>
               </div>
             </div>
 
-            <details class="fold" id="source-options">
-              <summary>Script options</summary>
-              <div class="fold__body">
-                <div class="field-row">
-                  <div class="field">
-                    <div class="field__label-row">
-                      <label for="document-key">Project ID</label>
-                      <button
-                        type="button"
-                        class="tip"
-                        data-tooltip="Stable slug for this project. Tenant prefix is applied when auth is on (tenant::id)."
-                        aria-label="About project ID"
-                      >
-                        ?
-                        <span class="tip__bubble" role="tooltip">
-                          Stable slug for this project. Tenant prefix is applied when
-                          auth is on (tenant::id).
-                        </span>
-                      </button>
-                    </div>
-                    <input
-                      id="document-key"
-                      name="document_key"
-                      type="text"
-                      autocomplete="off"
-                      spellcheck="false"
-                      value="continuity"
-                    />
-                  </div>
-                  <div class="field">
-                    <div class="field__label-row">
-                      <label for="title">Title</label>
-                      <button
-                        type="button"
-                        class="tip"
-                        data-tooltip="Display title stored on the Production IR document."
-                        aria-label="About title"
-                      >
-                        ?
-                        <span class="tip__bubble" role="tooltip">
-                          Display title stored on the Production IR document.
-                        </span>
-                      </button>
-                    </div>
-                    <input id="title" name="title" type="text" value="Continuity Sample" />
-                  </div>
+            <!-- New project form -->
+            <div id="new-project-form" class="card form-card" hidden>
+              <h2>New Project</h2>
+              <form id="form-new-project">
+                <div class="field">
+                  <label for="np-title">Project title</label>
+                  <input id="np-title" name="title" type="text" required autocomplete="off" placeholder="e.g. Night Run — Ep. 1" />
                 </div>
-                <div class="field-row">
-                  <div class="field">
-                    <div class="field__label-row">
-                      <label for="format">Format</label>
-                      <button
-                        type="button"
-                        class="tip"
-                        data-tooltip="Fountain = plain screenplay text. FDX = Final Draft XML."
-                        aria-label="About format"
-                      >
-                        ?
-                        <span class="tip__bubble" role="tooltip">
-                          Fountain = plain screenplay text. FDX = Final Draft XML.
-                        </span>
-                      </button>
-                    </div>
-                    <select id="format" name="format">
-                      <option value="fountain" selected>Fountain</option>
-                      <option value="fdx">Final Draft (FDX)</option>
-                    </select>
+                <div class="field">
+                  <label for="np-type">Production type</label>
+                  <select id="np-type" name="production_type">
+                    <option>Feature Film</option>
+                    <option>TV Episode</option>
+                    <option selected>Short Film</option>
+                    <option>Commercial</option>
+                    <option>Music Video</option>
+                    <option>Online Video</option>
+                    <option>Other</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="script">Script</label>
+                  <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-describedby="script-hint">
+                    <p>Drop a <strong>.fountain</strong>, <strong>.fdx</strong>, or <strong>.txt</strong> file here</p>
+                    <p class="muted">or paste below · PDF and DOCX are not supported yet</p>
                   </div>
-                  <div class="field">
-                    <div class="field__label-row">
-                      <label for="seed">Seed</label>
-                      <button
-                        type="button"
-                        class="tip"
-                        data-tooltip="Deterministic seed for mock proof / generation only. Does not change compile breakdown."
-                        aria-label="About seed"
-                      >
-                        ?
-                        <span class="tip__bubble" role="tooltip">
-                          Deterministic seed for mock proof / generation only. Does not
-                          change compile breakdown.
-                        </span>
-                      </button>
-                    </div>
-                    <input
-                      id="seed"
-                      name="seed"
-                      type="text"
-                      autocomplete="off"
-                      spellcheck="false"
-                      value="proof"
-                    />
-                  </div>
+                  <textarea
+                    id="script"
+                    name="script"
+                    rows="12"
+                    spellcheck="false"
+                    placeholder="Paste Fountain or Final Draft (FDX) text…"
+                    aria-describedby="script-hint"
+                  ></textarea>
+                  <p class="field__hint" id="script-hint">
+                    Format: <span id="format-label">Fountain</span>
+                    · Supported: .fountain · .fdx · .txt
+                  </p>
+                  <input type="file" id="script-file" accept=".fountain,.fdx,.txt,text/plain,application/xml" hidden />
+                </div>
+                <div class="form-actions">
+                  <button type="button" class="btn btn--ghost" id="btn-import">Import file</button>
+                  <button type="button" class="btn btn--ghost" id="btn-sample">Load sample</button>
+                  <button type="button" class="btn btn--ghost" id="btn-clear">Clear</button>
+                  <button type="submit" class="btn btn--primary" id="btn-create-project">Create Project</button>
+                </div>
+              </form>
+            </div>
+
+            <!-- Active project: import + analyze -->
+            <div id="project-workspace" class="project-workspace" hidden>
+              <header class="view-header">
+                <div>
+                  <p class="eyebrow" id="production-type-label">Short Film</p>
+                  <h1 id="active-title">Project</h1>
+                  <p class="muted" id="phase-label">Phase: Imported</p>
+                </div>
+                <div class="view-header__actions">
+                  <button type="button" class="btn btn--ghost" id="btn-change-script">Edit script</button>
+                </div>
+              </header>
+
+              <div class="card" id="script-panel">
+                <h2 class="card__title">Script</h2>
+                <textarea id="script-active" rows="10" spellcheck="false" aria-label="Screenplay text"></textarea>
+                <p class="field__hint">
+                  Format: <span id="format-label-active">Fountain</span>
+                  · <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>Enter</kbd> analyzes
+                </p>
+                <div class="primary-actions">
+                  <button type="button" class="btn btn--primary btn--xl" id="btn-analyze">
+                    Analyze Script
+                  </button>
+                  <button type="button" class="btn btn--ghost" id="btn-import-active">Import file</button>
+                  <button type="button" class="btn btn--ghost" id="btn-sample-active">Sample</button>
                 </div>
               </div>
-            </details>
-          </div>
-        </section>
 
-        <!-- RESULTS -->
-        <section class="panel panel--wide" id="receipt" aria-labelledby="receipt-title">
-          <div class="panel__head">
-            <h2 class="panel__title" id="receipt-title">Results</h2>
-            <div class="panel__head-chips">
-              <span class="chip chip--warn" id="receipt-exec">waiting for proof</span>
-              <span class="chip chip--warn" id="receipt-budget" hidden>budget n/a</span>
-              <span class="chip chip--warn" id="receipt-claim" hidden>not production ready</span>
+              <!-- Analysis progress -->
+              <div id="analysis-progress" class="card progress-card" hidden aria-live="polite">
+                <h2>Analyzing script…</h2>
+                <div class="progress-bar" role="progressbar" aria-valuetext="Working" aria-busy="true">
+                  <div class="progress-bar__indeterminate"></div>
+                </div>
+                <ol class="stage-list" id="stage-list"></ol>
+              </div>
+
+              <!-- Analysis complete summary -->
+              <div id="analysis-summary" class="card summary-card" hidden>
+                <h2>Script analysis complete</h2>
+                <ul class="count-grid" id="count-grid"></ul>
+                <div id="warning-list-wrap" hidden>
+                  <h3>Potential issues</h3>
+                  <ul class="issue-list" id="warning-list"></ul>
+                </div>
+                <div class="primary-actions">
+                  <button type="button" class="btn btn--primary btn--xl" id="btn-review-breakdown">
+                    Review Breakdown
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-          <div class="panel__body">
-            <div id="receipt-empty" class="empty empty--friendly">
-              <p class="empty__lead">No result yet</p>
+          </section>
+
+          <!-- SCENES -->
+          <section class="view" id="view-scenes" data-view-panel="scenes" hidden aria-labelledby="scenes-heading">
+            <header class="view-header">
+              <h1 id="scenes-heading">Scenes</h1>
+              <p class="muted">Review each scene, continuity state, and proposed shots.</p>
+            </header>
+            <div class="scenes-layout">
+              <div class="scene-nav-panel" aria-label="Scene list">
+                <div id="scene-cards" class="scene-cards"></div>
+              </div>
+              <div class="scene-detail-panel" id="scene-detail" hidden>
+                <header class="scene-detail__head">
+                  <div>
+                    <p class="eyebrow" id="sd-status">Needs Review</p>
+                    <h2 id="sd-title">Scene</h2>
+                    <p class="muted" id="sd-slug"></p>
+                  </div>
+                  <div class="scene-detail__nav">
+                    <button type="button" class="btn btn--ghost btn--sm" id="btn-scene-prev">Previous</button>
+                    <button type="button" class="btn btn--ghost btn--sm" id="btn-scene-next">Next</button>
+                  </div>
+                </header>
+                <div class="primary-actions">
+                  <button type="button" class="btn btn--primary" id="btn-prepare-scene">
+                    Prepare Scene for Generation
+                  </button>
+                </div>
+                <div class="detail-grid">
+                  <article class="card">
+                    <h3>Script excerpt</h3>
+                    <pre class="script-excerpt" id="sd-excerpt"></pre>
+                  </article>
+                  <article class="card">
+                    <h3>Scene summary</h3>
+                    <p id="sd-summary" class="inferred-note"></p>
+                  </article>
+                  <article class="card">
+                    <h3>Entities present</h3>
+                    <dl class="kv" id="sd-entities"></dl>
+                  </article>
+                  <article class="card">
+                    <h3>Entry state</h3>
+                    <ul class="value-list" id="sd-entry"></ul>
+                  </article>
+                  <article class="card">
+                    <h3>Exit state</h3>
+                    <ul class="value-list" id="sd-exit"></ul>
+                  </article>
+                  <article class="card card--wide">
+                    <h3>Proposed shots</h3>
+                    <div id="sd-shots" class="shot-cards"></div>
+                  </article>
+                  <article class="card card--wide" id="sd-conflicts-wrap" hidden>
+                    <h3>Conflicts</h3>
+                    <div id="sd-conflicts"></div>
+                  </article>
+                </div>
+              </div>
+              <p id="scenes-empty" class="muted">Analyze a script to see scenes.</p>
+            </div>
+          </section>
+
+          <!-- CONTINUITY -->
+          <section class="view" id="view-continuity" data-view-panel="continuity" hidden aria-labelledby="cont-heading">
+            <header class="view-header">
+              <h1 id="cont-heading">Continuity</h1>
+              <p class="muted">Characters, locations, props, and open conflicts — with provenance.</p>
+            </header>
+            <div class="tabs" role="tablist" aria-label="Continuity sections">
+              <button type="button" class="tabs__btn is-active" role="tab" aria-selected="true" data-ctab="characters">Characters</button>
+              <button type="button" class="tabs__btn" role="tab" aria-selected="false" data-ctab="locations">Locations</button>
+              <button type="button" class="tabs__btn" role="tab" aria-selected="false" data-ctab="wardrobe">Wardrobe</button>
+              <button type="button" class="tabs__btn" role="tab" aria-selected="false" data-ctab="props">Props</button>
+              <button type="button" class="tabs__btn" role="tab" aria-selected="false" data-ctab="timeline">Timeline</button>
+              <button type="button" class="tabs__btn" role="tab" aria-selected="false" data-ctab="relationships">Relationships</button>
+              <button type="button" class="tabs__btn" role="tab" aria-selected="false" data-ctab="conflicts">Conflicts</button>
+            </div>
+            <div id="continuity-panel" class="continuity-panel"></div>
+          </section>
+
+          <!-- GENERATE -->
+          <section class="view" id="view-generate" data-view-panel="generate" hidden aria-labelledby="gen-heading">
+            <header class="view-header">
+              <h1 id="gen-heading">Generate</h1>
+              <p class="muted">Prepare provider-neutral scene packages or export prompts.</p>
+            </header>
+            <div class="card" id="provider-missing">
+              <h2>No generation provider is connected</h2>
               <p>
-                Click <strong>Build breakdown</strong> above for shots + continuity, or
-                optional <strong>Run proof</strong> for mock media. Export JSON for connectors.
+                You can still export complete scene and shot packages.
+                Connect a provider under Settings → Developer when ready.
               </p>
+              <div class="primary-actions">
+                <button type="button" class="btn btn--primary" id="btn-export-from-gen">Export Package</button>
+                <button type="button" class="btn btn--ghost" id="btn-open-dev-providers">Configure Provider</button>
+              </div>
             </div>
-            <div id="receipt-body" hidden>
-              <div class="result-stack" id="result-stack" hidden>
-                <p class="result-banner result-banner--exec" id="result-banner" hidden></p>
-                <div
-                  class="claim-banner claim-banner--post-proof"
-                  id="claim-post-proof"
-                  role="status"
-                  hidden
-                >
-                  <div class="claim-banner__row">
-                    <span class="claim-banner__k">Execution</span>
-                    <span class="claim-banner__v" id="claim-exec-label">—</span>
-                  </div>
-                  <div class="claim-banner__row">
-                    <span class="claim-banner__k">Budget</span>
-                    <span class="claim-banner__v" id="claim-budget-label">—</span>
-                  </div>
-                  <div class="claim-banner__row">
-                    <span class="claim-banner__k">Production readiness</span>
-                    <span class="claim-banner__v claim-banner__v--warn">
-                      not ready — mock controlled proof only
-                    </span>
-                  </div>
-                  <p class="claim-banner__claim">
-                    <strong>Claim:</strong>
-                    <code id="r-claim-code">controlled_proof_not_production_ready</code>
-                  </p>
-                </div>
+            <div id="scene-package-panel" class="card" hidden>
+              <h2>Scene generation package</h2>
+              <p id="pkg-meta" class="muted"></p>
+              <pre class="code-block" id="pkg-json" hidden></pre>
+              <div class="primary-actions">
+                <button type="button" class="btn btn--primary" id="btn-download-pkg">Download scene package JSON</button>
+                <button type="button" class="btn btn--ghost" id="btn-copy-prompts">Copy prompts</button>
               </div>
-
-              <!-- Long-form 4.5: cost / provider telemetry (run provenance only) -->
-              <div class="cost-panel" id="cost-panel" hidden>
-                <div class="cost-panel__head">
-                  <span class="cost-panel__title">Cost ledger</span>
-                  <span class="cost-panel__hint">run provenance · not billing · PROPOSED only</span>
-                </div>
-                <div class="run-summary run-summary--cost" id="cost-summary-grid">
-                  <div class="stat">
-                    <span class="stat__k">Est. cost</span>
-                    <span class="stat__v" id="cost-total">—</span>
-                  </div>
-                  <div class="stat">
-                    <span class="stat__k">Events</span>
-                    <span class="stat__v" id="cost-events">—</span>
-                  </div>
-                  <div class="stat">
-                    <span class="stat__k">Retries</span>
-                    <span class="stat__v" id="cost-retries">—</span>
-                  </div>
-                  <div class="stat">
-                    <span class="stat__k">Providers</span>
-                    <span class="stat__v" id="cost-providers">—</span>
-                  </div>
-                </div>
-                <p class="field__hint" id="cost-authority-note">
-                  Cost ledger is not project canon and does not approve spend.
-                </p>
-              </div>
-              <div class="btn-row">
-                <details class="menu" id="menu-export">
-                  <summary class="menu__trigger btn btn--primary" id="btn-export-menu">
-                    Download
-                  </summary>
-                  <div class="menu__panel" role="menu">
-                    <button
-                      type="button"
-                      class="menu__item"
-                      id="btn-export-breakdown"
-                      role="menuitem"
-                    >
-                      Breakdown JSON
-                      <span class="menu__hint">cf.breakdown.v1 · connectors</span>
-                    </button>
-                    <button
-                      type="button"
-                      class="menu__item"
-                      id="btn-export-breakdown-md"
-                      role="menuitem"
-                    >
-                      Breakdown Markdown
-                      <span class="menu__hint">Human-readable export</span>
-                    </button>
-                    <hr class="menu__sep" />
-                    <button type="button" class="menu__item" id="btn-export" role="menuitem">
-                      Proof receipt JSON
-                      <span class="menu__hint">Mock proof only</span>
-                    </button>
-                    <button type="button" class="menu__item" id="btn-copy-hash" role="menuitem">
-                      Copy package / receipt hash
-                    </button>
-                  </div>
-                </details>
-              </div>
-              <div class="receipt-meta">
-                <div class="stat has-tip" data-tooltip="Authority claim for this result (not production film)">
-                  <span class="stat__k">Claim</span>
-                  <span class="stat__v" id="r-claim">—</span>
-                </div>
-                <div class="stat has-tip" data-tooltip="Project / document key for this run">
-                  <span class="stat__k">Project</span>
-                  <span class="stat__v" id="r-doc">—</span>
-                </div>
-                <div class="stat has-tip" data-tooltip="Content hash of the package or proof receipt">
-                  <span class="stat__k">Receipt hash</span>
-                  <span class="stat__v" id="r-hash">—</span>
-                </div>
-                <div class="stat has-tip" data-tooltip="Schema version of the result payload">
-                  <span class="stat__k">Schema</span>
-                  <span class="stat__v" id="r-schema">—</span>
-                </div>
-              </div>
-
-              <!-- Phase 4.1 scene / shot navigation (read-only) -->
-              <div class="scene-nav" id="scene-nav" hidden>
-                <div class="scene-nav__head">
-                  <span class="scene-nav__title">Scenes</span>
-                  <span class="scene-nav__hint" id="scene-nav-hint">
-                    Read-only · [ ] prev/next scene · ← → shot focus
-                  </span>
-                </div>
-                <div class="scene-nav__toolbar btn-row">
-                  <button type="button" class="btn btn--ghost" id="btn-scene-all">
-                    All scenes
-                  </button>
-                  <button type="button" class="btn btn--ghost" id="btn-scene-prev" title="Previous scene [">
-                    Prev scene
-                  </button>
-                  <button type="button" class="btn btn--ghost" id="btn-scene-next" title="Next scene ]">
-                    Next scene
-                  </button>
-                  <button
-                    type="button"
-                    class="btn btn--ghost"
-                    id="btn-stale-preview"
-                    title="Preview stale shots if focused scene (or all) changes"
-                  >
-                    Preview stale
-                  </button>
-                  <button type="button" class="btn btn--ghost" id="btn-stale-clear">
-                    Clear stale
-                  </button>
-                </div>
-                <ul class="scene-nav__list" id="scene-list" role="listbox" aria-label="Scenes"></ul>
-                <p class="scene-nav__focus" id="scene-focus-label" aria-live="polite">
-                  Showing all scenes
-                </p>
-              </div>
-
-              <!-- Phase 4.2 table filters + virtualization controls -->
-              <div class="shot-toolbar" id="shot-toolbar" hidden>
-                <div class="field-row shot-toolbar__filters">
-                  <div class="field">
-                    <div class="field__label-row">
-                      <label for="shot-filter-status">Status</label>
-                      <button
-                        type="button"
-                        class="tip"
-                        data-tooltip="Filter by proof acceptance or breakdown rows. Presentation only."
-                        aria-label="About status filter"
-                      >
-                        ?
-                        <span class="tip__bubble" role="tooltip">
-                          Filter by proof acceptance or breakdown rows. Presentation only.
-                        </span>
-                      </button>
-                    </div>
-                    <select id="shot-filter-status">
-                      <option value="all" selected>All statuses</option>
-                      <option value="accept">Accepted (proof)</option>
-                      <option value="fail">Failed / other</option>
-                      <option value="breakdown">Breakdown only</option>
-                    </select>
-                  </div>
-                  <div class="field">
-                    <div class="field__label-row">
-                      <label for="shot-filter-repair">Repair</label>
-                      <button
-                        type="button"
-                        class="tip"
-                        data-tooltip="Show rows with validator/repair rationale from mock proof loops."
-                        aria-label="About repair filter"
-                      >
-                        ?
-                        <span class="tip__bubble" role="tooltip">
-                          Show rows with validator/repair rationale from mock proof loops.
-                        </span>
-                      </button>
-                    </div>
-                    <select id="shot-filter-repair">
-                      <option value="all" selected>All repair states</option>
-                      <option value="yes">Has repair</option>
-                      <option value="no">No repair</option>
-                    </select>
-                  </div>
-                  <div class="field">
-                    <div class="field__label-row">
-                      <label for="shot-sort">Sort</label>
-                      <button
-                        type="button"
-                        class="tip"
-                        data-tooltip="Reorder visible rows. Does not change kernel canon."
-                        aria-label="About sort"
-                      >
-                        ?
-                        <span class="tip__bubble" role="tooltip">
-                          Reorder visible rows. Does not change kernel canon.
-                        </span>
-                      </button>
-                    </div>
-                    <select id="shot-sort">
-                      <option value="default" selected>Receipt order</option>
-                      <option value="label">Label</option>
-                      <option value="status">Status</option>
-                      <option value="attempts">Attempts</option>
-                    </select>
-                  </div>
-                  <div class="field field--check">
-                    <label for="shot-virtual">
-                      <input type="checkbox" id="shot-virtual" checked />
-                      Virtualize rows
-                    </label>
-                    <p class="field__hint" id="shot-virtual-hint">
-                      Off-screen rows unmounted for large tables. Presentation only —
-                      not production readiness.
-                    </p>
-                  </div>
-                </div>
-                <p class="shot-toolbar__meta" id="shot-toolbar-meta" aria-live="polite"></p>
-              </div>
-
-              <div
-                class="table-wrap table-wrap--shots"
-                id="shot-table-wrap"
-                tabindex="0"
-                role="region"
-                aria-label="Shot proof results"
-              >
-                <table class="receipt receipt--shots">
-                  <caption class="visually-hidden">Shot proof results</caption>
-                  <thead>
-                    <tr>
-                      <th scope="col">Shot</th>
-                      <th scope="col">Status</th>
-                      <th scope="col">Attempts</th>
-                      <th scope="col">Repair / rationale</th>
-                      <th scope="col">Candidate</th>
-                      <th scope="col">Stale</th>
-                    </tr>
-                  </thead>
-                  <tbody id="shot-rows"></tbody>
-                </table>
-                <div id="shot-empty" class="empty empty--friendly empty--queue" hidden>
-                  <p class="empty__lead">No shots match this filter</p>
-                  <p>
-                    Clear filters or select <strong>All scenes</strong>. Navigation and
-                    virtualization are read-only and do not change canon.
-                  </p>
-                </div>
-              </div>
-              <details class="fold">
-                <summary>Technical hashes</summary>
-                <div class="fold__body hash-grid">
-                  <div class="hash-row">
-                    <dt>source_hash</dt>
-                    <dd id="r-source">—</dd>
-                  </div>
-                  <div class="hash-row">
-                    <dt>production_ir_hash</dt>
-                    <dd id="r-ir">—</dd>
-                  </div>
-                  <div class="hash-row">
-                    <dt>ledger_hash</dt>
-                    <dd id="r-ledger">—</dd>
-                  </div>
-                  <div class="hash-row">
-                    <dt>shot_contracts_hash</dt>
-                    <dd id="r-shots-hash">—</dd>
-                  </div>
-                </div>
-              </details>
-              <details class="raw fold">
-                <summary>Raw JSON</summary>
-                <pre class="raw-json" id="raw-json"></pre>
-              </details>
+              <div id="gen-shot-cards" class="shot-cards"></div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <!-- ADVANCED (collapsed by default) -->
-        <section class="panel panel--wide" id="advanced" aria-labelledby="advanced-title">
-          <div class="panel__head">
-            <h2 class="panel__title" id="advanced-title">Advanced</h2>
-            <span class="chip">optional</span>
-          </div>
-          <div class="panel__body">
-            <p class="field__hint">
-              Most operators never need this. Connection, canon lookup, and write leases live
-              here.
-            </p>
+          <!-- REVIEW -->
+          <section class="view" id="view-review" data-view-panel="review" hidden aria-labelledby="rev-heading">
+            <header class="view-header">
+              <h1 id="rev-heading">Review</h1>
+              <p class="muted">Candidates stay linked to shot IDs. Accept, repair, regenerate, or reject — lineage preserved; canon only via validated paths.</p>
+            </header>
+            <div class="card" id="review-empty">
+              <p>No shots to review yet. Analyze a script, then open Review to decide on each proposed shot package.</p>
+            </div>
+            <div id="review-list" class="review-list" hidden></div>
+          </section>
 
-            <details class="fold">
-              <summary>Connection</summary>
-              <div class="fold__body">
-                <div class="field">
-                  <div class="field__label-row">
-                    <label for="api-base">API base URL</label>
-                    <button
-                      type="button"
-                      class="tip"
-                      data-tooltip="Leave blank when this UI is served from the same host as the API."
-                      aria-label="About API base URL"
-                    >
-                      ?
-                      <span class="tip__bubble" role="tooltip">
-                        Leave blank when this UI is served from the same host as the API.
-                      </span>
-                    </button>
-                  </div>
-                  <input
-                    id="api-base"
-                    name="api_base"
-                    type="url"
-                    spellcheck="false"
-                    placeholder="Leave blank when using this page from the API host"
-                  />
-                </div>
-                <div class="field">
-                  <div class="field__label-row">
-                    <label for="api-key">API key</label>
-                    <button
-                      type="button"
-                      class="tip"
-                      data-tooltip="Bearer key when CF_AUTH_REQUIRED is set. Use Get local dev key in non-production."
-                      aria-label="About API key"
-                    >
-                      ?
-                      <span class="tip__bubble" role="tooltip">
-                        Bearer key when CF_AUTH_REQUIRED is set. Use Get local dev key in
-                        non-production.
-                      </span>
-                    </button>
-                  </div>
-                  <input
-                    id="api-key"
-                    name="api_key"
-                    type="password"
-                    autocomplete="off"
-                    spellcheck="false"
-                    placeholder="Only if auth is required"
-                  />
-                </div>
-                <div class="btn-row">
-                  <button
-                    type="button"
-                    class="btn btn--ghost"
-                    id="btn-bootstrap"
-                    data-tooltip="Create/reset local dev tenant key (blocked in production env)."
-                  >
-                    Get local dev key
-                  </button>
-                  <button
-                    type="button"
-                    class="btn btn--ghost"
-                    id="btn-whoami"
-                    data-tooltip="Show tenant and actor from current API key."
-                  >
-                    Who am I
-                  </button>
-                  <button
-                    type="button"
-                    class="btn btn--ghost"
-                    id="btn-health"
-                    data-tooltip="GET /health — liveness, backend, version."
-                  >
-                    Check API
-                  </button>
-                  <details class="menu" id="menu-compile">
-                    <summary class="menu__trigger" aria-label="Compile actions">Compile</summary>
-                    <div class="menu__panel" role="menu">
-                      <button type="button" class="menu__item" id="btn-compile" role="menuitem">
-                        Compile only
-                        <span class="menu__hint">Production IR JSON · full path</span>
-                      </button>
-                      <button
-                        type="button"
-                        class="menu__item"
-                        id="btn-compile-incremental"
-                        role="menuitem"
-                      >
-                        Compile incremental
-                        <span class="menu__hint">Prior-IR + invalidation · not film</span>
-                      </button>
-                    </div>
-                  </details>
-                </div>
-              </div>
-            </details>
-
-            <details class="fold" id="canon">
-              <summary>Canon (project status)</summary>
-              <div class="fold__body">
-                <div class="btn-row">
-                  <button type="button" class="btn btn--ghost" id="btn-status">
-                    Load status
-                  </button>
-                  <button type="button" class="btn btn--ghost" id="btn-list">
-                    List projects
-                  </button>
-                </div>
-                <div class="hash-grid" id="status-grid" hidden>
-                  <div class="hash-row">
-                    <dt>Project</dt>
-                    <dd id="st-doc">—</dd>
-                  </div>
-                  <div class="hash-row">
-                    <dt>Title</dt>
-                    <dd id="st-title">—</dd>
-                  </div>
-                  <div class="hash-row">
-                    <dt>Scenes / shots</dt>
-                    <dd id="st-counts">—</dd>
-                  </div>
-                  <div class="hash-row">
-                    <dt>Source hash</dt>
-                    <dd id="st-source">—</dd>
-                  </div>
-                  <div class="hash-row">
-                    <dt>State hash</dt>
-                    <dd id="st-state">—</dd>
-                  </div>
-                  <div class="hash-row">
-                    <dt>Last run</dt>
-                    <dd id="st-run">—</dd>
-                  </div>
-                </div>
-                <div class="table-wrap" id="project-list-wrap" hidden>
-                  <table class="receipt">
-                    <thead>
-                      <tr>
-                        <th scope="col">Project</th>
-                        <th scope="col">Title</th>
-                        <th scope="col">Scenes</th>
-                        <th scope="col">Shots</th>
-                        <th scope="col">State</th>
-                      </tr>
-                    </thead>
-                    <tbody id="project-rows"></tbody>
-                  </table>
-                </div>
-                <p id="canon-empty" class="empty">
-                  After a proof, load status or list projects for this tenant.
-                </p>
-              </div>
-            </details>
-
-            <details class="fold" id="control">
-              <summary>Control (leases · approvals · runs)</summary>
-              <div class="fold__body">
-                <div class="field-row">
-                  <div class="field">
-                    <div class="field__label-row">
-                      <label for="holder">Actor / lease holder</label>
-                      <button
-                        type="button"
-                        class="tip"
-                        data-tooltip="Identity that holds the exclusive write lease for mutations."
-                        aria-label="About lease holder"
-                      >
-                        ?
-                        <span class="tip__bubble" role="tooltip">
-                          Identity that holds the exclusive write lease for mutations.
-                        </span>
-                      </button>
-                    </div>
-                    <input
-                      id="holder"
-                      name="holder"
-                      type="text"
-                      autocomplete="off"
-                      spellcheck="false"
-                      value="proof-ui"
-                    />
-                  </div>
-                  <div class="field">
-                    <div class="field__label-row">
-                      <label for="approval-kind">Approval type</label>
-                      <button
-                        type="button"
-                        class="tip"
-                        data-tooltip="Kind of human decision recorded on the project. Does not auto-elevate PROPOSED media."
-                        aria-label="About approval type"
-                      >
-                        ?
-                        <span class="tip__bubble" role="tooltip">
-                          Kind of human decision recorded on the project. Does not
-                          auto-elevate PROPOSED media.
-                        </span>
-                      </button>
-                    </div>
-                    <select id="approval-kind" name="approval_kind">
-                      <option value="commit_candidate" selected>Commit candidate</option>
-                      <option value="continuity_waiver">Continuity waiver</option>
-                      <option value="identity_lock">Identity lock</option>
-                      <option value="high_cost_campaign">High-cost campaign</option>
-                      <option value="other">Other (operator)</option>
-                    </select>
-                  </div>
-                </div>
-                <div class="field">
-                  <label for="approval-rationale">Why</label>
-                  <input
-                    id="approval-rationale"
-                    name="approval_rationale"
-                    type="text"
-                    autocomplete="off"
-                    value="operator workbench decision"
-                  />
-                </div>
-                <div class="btn-row">
-                  <button type="button" class="btn btn--primary" id="btn-lease-acquire">
-                    Acquire lease
-                  </button>
-                  <button type="button" class="btn btn--ghost" id="btn-lease-release">
-                    Release lease
-                  </button>
-                  <button type="button" class="btn btn--ghost" id="btn-lease-refresh">
-                    Refresh lease
-                  </button>
-                  <button type="button" class="btn btn--ghost" id="btn-approval-request">
-                    Request approval
-                  </button>
-                  <button type="button" class="btn btn--ghost" id="btn-approvals-list">
-                    List approvals
-                  </button>
-                  <button type="button" class="btn btn--ghost" id="btn-runs-list">
-                    List runs
-                  </button>
-                </div>
-                <div class="hash-grid" id="lease-grid" hidden>
-                  <div class="hash-row">
-                    <dt>Lease</dt>
-                    <dd id="lease-active">—</dd>
-                  </div>
-                  <div class="hash-row">
-                    <dt>Holder</dt>
-                    <dd id="lease-holder">—</dd>
-                  </div>
-                  <div class="hash-row">
-                    <dt>Scope</dt>
-                    <dd id="lease-scope">—</dd>
-                  </div>
-                  <div class="hash-row">
-                    <dt>Expires</dt>
-                    <dd id="lease-expires">—</dd>
-                  </div>
-                </div>
-                <div class="table-wrap" id="approval-list-wrap" hidden>
-                  <div
-                    id="approval-empty"
-                    class="empty empty--friendly empty--queue"
-                    hidden
-                  >
-                    <p class="empty__lead">Approval queue empty</p>
-                    <p>
-                      No pending approvals for this project. Next action:
-                      set <strong>Approval type</strong> and <strong>Why</strong>,
-                      then click <strong>Request approval</strong>. Acquire a
-                      write lease first if mutations require the same actor.
-                    </p>
-                  </div>
-                  <table class="receipt" id="approval-table">
-                    <thead>
-                      <tr>
-                        <th scope="col">Kind</th>
-                        <th scope="col">Status</th>
-                        <th scope="col">Actor</th>
-                        <th scope="col">ID</th>
-                        <th scope="col">Decide</th>
-                      </tr>
-                    </thead>
-                    <tbody id="approval-rows"></tbody>
-                  </table>
-                </div>
-                <div class="table-wrap" id="run-list-wrap" hidden>
-                  <table class="receipt">
-                    <thead>
-                      <tr>
-                        <th scope="col">Run</th>
-                        <th scope="col">Status</th>
-                        <th scope="col">Idempotency</th>
-                        <th scope="col">Created</th>
-                      </tr>
-                    </thead>
-                    <tbody id="run-rows"></tbody>
-                  </table>
-                </div>
-                <!-- Long-form 4.6: poll workflow events (not production film) -->
-                <div class="workflow-panel" id="workflow-panel" hidden>
-                  <div class="workflow-panel__head">
-                    <span class="workflow-panel__title">Workflow progress</span>
-                    <span class="chip chip--warn" id="workflow-claim-chip">
-                      workflow complete ≠ production ready
-                    </span>
-                  </div>
-                  <p class="field__hint" id="workflow-hint">
-                    Poll-only observability. Mutations still use lease + idempotency.
-                  </p>
-                  <div class="workflow-progress" aria-live="polite">
-                    <div class="workflow-progress__meta">
-                      <span id="workflow-step-label">—</span>
-                      <span id="workflow-percent">0%</span>
-                    </div>
-                    <div
-                      class="workflow-progress__bar"
-                      role="progressbar"
-                      aria-valuemin="0"
-                      aria-valuemax="100"
-                      aria-valuenow="0"
-                      id="workflow-bar"
-                    >
-                      <div class="workflow-progress__fill" id="workflow-fill"></div>
-                    </div>
-                    <div class="hash-grid" id="workflow-meta-grid">
-                      <div class="hash-row">
-                        <dt>Run</dt>
-                        <dd id="workflow-run-id">—</dd>
-                      </div>
-                      <div class="hash-row">
-                        <dt>Status</dt>
-                        <dd id="workflow-status">—</dd>
-                      </div>
-                      <div class="hash-row">
-                        <dt>Last ok checkpoint</dt>
-                        <dd id="workflow-last-ok">—</dd>
-                      </div>
-                      <div class="hash-row">
-                        <dt>Error</dt>
-                        <dd id="workflow-error">—</dd>
-                      </div>
-                    </div>
-                    <ol class="workflow-events" id="workflow-events"></ol>
-                  </div>
-                </div>
-                <p id="control-empty" class="empty">
-                  Leases gate mutations. Approvals need an active lease by the same actor.
-                </p>
-              </div>
-            </details>
-          </div>
-        </section>
+          <!-- EXPORT -->
+          <section class="view" id="view-export" data-view-panel="export" hidden aria-labelledby="exp-heading">
+            <header class="view-header">
+              <h1 id="exp-heading">Export</h1>
+              <p class="muted">Human-readable and machine-readable packages. JSON is not the only success path.</p>
+            </header>
+            <div class="export-grid">
+              <article class="card">
+                <h2>For people</h2>
+                <ul class="export-list">
+                  <li><button type="button" class="btn btn--ghost btn--block" id="btn-export-md">Markdown breakdown</button></li>
+                  <li><button type="button" class="btn btn--ghost btn--block" id="btn-export-shot-list">Shot list (Markdown)</button></li>
+                  <li><button type="button" class="btn btn--ghost btn--block" id="btn-export-conflict-report">Conflict report</button></li>
+                </ul>
+              </article>
+              <article class="card">
+                <h2>For machines</h2>
+                <p class="muted small">Advanced connector formats</p>
+                <ul class="export-list">
+                  <li><button type="button" class="btn btn--ghost btn--block" id="btn-export-json">Full breakdown JSON</button></li>
+                  <li><button type="button" class="btn btn--ghost btn--block" id="btn-export-scene-pkg">Scene package JSON</button></li>
+                </ul>
+              </article>
+            </div>
+          </section>
+        </main>
       </div>
 
-      <footer class="foot-dense">
-        <p>
-          Continuity Forge · operator UI phase 3 · mock controlled proof only · claim
-          <code>controlled_proof_not_production_ready</code> · models PROPOSED ·
-          kernel owns canon · Hallmark Terminal workbench.
-        </p>
-      </footer>
-    </main>
-
-    <!-- Sticky primary CTA on mobile / after scroll -->
-    <div class="sticky-cta" id="sticky-cta">
-      <span class="sticky-cta__hint" id="sticky-hint">Script ready</span>
-      <button type="button" class="btn btn--primary" id="btn-breakdown-sticky">
-        Build breakdown
-      </button>
+      <!-- Sticky mobile primary action -->
+      <div class="sticky-cta" id="sticky-cta" hidden>
+        <button type="button" class="btn btn--primary btn--xl btn--block" id="btn-analyze-sticky">
+          Analyze Script
+        </button>
+      </div>
     </div>
 
-    <style>
-      .visually-hidden {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        padding: 0;
-        margin: -1px;
-        overflow: hidden;
-        clip: rect(0, 0, 0, 0);
-        white-space: nowrap;
-        border: 0;
-      }
-    </style>
-    <script src="./app.js" type="module"></script>
+    <!-- Settings / Developer dialog -->
+    <dialog class="modal" id="settings-dialog" aria-labelledby="settings-title">
+      <form method="dialog" class="modal__inner">
+        <header class="modal__head">
+          <h2 id="settings-title">Settings</h2>
+          <button type="submit" class="btn btn--ghost btn--sm" value="cancel" aria-label="Close">Close</button>
+        </header>
+        <div class="modal__body">
+          <h3>Developer</h3>
+          <p class="muted small">
+            Engineering controls for operators and integrators. Not part of the default creative workflow.
+          </p>
+          <details class="fold">
+            <summary>API connection</summary>
+            <div class="fold__body">
+              <div class="field">
+                <label for="api-base">API base URL</label>
+                <input id="api-base" type="url" placeholder="(same origin)" />
+              </div>
+              <p class="muted small" id="health-line">Status: …</p>
+            </div>
+          </details>
+          <details class="fold">
+            <summary>Provider configuration</summary>
+            <div class="fold__body">
+              <p class="muted small">
+                Mock is the safe default. Real providers are env-gated on the server.
+                See docs/SETUP.md for developer setup (not shown in the creative UI).
+              </p>
+            </div>
+          </details>
+          <details class="fold">
+            <summary>State hashes &amp; package hashes</summary>
+            <div class="fold__body">
+              <pre class="code-block" id="dev-hashes">No analysis yet.</pre>
+            </div>
+          </details>
+          <details class="fold">
+            <summary>Raw JSON</summary>
+            <div class="fold__body">
+              <pre class="code-block" id="dev-raw-json">—</pre>
+            </div>
+          </details>
+          <details class="fold">
+            <summary>Mock proof pipeline</summary>
+            <div class="fold__body">
+              <p class="muted small">
+                Optional mock generate/validate/repair loop. Not production film.
+              </p>
+              <button type="button" class="btn btn--ghost" id="btn-mock-proof">
+                Run Mock Pipeline Test
+              </button>
+              <pre class="code-block" id="dev-proof-out" hidden></pre>
+            </div>
+          </details>
+          <details class="fold">
+            <summary>Leases, approvals &amp; workflow events</summary>
+            <div class="fold__body">
+              <p class="muted small">
+                Available via REST and MCP for integrators. Not required for Analyze Script / export.
+              </p>
+            </div>
+          </details>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- Invalidation confirm -->
+    <dialog class="modal" id="invalidation-dialog" aria-labelledby="inv-title">
+      <div class="modal__inner">
+        <header class="modal__head">
+          <h2 id="inv-title">Confirm change</h2>
+          <button type="button" class="btn btn--ghost btn--sm" id="btn-inv-cancel">Cancel</button>
+        </header>
+        <div class="modal__body">
+          <p id="inv-message"></p>
+          <ul id="inv-stats" class="count-grid"></ul>
+          <div class="primary-actions">
+            <button type="button" class="btn btn--primary" id="btn-inv-confirm">Apply lock &amp; mark dependents stale</button>
+          </div>
+        </div>
+      </div>
+    </dialog>
+
+    <!-- Friendly error technical details template uses JS -->
+
+    <script src="./app.js" defer></script>
   </body>
 </html>

@@ -1,13 +1,23 @@
 # Continuity Forge — Handoff guide (working product path)
 
-**Goal:** A user pastes or imports a screenplay and receives a **shot-by-shot breakdown with continuity**, as **machine-readable JSON** (connectors/API) and optional **Markdown** export.
+**Goal:** A user creates a project, imports a screenplay, **analyzes** it into scenes and shots with continuity, reviews conflicts, and exports connector-ready packages (JSON / Markdown) or prepares provider-neutral scene packages.
 
-**Release:** **v1.5.3** (`git checkout v1.5.3`) · Claim: `shot_breakdown_with_continuity_not_production_film`  
+**Release:** product UI on **`main`**; handoff pin **v1.5.3** still valid for frozen breakdown path.  
+Claim: `shot_breakdown_with_continuity_not_production_film`  
 Built on frozen **v1.4.0** kernel. This is **not** production film and does **not** generate ACCEPTED media.
+
+Full creative journey: [`docs/PRODUCT_WORKFLOW.md`](PRODUCT_WORKFLOW.md).
 
 ---
 
-## Product path (what “working” means)
+## Product path (simple first)
+
+```text
+New Project → Import script → Analyze Script → Review Scenes / Continuity
+  → Resolve conflicts → Prepare Scene for Generation → Export (or Generate)
+```
+
+Under the hood (connectors still use the same kernel package):
 
 ```text
 Screenplay (Fountain or FDX text)
@@ -26,21 +36,21 @@ Each **shot** row includes slugline, label, required entities, constraints, stat
 
 ---
 
-## 1. Operator UI (paste)
+## 1. Operator UI (simple product path)
 
 ```bash
 make ui
 # open http://127.0.0.1:8080/
 ```
 
-1. Paste Fountain/FDX into the script field, use **Import file** (or drag a file onto the textarea), or **Reset sample**.  
-2. Click **Build breakdown**.  
-3. Review shot table + scene nav.  
-4. **Download breakdown JSON** (connector-ready) or **Download breakdown MD**.
+1. Click **New Project** — title, production type, paste/import script (or **Load sample**).  
+2. Click **Create Project**, then **Analyze Script**.  
+3. Open **Scenes** / **Continuity** to review; resolve conflicts explicitly.  
+4. **Prepare Scene for Generation** or use **Export** for Markdown/JSON packages.  
 
-Optional: **Run proof** for mock media repair loop (separate claim; not required for breakdown handoff).
+Engineering tools (hashes, **Run Mock Pipeline Test**, raw JSON) are under **Settings → Developer** — not primary CTAs.
 
-Keyboard: **⌘/Ctrl+Enter** builds breakdown. Sticky mobile CTA is **Build breakdown**.
+Keyboard: **⌘/Ctrl+Enter** analyzes the script. Sticky mobile CTA is **Analyze Script**.
 
 ---
 

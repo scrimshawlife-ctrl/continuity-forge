@@ -2,26 +2,68 @@
 
 [![CI](https://github.com/scrimshawlife-ctrl/continuity-forge/actions/workflows/ci.yml/badge.svg)](https://github.com/scrimshawlife-ctrl/continuity-forge/actions/workflows/ci.yml)
 
-**A deterministic cinematic-production kernel and model-agnostic harness for drift-resistant AI film generation.**
+## What it does
 
-Continuity Forge converts a screenplay into a provenance-preserving Production IR, continuity ledger, scene graph, and model-neutral shot contracts. Generative models may propose or render artifacts; they do not own canonical narrative state.
+Turn a screenplay into **continuity-aware scenes and shot packages**.
 
-> Models generate pixels and proposals. Continuity Forge governs identity, memory, causality, approvals, and production truth.
+Import a script for a film, episode, commercial, music video, or short-form piece. Continuity Forge deterministically breaks it into scenes and shots, extracts continuity state, helps you review conflicts, and prepares **provider-neutral** generation packages — so visual and narrative continuity can hold across separate generative-model calls.
 
-**Version 1.5.3** — handoff tag **`v1.5.3`** (breakdown path + UI dropdowns/tooltips).  
-Baseline freeze remains **`v1.4.0`**. Default PR gate: `make validate` (includes handoff harness). Phase 2: packaging + Postgres/MinIO smoke — see `docs/SETUP.md` §3.
+## Who it is for
+
+Filmmakers, writers, producers, continuity reviewers, and pipeline integrators who need structured scene/shot continuity — not a generic chat window that “remembers” the script.
+
+## How it works (product path)
+
+```text
+Create Project → Import Script → Analyze Script → Review Scenes & Continuity
+  → Resolve Conflicts → Prepare Scene for Generation → Export or Generate → Review
+```
+
+Generative models may propose prompts and media. They do **not** silently own canonical narrative state. You review and approve.
+
+## Quick start
+
+```bash
+git clone https://github.com/scrimshawlife-ctrl/continuity-forge.git
+cd continuity-forge
+python3.12 -m venv .venv && source .venv/bin/activate
+pip install -e '.[dev]'
+make validate
+make ui   # http://127.0.0.1:8080/ — New Project → Analyze Script
+```
+
+## Product workflow
+
+See **[docs/PRODUCT_WORKFLOW.md](docs/PRODUCT_WORKFLOW.md)** and **[docs/HANDOFF.md](docs/HANDOFF.md)**.
+
+Primary UI navigation: **Projects · Scenes · Continuity · Generate · Review · Export**.  
+Engineering tools (hashes, mock pipeline test, raw JSON) live under **Settings → Developer**.
+
+## Current capabilities
+
+| Capability | Status |
+|------------|--------|
+| Script import (Fountain / FDX / txt) | Implemented |
+| Analyze Script → scenes, entities, shots, conflicts | Implemented |
+| Continuity review + provenance labels | Implemented |
+| Provider-neutral scene packages + export-only path | Implemented |
+| Deterministic breakdown JSON (`cf.breakdown.v1`) | Implemented |
+| Mock generation / controlled proof | Implemented (Developer; not production film) |
+| Live production fleet / ACCEPTED media | **Not production-validated** |
+
+**Version 1.5.3** handoff pin remains available (`v1.5.3`). Product workflow UI continues on `main`. Baseline freeze: **`v1.4.0`**. Gate: `make validate` (includes handoff).
 
 | Doc | Contents |
 |-----|----------|
-| **[docs/HANDOFF.md](docs/HANDOFF.md)** | **Working product path:** paste/import → shot breakdown + continuity → JSON/API |
-| **[docs/releases/1.5.3.md](docs/releases/1.5.3.md)** | **Current handoff pin** (UI polish) |
-| **[docs/releases/1.5.2.md](docs/releases/1.5.2.md)** | Integrator alignment |
-| **[docs/releases/1.4.0.md](docs/releases/1.4.0.md)** | **Baseline freeze** (pre-handoff kernel) |
-| **[docs/SETUP.md](docs/SETUP.md)** | Full install, env, UI, MCP, Docker |
-| **[docs/hermes/README.md](docs/hermes/README.md)** | Hermes skill + MCP integration |
-| **[skills/hermes-continuity-forge/](skills/hermes-continuity-forge/)** | Ready-to-install Hermes operator skill |
-| **[AGENTS.md](AGENTS.md)** | Authority + mutation contract for agents |
-| **[docs/architecture/](docs/architecture/)** | Harness architecture (authoritative boundaries) |
+| **[docs/PRODUCT_WORKFLOW.md](docs/PRODUCT_WORKFLOW.md)** | Creative user journey + IA |
+| **[docs/HANDOFF.md](docs/HANDOFF.md)** | Product path first, then CLI/API/MCP |
+| **[docs/campaigns/CONTINUITY_FORGE_PRODUCT_WORKFLOW_UI_001.md](docs/campaigns/CONTINUITY_FORGE_PRODUCT_WORKFLOW_UI_001.md)** | UI simplification campaign |
+| **[docs/releases/1.5.3.md](docs/releases/1.5.3.md)** | Handoff pin notes |
+| **[docs/releases/1.4.0.md](docs/releases/1.4.0.md)** | Baseline freeze |
+| **[docs/SETUP.md](docs/SETUP.md)** | Full install, env, Docker |
+| **[docs/hermes/README.md](docs/hermes/README.md)** | Hermes skill + MCP |
+| **[AGENTS.md](AGENTS.md)** | Authority + mutation contract |
+| **[docs/architecture/](docs/architecture/)** | Kernel + operator UI boundaries |
 
 ---
 
@@ -29,13 +71,15 @@ Baseline freeze remains **`v1.4.0`**. Default PR gate: `make validate` (includes
 
 1. **Deterministic kernel** — screenplay, Production IR, continuity state, invariants, approvals, artifact lineage.
 2. **Durable production harness** — pipeline commands, idempotency, checkpoints, Temporal adapter contracts.
-3. **Operator surface** — project store, write leases, MCP/REST, Hallmark UI.
-4. **Provider gateway + repair loop** — PROPOSED candidates; mock by default; real providers env-gated.
-5. **Controlled proof** — end-to-end mock path + versioned receipt.
+3. **Operator surface** — creative UI, project store, MCP/REST; Developer progressive disclosure.
+4. **Provider gateway + repair loop** — proposed candidates; mock by default; real providers env-gated.
+5. **Controlled proof** — end-to-end mock path (Developer tools).
 
-Canonical architecture: [`docs/architecture/PRODUCTION_HARNESS_ARCHITECTURE.md`](docs/architecture/PRODUCTION_HARNESS_ARCHITECTURE.md)
+Canonical architecture: [`docs/architecture/PRODUCTION_HARNESS_ARCHITECTURE.md`](docs/architecture/PRODUCTION_HARNESS_ARCHITECTURE.md) · UI: [`docs/architecture/OPERATOR_UI_ARCHITECTURE.md`](docs/architecture/OPERATOR_UI_ARCHITECTURE.md)
 
 **Hermes** is the preferred operator agent (MCP + skill). **OpenClaw** may use the same contracts. Neither owns canon.
+
+> Models generate pixels and proposals. Continuity Forge governs identity, memory, causality, approvals, and production truth.
 
 ---
 
@@ -59,17 +103,18 @@ M5 PROVIDER GATEWAY + WORKERS ........ Implemented (mock default; real providers
 M6 GENERATOR-EVALUATOR REPAIR LOOP ... Implemented (mock default)
 M7 CONTROLLED 30-60s PROOF ........... Implemented (mock media; claim controlled_proof_not_production_ready)
 POST-1.0 runtime / auth / deploy ..... Implemented; Postgres/MinIO path Integration-tested (CI smoke skeleton)
-OPERATOR UI (Hallmark) ............... Implemented (v1.5 handoff CTA + long-form scale)
+OPERATOR UI (creative workspace) ..... Implemented (Projects/Scenes/Continuity/Generate/Review/Export)
 HERMES SKILL ......................... Implemented (skills/hermes-continuity-forge)
-LONG-FORM UX (Phase 4 audit) ......... Implemented (nav, virtualize, invalidation, incremental, cost, events)
+LONG-FORM UX (Phase 4 audit) ......... Implemented (nav, invalidation, incremental, cost, events)
 HANDOFF BREAKDOWN .................... Implemented (cf.breakdown.v1 JSON/MD + make handoff)
+PRODUCT WORKFLOW UI .................. Implemented (Analyze Script path; Developer progressive disclosure)
 ```
 
 Nothing in this table is **Production-validated**. Controlled proof and mock paths are not production film.
 
-**Long-form operator scale (v1.4):** scene/shot navigation, virtualized shot tables, dependency invalidation preview, optional incremental compile, run-scoped cost ledger, pollable workflow events. See [`docs/campaigns/CONTINUITY_FORGE_LONG_FORM_UX_001.md`](docs/campaigns/CONTINUITY_FORGE_LONG_FORM_UX_001.md).
+**Product UI:** New Project → Analyze Script → review scenes/continuity → export packages. See [`docs/PRODUCT_WORKFLOW.md`](docs/PRODUCT_WORKFLOW.md).
 
-**Handoff (v1.5):** paste/import → shot-by-shot + continuity → connector JSON. See [`docs/HANDOFF.md`](docs/HANDOFF.md).
+**Handoff (v1.5+):** paste/import → analyze → connector JSON. See [`docs/HANDOFF.md`](docs/HANDOFF.md).
 
 **Pin a known-good tree:**
 
@@ -99,7 +144,7 @@ make breakdown                     # sample shot breakdown + continuity → out/
 make proof                         # golden controlled proof → out/
 ```
 
-**Handoff (shot breakdown + continuity):** paste a script in the UI (**Build breakdown**), or:
+**Handoff (shot breakdown + continuity):** paste a script in the UI (**Analyze Script**), or:
 
 ```bash
 continuity-forge breakdown tests/golden/fixtures/continuity.fountain --out out
