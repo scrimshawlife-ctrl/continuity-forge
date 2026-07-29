@@ -261,3 +261,74 @@ def test_scene_detail_merges_durable_product_meta_overrides() -> None:
     assert detail.status_code == 200, detail.text
     assert detail.json()["scene"]["slugline"] == locked_slug
     assert detail.json()["scene"]["slugline"] != original_slug
+
+
+def test_user_locked_slugline_on_all_product_surfaces() -> None:
+    """Anti-whack-a-mole: one durable lock must appear on analyze, detail, and prepare.
+
+    Client sends overrides:[] everywhere so only ProjectStore product_meta supplies
+    the lock. Any product surface that forgets _product_package_and_overrides fails.
+    """
+    client = TestClient(app)
+    text = FIXTURE.read_text(encoding="utf-8")
+    created = client.post(
+        "/v1/product/create-project",
+        json={"title": "Matrix Lock", "production_type": "Short Film", "text": text},
+    ).json()
+    doc = created["document_key"]
+    base = {"title": "Matrix Lock", "text": text, "document_key": doc, "format": "fountain"}
+
+    analyzed = client.post("/v1/product/analyze", json={**base, "overrides": []}).json()
+    scene = analyzed["scenes"][0]
+    scene_id = scene["scene_id"]
+    original = scene["slugline"]
+    locked = "INT. PREP LOCK - DAWN"
+    assert original != locked
+
+    conf = client.post(
+        "/v1/product/override/preview",
+        json={
+            **base,
+            "target_kind": "scene",
+            "target_id": scene_id,
+            "field_name": "slugline",
+            "original_value": original,
+            "locked_value": locked,
+            "confirm": True,
+            "existing_overrides": [],
+        },
+    )
+    assert conf.status_code == 200 and conf.json().get("confirmed") is True
+
+    # 1) analyze → scene card
+    re_an = client.post("/v1/product/analyze", json={**base, "overrides": []})
+    assert re_an.status_code == 200
+    card = next(s for s in re_an.json()["scenes"] if s["scene_id"] == scene_id)
+    assert card["slugline"] == locked, f"analyze still shows unlocked: {card['slugline']!r}"
+
+    # 2) scene detail
+    detail = client.post(
+        f"/v1/product/scenes/{scene_id}",
+        json={**base, "overrides": []},
+    )
+    assert detail.status_code == 200
+    assert detail.json()["scene"]["slugline"] == locked, (
+        f"detail still shows unlocked: {detail.json()['scene']['slugline']!r}"
+    )
+
+    # 3) prepare package — the surface that previously discarded overrides
+    prep = client.post(
+        f"/v1/product/scenes/{scene_id}/prepare",
+        json={
+            **base,
+            "scene_id": scene_id,
+            "warnings_acknowledged": True,
+            "overrides": [],
+        },
+    )
+    assert prep.status_code == 200, prep.text
+    pkg = prep.json()["package"]
+    assert pkg["slugline"] == locked, (
+        f"prepare package still shows unlocked kernel slugline: {pkg['slugline']!r}"
+    )
+    assert pkg["slugline"] != original

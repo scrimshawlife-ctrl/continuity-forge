@@ -1209,12 +1209,15 @@ def prepare_scene_package(
     source_text: str = "",
     warnings_acknowledged: bool = False,
     resolved_conflict_ids: set[str] | None = None,
+    overrides: list[OperatorOverride] | None = None,
 ) -> SceneGenerationPackage:
+    """Compile provider-neutral scene package, applying USER_LOCKED overrides."""
     detail = build_scene_detail(
         package,
         scene_id,
         source_text=source_text,
         resolved_conflict_ids=resolved_conflict_ids,
+        overrides=overrides,
     )
     if detail is None:
         raise ValueError(f"scene not found: {scene_id}")

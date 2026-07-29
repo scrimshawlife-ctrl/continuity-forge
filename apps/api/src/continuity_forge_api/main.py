@@ -795,6 +795,38 @@ def _merged_overrides(
     return overrides
 
 
+def _product_package_and_overrides(
+    *,
+    text: str,
+    title: str = "Untitled",
+    document_key: str | None = None,
+    format: Literal["fountain", "fdx"] = "fountain",
+    revision: str = "0.1.0",
+    request_overrides: list[dict[str, Any]] | None = None,
+) -> tuple[BreakdownPackage, list[OperatorOverride]]:
+    """Single product load path: kernel package + merged USER_LOCKED overrides.
+
+    Every product read/mutation that returns scene/entity view models must use
+    this helper so durable locks cannot be forgotten on a single surface.
+    """
+    if not text.strip():
+        err = friendly_parser_error("empty script")
+        raise HTTPException(status_code=400, detail=err.model_dump(mode="json"))
+    try:
+        package = build_breakdown_from_text(
+            text,
+            title=title,
+            document_key=document_key,
+            format=format,
+            revision=revision,
+        )
+    except Exception as exc:
+        err = friendly_parser_error(exc)
+        raise HTTPException(status_code=400, detail=err.model_dump(mode="json")) from exc
+    overrides = _merged_overrides(request_overrides or [], document_key)
+    return package, overrides
+
+
 @app.post("/v1/product/create-project")
 def product_create_project(
     request: ProductCreateProjectRequest,
@@ -875,23 +907,15 @@ def product_analyze(request: ProductAnalyzeRequest) -> dict[str, Any]:
 
     Wraps stable ``build_breakdown_from_text``; does not change ``cf.breakdown.v1``.
     """
-    if not request.text.strip():
-        err = friendly_parser_error("empty script")
-        raise HTTPException(status_code=400, detail=err.model_dump(mode="json"))
-    try:
-        package = build_breakdown_from_text(
-            request.text,
-            title=request.title,
-            document_key=request.document_key,
-            format=request.format,
-            revision=request.revision,
-        )
-    except Exception as exc:
-        err = friendly_parser_error(exc)
-        raise HTTPException(status_code=400, detail=err.model_dump(mode="json")) from exc
-
+    package, overrides = _product_package_and_overrides(
+        text=request.text,
+        title=request.title,
+        document_key=request.document_key,
+        format=request.format,
+        revision=request.revision,
+        request_overrides=request.overrides,
+    )
     resolved = set(request.resolved_conflict_ids)
-    overrides = _merged_overrides(request.overrides, request.document_key)
     summary = build_analysis_summary(
         package,
         production_type=request.production_type,
@@ -926,14 +950,14 @@ def product_scene_detail(
     Merges durable product_meta overrides from ProjectStore so scene metadata
     locks apply even when the client omits the overrides list.
     """
-    package = build_breakdown_from_text(
-        request.text,
+    package, overrides = _product_package_and_overrides(
+        text=request.text,
         title=request.title,
         document_key=request.document_key,
         format=request.format,
         revision=request.revision,
+        request_overrides=request.overrides,
     )
-    overrides = _merged_overrides(request.overrides, request.document_key)
     detail = build_scene_detail(
         package,
         scene_id,
@@ -951,18 +975,17 @@ def product_prepare_scene(
     scene_id: str,
     request: ProductPrepareSceneRequest,
 ) -> dict[str, Any]:
-    """Compile a provider-neutral Scene Generation Package."""
+    """Compile a provider-neutral Scene Generation Package (USER_LOCKED applied)."""
     if request.scene_id and request.scene_id != scene_id:
         raise HTTPException(status_code=400, detail="scene_id mismatch")
-    package = build_breakdown_from_text(
-        request.text,
+    package, overrides = _product_package_and_overrides(
+        text=request.text,
         title=request.title,
         document_key=request.document_key,
         format=request.format,
         revision=request.revision,
+        request_overrides=request.overrides,
     )
-    # Durable overrides available for readiness/package continuity context
-    _ = _merged_overrides(request.overrides, request.document_key)
     try:
         scene_pkg = prepare_scene_package(
             package,
@@ -970,6 +993,7 @@ def product_prepare_scene(
             source_text=request.text,
             warnings_acknowledged=request.warnings_acknowledged,
             resolved_conflict_ids=set(request.resolved_conflict_ids),
+            overrides=overrides,
         )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -978,6 +1002,7 @@ def product_prepare_scene(
         "provider_neutral": package_is_provider_neutral(scene_pkg),
         "export_only": True,
         "providers_configured": False,
+        "overrides_applied": [o.model_dump(mode="json") for o in overrides],
         "message": (
             "No generation provider is connected. "
             "You can still export the complete scene and shot packages."
@@ -992,12 +1017,13 @@ def product_override_preview(request: ProductOverrideRequest) -> dict[str, Any]:
     When ``confirm=true``, persists USER_LOCKED override on product meta and
     returns profiles with locked values applied. Does not rewrite kernel package.
     """
-    package = build_breakdown_from_text(
-        request.text,
+    package, store_overrides = _product_package_and_overrides(
+        text=request.text,
         title=request.title,
         document_key=request.document_key,
         format=request.format,
         revision=request.revision,
+        request_overrides=request.existing_overrides,
     )
     override, preview = apply_operator_override(
         target_kind=request.target_kind,
@@ -1008,7 +1034,7 @@ def product_override_preview(request: ProductOverrideRequest) -> dict[str, Any]:
         package=package,
         rationale=request.rationale,
     )
-    all_overrides = _parse_overrides(request.existing_overrides) + [override]
+    all_overrides = store_overrides + [override]
     profiles = build_entity_profiles(package, overrides=all_overrides)
     result: dict[str, Any] = {
         "override": override.model_dump(mode="json"),

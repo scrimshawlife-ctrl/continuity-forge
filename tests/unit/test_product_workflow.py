@@ -193,6 +193,30 @@ def test_prepare_scene_package_provider_neutral(package, sample_text: str) -> No
     assert "runway_payload" not in blob
 
 
+def test_prepare_scene_package_applies_scene_slugline_override(package, sample_text: str) -> None:
+    """USER_LOCKED slugline must appear on the generation package (not kernel raw)."""
+    scene = package.scenes[0]
+    locked = "INT. PREP LOCK - DAWN"
+    assert scene.slugline != locked
+    ov, _ = apply_operator_override(
+        target_kind="scene",
+        target_id=scene.scene_id,
+        field_name="slugline",
+        original_value=scene.slugline,
+        locked_value=locked,
+        package=package,
+    )
+    ov = ov.model_copy(update={"target_kind": "scene"})
+    scene_pkg = prepare_scene_package(
+        package,
+        scene.scene_id,
+        source_text=sample_text,
+        warnings_acknowledged=True,
+        overrides=[ov],
+    )
+    assert scene_pkg.slugline == locked
+
+
 def test_review_decision_preserves_lineage_no_silent_canon() -> None:
     d = make_review_decision(shot_id="shot-1", action="accept", candidate_id="cand-1")
     assert d.lineage_preserved is True
