@@ -1,0 +1,11 @@
+{
+  "retrieval_receipt": {
+    "request_hash": "f37a62b51ee22085",
+    "corpus_version": "0.6.2",
+    "selected_primary_grammar": "alchemical_nigredo_putrefaction",
+    "ranked_patterns": [
+      {"pattern_id": "alchemical_nigredo_putrefaction", "total_score": 0.6575}
+    ],
+    "status": "SELECTED"
+  }
+}

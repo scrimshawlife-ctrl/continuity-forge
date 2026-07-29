@@ -1,0 +1,13 @@
+{
+  "evolution_receipt": {
+    "timestamp": "2026-07-29T00:52:40.037139Z",
+    "patterns_evolved": [
+      "alchemical_nigredo_putrefaction"
+    ],
+    "index_update": "corpus-index.yaml updated with performance-based ordering",
+    "usage_window": {
+      "receipts_scanned": 1,
+      "outcomes_scanned": 1
+    }
+  }
+}

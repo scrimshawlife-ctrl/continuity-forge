@@ -1,7 +1,7 @@
 ---
 name: kubrick
-description: "Symbolic narrative engineering with motif mutation."
-version: 0.5.0
+description: "Symbolic narrative engineering with executable retrieval and self-evolution from use."
+version: 0.7.0
 author: Hermes
 platforms: [linux, macos, windows]
 tags: [Kubrick, NarrativeEngineering, SymbolicDramaturgy, CinematicEncoding, MotifMutation, VisualMotif, Geometry, ArchetypeFunction, Screenplay, ContinuityForge, Ledger, AntiSlop, ProductionHandoff, Canon]
@@ -218,6 +218,44 @@ Same 1-5 rubric. When Forge is in play, also score "Forge alignment". When symbo
 - "Apply symbolic counterpoint: image vs dialogue"
 - "Export symbolic_architecture using Forge round-trip schema"
 
+
+
+## Evolution from Use (Self-Improving Corpus)
+
+Kubrick is designed to improve itself through repeated application.
+
+**Core Mechanism**
+- Every retrieval automatically logs a receipt to `references/usage/receipts/`.
+- After Forge handoff, revision, or project review, record outcomes in `references/usage/outcomes/`.
+- Run the evolution engine: `python scripts/evolve_from_use.py`
+
+**What Evolves**
+- Pattern `confidence` is raised for patterns that repeatedly deliver clean results (low debt, successful mutations, no collisions).
+- `usage_history` is appended to sidecars with performance data.
+- `corpus-index.yaml` re-orders suggestions based on observed success.
+- Weak or overused patterns have confidence lowered and may be flagged for deprecation or mutation rule changes.
+
+**How to Feed It**
+1. After a project or significant sequence:
+   ```bash
+   # record outcome
+   echo '{"pattern_id": "alchemical_nigredo_putrefaction", "project": "my-film-042", "outcome": "success", "signals": ["clean revision", "Forge accepted"]}' > references/usage/outcomes/$(date +%s).json
+   ```
+2. Run evolution:
+   ```bash
+   python scripts/evolve_from_use.py
+   ```
+3. The engine produces `references/evolution/evolution-*.json` receipts.
+
+**Integration with Ledger**
+Project symbolic ledgers can be copied to `references/usage/ledgers/` for richer signals (saturation trends, debt accumulation, revision diff results).
+
+**Governance**
+- Evolution only adjusts confidence and history. Structural changes (new patterns, new grammars) still require human review.
+- All changes are timestamped and accompanied by an evolution receipt.
+- You can disable auto-logging or run evolution in dry-run mode.
+
+This turns every real use of the skill (especially when paired with Continuity Forge) into training data that sharpens future retrieval.
 
 **Key Commands / Behaviors**
 - "Develop this premise with strong symbolic architecture and motif lifecycle" → DEVELOP + symbolic_intent + motif_registry (observed first) + cinematic_encoding.

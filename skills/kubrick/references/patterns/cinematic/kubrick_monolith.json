@@ -1,0 +1,16 @@
+{
+  "pattern_id": "kubrick_monolith",
+  "title": "The Monolith (2001) - Threshold / Enclosure / Descent",
+  "version": "0.6.0",
+  "domain": "cinematic",
+  "source_tier": "SCHOLARLY",
+  "source_refs": [{"author": "Stanley Kubrick", "title": "2001: A Space Odyssey", "date": "1968"}],
+  "dramatic_operations": ["evolutionary threshold", "initiation into new state"],
+  "transformation_grammars": ["initiation", "descent"],
+  "cinematic_affordances": ["perfect symmetry", "low angle", "graphic match across time", "silence"],
+  "applicable_genres": ["science fiction", "art film"],
+  "transferable_structure": "repetition with escalating scale and abstraction; graphic match across time; symmetry that feels unnatural",
+  "non_transferable_surface": "literal black rectangle, specific Jupiter alignment",
+  "production_cost": {"location_dependency": 0.4, "prop_dependency": 0.7, "VFX_dependency": 0.9},
+  "confidence": 0.9
+}

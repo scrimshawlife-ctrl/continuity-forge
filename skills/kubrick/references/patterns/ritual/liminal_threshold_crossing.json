@@ -1,0 +1,13 @@
+{
+  "pattern_id": "liminal_threshold_crossing",
+  "title": "Liminal Threshold Crossing",
+  "version": "0.6.0",
+  "domain": "ritual-liminal",
+  "source_tier": "SCHOLARLY",
+  "source_refs": [{"author": "van Gennep / Turner", "title": "Rites of Passage", "date": "early 20th c."}],
+  "dramatic_operations": ["status change", "separation from old state"],
+  "transformation_grammars": ["initiation", "crossing"],
+  "cinematic_affordances": ["frame edge crossing", "sound change at boundary"],
+  "transferable_structure": "clear before/after with physical or sonic threshold",
+  "confidence": 0.8
+}

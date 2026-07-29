@@ -39,6 +39,7 @@ openai = [
 http = [
   "httpx>=0.27,<1",
 ]
+kubrick-helpers = ["pyyaml>=6.0"]
 production = [
   "temporalio>=1.7,<2",
   "psycopg[binary]>=3.1,<4",
@@ -51,6 +52,8 @@ production = [
 continuity-forge = "continuity_forge_compiler.cli:app"
 continuity-forge-mcp = "continuity_forge_mcp.server:main"
 continuity-forge-worker = "continuity_forge_harness.temporal_runtime:worker_main"
+kubrick-retrieve = "kubrick_helpers.retrieval:main"
+kubrick-evolve = "kubrick_helpers.evolution:main"
 
 [tool.hatch.build.targets.wheel]
 packages = [
@@ -67,6 +70,7 @@ packages = [
   "packages/runtime/src/continuity_forge_runtime",
   "apps/api/src/continuity_forge_api",
   "apps/mcp/src/continuity_forge_mcp",
+  "packages/kubrick_helpers/src/kubrick_helpers",
 ]
 
 [tool.hatch.build.targets.sdist]

@@ -1,0 +1,13 @@
+{
+  "pattern_id": "tarkovsky_water_reflection",
+  "title": "Water and Reflection as Memory Boundary (Stalker/Mirror)",
+  "version": "0.6.0",
+  "domain": "cinematic",
+  "source_tier": "SCHOLARLY",
+  "dramatic_operations": ["memory bleeding into reality", "distortion of identity"],
+  "transformation_grammars": ["transfer", "mirror"],
+  "cinematic_affordances": ["long takes of water surfaces", "distorted reflections", "sound of water"],
+  "transferable_structure": "reflection as doubling with distortion; sound that outlasts image; slow movement into liquid",
+  "non_transferable_surface": "specific Russian locations, Orthodox imagery",
+  "confidence": 0.85
+}
