@@ -100,3 +100,5 @@ nav labels and Analyze Script CTA in shipped HTML/JS.
 Campaign acceptance criteria for creative shell, analyze path, scenes/continuity/conflicts,
 prepare/export, lineage-aware review intent, regression gates, and docs: **implemented**.
 Production-validated film generation: **not claimed**.
+
+**Commit:** `4d132aac4883b5550715be98a1955ed850d7769d` on branch `feat/product-workflow-ui`
