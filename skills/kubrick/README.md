@@ -9,8 +9,10 @@ kubrick is the evolved replacement for earlier narrative engineering tools. It d
 - **Observed first, meaning second**: Every motif begins with concrete, observable form before any interpretation.
 - **Mandatory mutation**: No motif recurs identically unless stagnation is the dramatic point.
 - **Three-channel symbolism**: Diegetic (objects/behavior), Dramaturgical (structure/choice), Cinematic (framing/geometry/rhythm) — power comes from crossing channels without explanation.
+- **Provenance-linked Symbolic Narrative Pattern System**: Full `SymbolicNarrativePattern` schema, Narrative Affordance Registry, Transformation Grammar Registry, and 10 domain packs grounded in PRIMARY/SCHOLARLY sources with explicit cross-tradition relationship types.
+- **Cinematic Symbolism Corpus**: Shot scale, graphic matches, negative space, acousmatic sound, broken symmetry, motif transfer — meaning arises from pattern and transformation, never fixed iconography.
 - **Relational geometry & cinematic encoding**: Blocking and shots are described as pressure and relationship, not clichés.
-- **Forge-native**: Produces clean symbolic_architecture and cinematic_encoding ready for Continuity Forge ledger and shot contracts.
+- **Forge-native**: Produces clean `symbolic_architecture` and `cinematic_encoding` ready for Continuity Forge ledger and shot contracts.
 
 ## Installation
 
@@ -33,7 +35,7 @@ Load `kubrick`.
 
 Always approve foundations before deep symbolic work.
 
-See `references/symbolic-dramaturgy.md` for full schemas and laws.
+See `references/symbolic-dramaturgy.md`, `references/symbolic-narrative-patterns.yaml`, `references/narrative-affordance-registry.md`, `references/transformation-grammar-registry.md`, `references/cinematic-symbolism-corpus.md`, and `references/corpus-usage.md` for the full system.
 
 Companion operator skill: `hermes-continuity-forge` for leases, ingest, and proof.
 
@@ -46,6 +48,6 @@ Companion operator skill: `hermes-continuity-forge` for leases, ingest, and proo
 
 ## Version
 
-0.4.0 (public-ready)
+0.5.0 (Symbolic Narrative Pattern System)
 
 See CHANGELOG.md for details.

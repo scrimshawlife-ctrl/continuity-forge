@@ -1,7 +1,7 @@
 ---
 name: kubrick
 description: "Symbolic narrative engineering with motif mutation."
-version: 0.4.0
+version: 0.5.0
 author: Hermes
 platforms: [linux, macos, windows]
 tags: [Kubrick, NarrativeEngineering, SymbolicDramaturgy, CinematicEncoding, MotifMutation, VisualMotif, Geometry, ArchetypeFunction, Screenplay, ContinuityForge, Ledger, AntiSlop, ProductionHandoff, Canon]
@@ -243,6 +243,16 @@ Then hand off: "compile this to Continuity Forge and ingest under lease with sym
 ## References
 
 - `references/symbolic-dramaturgy.md` (Module 5B — core symbolic laws, schemas, lifecycle, cinematic grammar, gates M–W, correspondence maps, esoteric embedding through constraint)
+
+- `references/symbolic-dramaturgy.md` (Module 5B core)
+- `references/symbolic-narrative-patterns.yaml` (core schema)
+- `references/narrative-affordance-registry.md`
+- `references/transformation-grammar-registry.md`
+- `references/cinematic-symbolism-corpus.md`
+- `references/source-hierarchy.md`, `source-registry.md`, `cross-tradition-relationships.md`
+- `references/corpus-usage.md` (retrieval rules, gates, validation)
+- `references/corpus/` (domain packs with provenance)
+
 - `references/story-structure.md`
 - `references/character-and-dialogue.md`
 - `references/scene-engineering.md`

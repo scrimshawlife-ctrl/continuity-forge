@@ -205,20 +205,32 @@ cp -R skills/hermes-continuity-forge ~/.hermes/skills/
 
 ## Symbolic Cinematic Layer: kubrick Skill
 
-In addition to the operator skill (hermes-continuity-forge) and the base kubrick skill (the primary narrative system), this repo ships skills/kubrick/ — a production-grade symbolic cinematic narrative engineering system.
+This repo ships `skills/kubrick/` — the primary symbolic cinematic narrative engineering system (replacement for the earlier scriptwriting skill).
 
-It extends the narrative engineering with:
-- Symbolic Dramaturgy and Cinematic Encoding (Module 5B)
-- Motif lifecycle, mutation, and recurrence
-- Relational composition and geometric patterns
-- Archetypal function and hidden correspondence
-- Visual, sonic, and edit symbolism
-- Precise visual encoding for production
+It includes a full **provenance-linked Symbolic Narrative Pattern System**:
 
-Use kubrick for creative development and structural work with precise visual/symbolic grammar. Handoff approved material to Continuity Forge (via CLI or MCP) for canonical ledger, IR, and shot contracts.
+- `SymbolicNarrativePattern` core schema with observed_structure, cinematic_affordances, mutation_rules, and source provenance.
+- Narrative Affordance Registry (BIND, DIVIDE, INITIATE, CONCEAL, REVEAL, INVERT, REPEAT, CONTAMINATE, MIRROR, SACRIFICE, CROSS, ENCLOSE, DESCEND, RETURN, HAUNT, ERASE, RESTORE, and others).
+- Transformation Grammar Registry (alchemical and process-based operations mapped to narrative, character, blocking, shot, editing, and sound).
+- Dedicated Cinematic Symbolism Corpus (shot scale, graphic matches, negative space, acousmatic sound, broken symmetry, motif transfer — no fixed meanings).
+- 10 bounded corpus domains with source hierarchy (PRIMARY / SCHOLARLY / etc.) and explicit cross-tradition relationship types.
+- Strict retrieval rules, quality gates, and validation tests that enforce historically grounded structures translated into subtle enactment without explanation or collage.
 
-See skills/kubrick/SKILL.md and skills/kubrick/references/continuity-forge-integration.md.
+Use kubrick for premise-to-production work requiring precise symbolic architecture that survives revision and handoff. It produces `symbolic_architecture` + `cinematic_encoding` ready for Continuity Forge.
+
+Handoff approved material to Continuity Forge (via CLI or MCP) for canonical ledger, IR, and shot contracts.
+
+See:
+- `skills/kubrick/SKILL.md`
+- `skills/kubrick/references/symbolic-dramaturgy.md`
+- `skills/kubrick/references/symbolic-narrative-patterns.yaml`
+- `skills/kubrick/references/narrative-affordance-registry.md`
+- `skills/kubrick/references/transformation-grammar-registry.md`
+- `skills/kubrick/references/cinematic-symbolism-corpus.md`
+- `skills/kubrick/references/corpus-usage.md`
 
 Install:
+```bash
 cp -R skills/kubrick ~/.hermes/skills/
 cp -R skills/hermes-continuity-forge ~/.hermes/skills/
+```

@@ -127,7 +127,7 @@ Pair it with the **`kubrick`** skill (the primary narrative system, also in this
 
 ### Integration Pattern
 
-1. Load `scriptwriting`.
+1. Load `kubrick`.
 2. Develop foundations (DEVELOP mode) or diagnose/revise.
 3. When material is approved: hand off to Forge.
    - Produce structured brief + scene contracts.
@@ -135,7 +135,7 @@ Pair it with the **`kubrick`** skill (the primary narrative system, also in this
 4. Ground future work in Forge state (`get_project_status`, ledger hashes).
 5. Use `hermes-continuity-forge` for leases, proof, repair loops, approvals.
 
-See `skills/scriptwriting/references/continuity-forge-integration.md` for exact handoff commands and boundaries.
+See `skills/kubrick/references/continuity-forge-integration.md` for exact handoff commands and boundaries.
 
 **Both skills are designed to be used together.** The narrative skill produces high-quality, drift-resistant creative material. The operator skill ensures it is governed by the deterministic kernel.
 
@@ -155,10 +155,15 @@ Pair it with the kubrick skill (also in this repo) for the upstream creative and
 - Character systems, voice fingerprints, arcs
 - Macrostructure, sequences, beats
 - Scene contracts (objective, opposition, turn, irreversible result)
-- Symbolic Dramaturgy and Cinematic Encoding (Module 5B): symbolic_intent, motif lifecycle/mutation, relational composition, geometric patterns, shot recurrence, archetypal function, hidden correspondence, sonic/edit symbolism, tradition boundaries
+- **Symbolic Narrative Pattern System**: provenance-linked `SymbolicNarrativePattern` schema
+- Narrative Affordance Registry (BIND, DIVIDE, INITIATE, CONCEAL/REVEAL, INVERT, REPEAT-with-mutation, CONTAMINATE, etc.)
+- Transformation Grammar Registry (alchemical processes and ritual structures mapped to character, scene, blocking, and shot form)
+- Dedicated Cinematic Symbolism Corpus (no fixed meanings; pattern, recurrence, and contrast only)
+- 10 corpus domains (Semiotic, Myth/Folklore, Ritual/Liminal, Dream, Alchemical, Spatial/Geometric, Sonic, Cinematic, Historical Esoteric, Contemporary) with full source hierarchy and cross-tradition relationship types
+- Strict retrieval rules, quality gates, and validation tests
 - Dialogue engine, anti-slop gates (A-W + Forge bypass)
 - Revision passes, format adaptation
-- Production packets and visual identities grounded in symbolic architecture
+- Production packets and visual identities grounded in symbolic_architecture + cinematic_encoding
 
 ### Integration Pattern
 
