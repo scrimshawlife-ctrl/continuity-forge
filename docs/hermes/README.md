@@ -37,6 +37,27 @@ Trigger phrases (see skill frontmatter): continuity forge, controlled proof, sho
 
 ---
 
+
+---
+
+## Narrative / Creative Skills (kubrick)
+
+In addition to the operator skill (`hermes-continuity-forge`), the repo ships `skills/kubrick`, the symbolic cinematic narrative engineering skill.
+
+**Distribution model**: Like all skills in this repo, kubrick is **not** a pip package and is **not** included in the `continuity-forge` wheel.
+
+Install it the same way:
+
+```bash
+cp -R skills/kubrick ~/.hermes/skills/
+# or
+cp -R skills/kubrick ~/.hermes/skills/creative/
+```
+
+See `skills/kubrick/README.md` and `skills/kubrick/SKILL.md` for details on its executable retrieval helper and self-evolution system.
+
+kubrick is designed to be used together with `hermes-continuity-forge` for premise → symbolic architecture → Forge handoff workflows.
+
 ## Wire MCP
 
 1. Install the package so the entrypoint exists:

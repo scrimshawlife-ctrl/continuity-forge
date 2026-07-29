@@ -21,19 +21,43 @@ kubrick is the evolved replacement for earlier narrative engineering tools. It d
 - Autonomous evolution engine that learns from real project/Forge usage
 - Full support for project symbolic ledger, revision diffing, cultural review gates, and production feasibility
 
-## Installation
+## Distribution & Installation
 
-From the continuity-forge repo:
+**Kubrick is a Hermes skill, not a Python package.**
+
+It is **not** distributed via PyPI or included in the `continuity-forge` wheel. The core package only ships the production kernel (IR, compiler, ledger, harness, etc.). Skills live as self-contained directories.
+
+### Recommended installation
+
+From the continuity-forge repo root:
 
 ```bash
+mkdir -p ~/.hermes/skills
 cp -R skills/kubrick ~/.hermes/skills/
-cp -R skills/hermes-continuity-forge ~/.hermes/skills/   # recommended companion
+cp -R skills/hermes-continuity-forge ~/.hermes/skills/   # strongly recommended companion
 ```
 
-Or categorized:
+Categorized layout (if your Hermes setup uses `creative/`):
+
 ```bash
 cp -R skills/kubrick ~/.hermes/skills/creative/
 ```
+
+You can also symlink for development:
+```bash
+ln -s "$(pwd)/skills/kubrick" ~/.hermes/skills/kubrick
+```
+
+### Why directory-only distribution?
+
+- Skills contain markdown, schemas, examples, and small helper scripts that Hermes loads directly.
+- They are versioned and evolved together with the Continuity Forge repo.
+- The Python helpers inside (`scripts/retrieve_symbolic_patterns.py`, `scripts/evolve_from_use.py`) are intended to be executed from within the skill directory, not imported as a library.
+
+**Future option**: If reusable library interfaces become necessary, a small `kubrick-helpers` extra could be added later. It is not planned today.
+
+See `docs/hermes/README.md` for the general Hermes + Continuity Forge integration guide.
+
 
 ## Quick Start
 
