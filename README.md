@@ -202,3 +202,23 @@ Install both:
 cp -R skills/scriptwriting ~/.hermes/skills/
 cp -R skills/hermes-continuity-forge ~/.hermes/skills/
 ```
+
+## Symbolic Cinematic Layer: kubrick Skill
+
+In addition to the operator skill (hermes-continuity-forge) and the base kubrick skill (the primary narrative system), this repo ships skills/kubrick/ — a production-grade symbolic cinematic narrative engineering system.
+
+It extends the narrative engineering with:
+- Symbolic Dramaturgy and Cinematic Encoding (Module 5B)
+- Motif lifecycle, mutation, and recurrence
+- Relational composition and geometric patterns
+- Archetypal function and hidden correspondence
+- Visual, sonic, and edit symbolism
+- Precise visual encoding for production
+
+Use kubrick for creative development and structural work with precise visual/symbolic grammar. Handoff approved material to Continuity Forge (via CLI or MCP) for canonical ledger, IR, and shot contracts.
+
+See skills/kubrick/SKILL.md and skills/kubrick/references/continuity-forge-integration.md.
+
+Install:
+cp -R skills/kubrick ~/.hermes/skills/
+cp -R skills/hermes-continuity-forge ~/.hermes/skills/

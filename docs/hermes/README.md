@@ -111,11 +111,11 @@ Feed it to Hermes (or another coding agent) when MCP tools or REST surface chang
 
 ---
 
-## Narrative / Creative Layer: scriptwriting Skill
+## Primary Narrative / Creative Layer: kubrick Skill (replacement for scriptwriting)
 
 The `hermes-continuity-forge` skill is the **operator / enforcement** layer.
 
-Pair it with the **`scriptwriting`** skill (also in this repo) for the **upstream creative and structural work**:
+Pair it with the **`kubrick`** skill (the primary narrative system, also in this repo) for the **upstream creative and structural work**:
 
 - Premise engineering, loglines, dramatic questions
 - Character systems, voice fingerprints, arcs
@@ -141,6 +141,39 @@ See `skills/scriptwriting/references/continuity-forge-integration.md` for exact 
 
 Install:
 ```bash
-cp -R skills/scriptwriting ~/.hermes/skills/
+cp -R skills/kubrick ~/.hermes/skills/
 cp -R skills/hermes-continuity-forge ~/.hermes/skills/
 ```
+
+## Symbolic Cinematic Layer: kubrick Skill
+
+The hermes-continuity-forge skill is the operator / enforcement layer.
+
+Pair it with the kubrick skill (also in this repo) for the upstream creative and structural work with symbolic precision:
+
+- Premise engineering, loglines, dramatic questions
+- Character systems, voice fingerprints, arcs
+- Macrostructure, sequences, beats
+- Scene contracts (objective, opposition, turn, irreversible result)
+- Symbolic Dramaturgy and Cinematic Encoding (Module 5B): symbolic_intent, motif lifecycle/mutation, relational composition, geometric patterns, shot recurrence, archetypal function, hidden correspondence, sonic/edit symbolism, tradition boundaries
+- Dialogue engine, anti-slop gates (A-W + Forge bypass)
+- Revision passes, format adaptation
+- Production packets and visual identities grounded in symbolic architecture
+
+### Integration Pattern
+
+1. Load kubrick.
+2. Develop foundations (DEVELOP mode) or diagnose/revise. Use symbolic tools when appropriate.
+3. When material is approved: hand off to Forge.
+   - Produce structured brief + scene contracts + symbolic_architecture / cinematic_encoding where relevant.
+   - Use Forge CLI/MCP: compile, ingest_script (with mutation contract + lease), build_shot_contracts.
+4. Ground future work in Forge state (get_project_status, ledger hashes).
+5. Use hermes-continuity-forge for leases, proof, repair loops, approvals.
+
+See skills/kubrick/references/continuity-forge-integration.md for exact handoff commands and boundaries.
+
+Both skills are designed to be used together. The kubrick skill produces high-quality, drift-resistant creative material with sophisticated symbolic layer. The operator skill ensures it is governed by the deterministic kernel.
+
+Install:
+cp -R skills/kubrick ~/.hermes/skills/
+cp -R skills/hermes-continuity-forge ~/.hermes/skills/
