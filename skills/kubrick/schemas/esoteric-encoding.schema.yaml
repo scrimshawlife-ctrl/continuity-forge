@@ -1,0 +1,262 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://continuity-forge.local/schemas/kubrick/esoteric-encoding.schema.yaml"
+title: Kubrick Esoteric Encoding
+type: object
+additionalProperties: false
+required:
+  - schema_version
+  - project_id
+  - dramatic_problem
+  - observed_scene_state
+  - desired_state_change
+  - governing_grammar
+  - selections
+  - rejected_concepts
+  - validation
+  - canon_status
+properties:
+  schema_version:
+    type: string
+    const: "1.0.0"
+  project_id:
+    type: string
+    minLength: 1
+  scene_id:
+    type: [string, "null"]
+  sequence_id:
+    type: [string, "null"]
+  dramatic_problem:
+    type: string
+    minLength: 1
+  observed_scene_state:
+    type: string
+    minLength: 1
+  desired_state_change:
+    type: string
+    minLength: 1
+  governing_grammar:
+    type: object
+    additionalProperties: false
+    required:
+      - grammar_id
+      - tradition
+      - dramatic_function
+      - provenance
+      - boundary
+    properties:
+      grammar_id:
+        type: string
+        minLength: 1
+      tradition:
+        type: string
+        minLength: 1
+      dramatic_function:
+        type: string
+        minLength: 1
+      provenance:
+        type: array
+        minItems: 1
+        items:
+          type: string
+          minLength: 1
+      boundary:
+        type: string
+        minLength: 1
+  selections:
+    type: array
+    minItems: 1
+    maxItems: 3
+    items:
+      $ref: "#/$defs/selection"
+  rejected_concepts:
+    type: array
+    items:
+      type: object
+      additionalProperties: false
+      required: [concept_id, reason]
+      properties:
+        concept_id:
+          type: string
+          minLength: 1
+        reason:
+          type: string
+          minLength: 1
+  validation:
+    type: object
+    additionalProperties: false
+    required:
+      - observed_form_first
+      - dramatic_function_present
+      - recurrence_mutates
+      - tradition_boundary_recorded
+      - causality_preserved
+      - agency_preserved
+      - continuity_preserved
+      - anti_slop_gates
+    properties:
+      observed_form_first:
+        type: boolean
+        const: true
+      dramatic_function_present:
+        type: boolean
+        const: true
+      recurrence_mutates:
+        type: boolean
+      tradition_boundary_recorded:
+        type: boolean
+        const: true
+      causality_preserved:
+        type: boolean
+        const: true
+      agency_preserved:
+        type: boolean
+        const: true
+      continuity_preserved:
+        type: boolean
+        const: true
+      anti_slop_gates:
+        type: object
+        additionalProperties: false
+        required: [M, N, O, P, Q, R, S, T, U, V, W]
+        properties:
+          M: {$ref: "#/$defs/gate_result"}
+          N: {$ref: "#/$defs/gate_result"}
+          O: {$ref: "#/$defs/gate_result"}
+          P: {$ref: "#/$defs/gate_result"}
+          Q: {$ref: "#/$defs/gate_result"}
+          R: {$ref: "#/$defs/gate_result"}
+          S: {$ref: "#/$defs/gate_result"}
+          T: {$ref: "#/$defs/gate_result"}
+          U: {$ref: "#/$defs/gate_result"}
+          V: {$ref: "#/$defs/gate_result"}
+          W: {$ref: "#/$defs/gate_result"}
+  forge_handoff:
+    type: [object, "null"]
+    additionalProperties: false
+    required:
+      - actor_id
+      - authorization_scope
+      - idempotency_key
+      - rationale
+      - expected_state_hash
+    properties:
+      actor_id:
+        type: string
+        minLength: 1
+      authorization_scope:
+        type: string
+        minLength: 1
+      idempotency_key:
+        type: string
+        minLength: 1
+      rationale:
+        type: string
+        minLength: 1
+      expected_state_hash:
+        type: string
+        minLength: 1
+  canon_status:
+    type: string
+    enum: [PROPOSED, LOCKED]
+$defs:
+  selection:
+    type: object
+    additionalProperties: false
+    required:
+      - concept_id
+      - tradition
+      - dramatic_function
+      - encoding_vectors
+      - observable_evidence
+      - mutation_rule
+      - audience_visibility
+      - confidence
+      - provenance
+      - tradition_boundary
+    properties:
+      concept_id:
+        type: string
+        pattern: "^[a-z0-9_]+$"
+      tradition:
+        type: string
+        minLength: 1
+      dramatic_function:
+        type: string
+        minLength: 1
+      encoding_vectors:
+        type: array
+        minItems: 1
+        uniqueItems: true
+        items:
+          type: string
+          enum:
+            - framing
+            - blocking
+            - camera
+            - lens
+            - edit
+            - duration
+            - light
+            - color
+            - material
+            - sound
+            - rhythm
+            - silence
+            - prop
+            - costume
+            - gesture
+            - architecture
+            - geometry
+            - negative_space
+            - recurrence
+            - inversion
+            - convergence
+            - residue
+            - causality
+            - knowledge_state
+            - relationship_state
+            - identity_state
+            - temporal_phase
+      observable_evidence:
+        type: array
+        minItems: 1
+        items:
+          type: string
+          minLength: 1
+      mutation_rule:
+        type: string
+        minLength: 1
+      inversion_condition:
+        type: [string, "null"]
+      payoff_condition:
+        type: [string, "null"]
+      residue:
+        type: [string, "null"]
+      audience_visibility:
+        type: string
+        enum: [peripheral, readable, foreground, delayed]
+      confidence:
+        type: number
+        minimum: 0
+        maximum: 1
+      provenance:
+        type: array
+        minItems: 1
+        items:
+          type: string
+          minLength: 1
+      tradition_boundary:
+        type: string
+        minLength: 1
+  gate_result:
+    type: object
+    additionalProperties: false
+    required: [status, evidence]
+    properties:
+      status:
+        type: string
+        enum: [PASS, FAIL, NOT_APPLICABLE, NOT_COMPUTABLE]
+      evidence:
+        type: array
+        items:
+          type: string
