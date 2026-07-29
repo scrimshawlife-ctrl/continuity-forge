@@ -44,7 +44,13 @@ Trigger phrases (see skill frontmatter): continuity forge, controlled proof, sho
 
 In addition to the operator skill (`hermes-continuity-forge`), the repo ships `skills/kubrick`, the symbolic cinematic narrative engineering skill.
 
-**Distribution model**: Like all skills in this repo, kubrick is **not** a pip package and is **not** included in the `continuity-forge` wheel.
+**Distribution model**: kubrick skill itself is distributed by directory copy (not a pip package). However, the helper logic is available as an optional extra:
+
+```bash
+pip install continuity-forge[kubrick-helpers]
+```
+
+This provides `kubrick_helpers` Python package + `kubrick-retrieve` / `kubrick-evolve` CLIs.
 
 Install it the same way:
 
