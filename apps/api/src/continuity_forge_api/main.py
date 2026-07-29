@@ -780,6 +780,21 @@ def _meta_list(meta: dict[str, object], key: str) -> list[Any]:
     return []
 
 
+def _merged_overrides(
+    request_overrides: list[dict[str, Any]],
+    document_key: str | None,
+) -> list[OperatorOverride]:
+    """Client overrides plus durable ProjectStore product_meta locks."""
+    overrides = _parse_overrides(request_overrides)
+    store_key = _product_store_key(document_key)
+    if store_key:
+        meta = _rt().project_store.get_product_meta(store_key)
+        if meta:
+            # Store first so later request overrides can supersede same field
+            overrides = _parse_overrides(_meta_list(meta, "overrides")) + overrides
+    return overrides
+
+
 @app.post("/v1/product/create-project")
 def product_create_project(
     request: ProductCreateProjectRequest,
@@ -876,13 +891,7 @@ def product_analyze(request: ProductAnalyzeRequest) -> dict[str, Any]:
         raise HTTPException(status_code=400, detail=err.model_dump(mode="json")) from exc
 
     resolved = set(request.resolved_conflict_ids)
-    overrides = _parse_overrides(request.overrides)
-    # Merge durable meta overrides when document_key present
-    store_key = _product_store_key(request.document_key)
-    if store_key:
-        meta = _rt().project_store.get_product_meta(store_key)
-        if meta:
-            overrides = _parse_overrides(_meta_list(meta, "overrides")) + overrides
+    overrides = _merged_overrides(request.overrides, request.document_key)
     summary = build_analysis_summary(
         package,
         production_type=request.production_type,
@@ -912,7 +921,11 @@ def product_scene_detail(
     scene_id: str,
     request: ProductAnalyzeRequest,
 ) -> dict[str, Any]:
-    """Scene detail view model (entry/exit, shots as cards, conflicts)."""
+    """Scene detail view model (entry/exit, shots as cards, conflicts).
+
+    Merges durable product_meta overrides from ProjectStore so scene metadata
+    locks apply even when the client omits the overrides list.
+    """
     package = build_breakdown_from_text(
         request.text,
         title=request.title,
@@ -920,7 +933,7 @@ def product_scene_detail(
         format=request.format,
         revision=request.revision,
     )
-    overrides = _parse_overrides(request.overrides)
+    overrides = _merged_overrides(request.overrides, request.document_key)
     detail = build_scene_detail(
         package,
         scene_id,
@@ -948,6 +961,8 @@ def product_prepare_scene(
         format=request.format,
         revision=request.revision,
     )
+    # Durable overrides available for readiness/package continuity context
+    _ = _merged_overrides(request.overrides, request.document_key)
     try:
         scene_pkg = prepare_scene_package(
             package,

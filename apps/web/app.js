@@ -536,7 +536,6 @@ async function analyzeScript() {
     updateDevPanels();
     showAlert("Script analysis complete. Review the breakdown when ready.", { kind: "ok" });
   } catch (e) {
-    clearInterval(timer);
     $("analysis-progress").hidden = true;
     current.phase = "ERROR";
     $("phase-label").textContent = `Phase: ${humanPhase(current.phase)}`;
@@ -809,21 +808,106 @@ function ensureSceneMetaEditor(detail) {
   $("btn-save-scene-meta")?.addEventListener("click", saveSceneMetadata);
 }
 
+/** @type {{ fields: object[], previews: object[] } | null} */
+let pendingSceneMeta = null;
+
 async function saveSceneMetadata() {
   if (!current || !selectedSceneId) return;
   const fields = [
-    { field_name: "slugline", original_value: current.sceneDetail?.scene?.slugline || "", locked_value: $("meta-slugline")?.value || "" },
-    { field_name: "location", original_value: current.sceneDetail?.scene?.location || "", locked_value: $("meta-location")?.value || "" },
-    { field_name: "time_of_day", original_value: current.sceneDetail?.scene?.time_of_day || "", locked_value: $("meta-tod")?.value || "" },
+    {
+      field_name: "slugline",
+      original_value: current.sceneDetail?.scene?.slugline || "",
+      locked_value: $("meta-slugline")?.value || "",
+    },
+    {
+      field_name: "location",
+      original_value: current.sceneDetail?.scene?.location || "",
+      locked_value: $("meta-location")?.value || "",
+    },
+    {
+      field_name: "time_of_day",
+      original_value: current.sceneDetail?.scene?.time_of_day || "",
+      locked_value: $("meta-tod")?.value || "",
+    },
     {
       field_name: "flashback",
       original_value: "false",
       locked_value: $("meta-flashback")?.checked ? "true" : "false",
     },
-  ];
-  for (const f of fields) {
-    if (f.locked_value === f.original_value) continue;
-    try {
+  ].filter((f) => f.locked_value !== f.original_value);
+
+  if (!fields.length) {
+    showAlert("No metadata changes to save.", { kind: "ok" });
+    return;
+  }
+
+  // Preview only — never confirm until user accepts invalidation dialog
+  const previews = [];
+  let sceneCount = 0;
+  let shotCount = 0;
+  let genCount = 0;
+  let approvedCount = 0;
+  try {
+    for (const f of fields) {
+      const res = await api("/v1/product/override/preview", {
+        method: "POST",
+        body: JSON.stringify({
+          title: current.title,
+          text: current.text,
+          document_key: current.document_key,
+          format: current.format,
+          target_kind: "scene",
+          target_id: selectedSceneId,
+          field_name: f.field_name,
+          original_value: f.original_value,
+          locked_value: f.locked_value,
+          rationale: "Scene metadata correction",
+          confirm: false,
+          existing_overrides: current.overrides || [],
+        }),
+      });
+      previews.push({ field: f, response: res });
+      const inv = res.invalidation || {};
+      sceneCount = Math.max(sceneCount, inv.scene_count || 0);
+      shotCount = Math.max(shotCount, inv.shot_count || 0);
+      genCount = Math.max(genCount, inv.generated_candidate_count || 0);
+      approvedCount = Math.max(approvedCount, inv.approved_downstream_count || 0);
+    }
+  } catch (e) {
+    showAlert(e.message || "Could not preview scene metadata impact", { technical: e.detail });
+    return;
+  }
+
+  pendingSceneMeta = { fields, previews };
+  pendingOverride = null; // ensure confirm path uses scene-meta handler
+  $("inv-message").textContent =
+    `This scene metadata change affects ${sceneCount} scenes and ${shotCount} shots. ` +
+    "Generated candidates are not deleted. Confirm to apply USER LOCKED overrides.";
+  $("inv-stats").innerHTML = [
+    ["Scenes", sceneCount],
+    ["Shots", shotCount],
+    ["Generated", genCount],
+    ["Approved downstream", approvedCount],
+  ]
+    .map(
+      ([k, v]) =>
+        `<li class="stat"><span class="stat__k">${escapeHtml(k)}</span><span class="stat__v">${escapeHtml(
+          String(v)
+        )}</span></li>`
+    )
+    .join("");
+  $("invalidation-dialog").showModal();
+}
+
+async function confirmSceneMetadata() {
+  if (!current || !selectedSceneId || !pendingSceneMeta?.fields?.length) {
+    pendingSceneMeta = null;
+    $("invalidation-dialog").close();
+    return;
+  }
+  const { fields } = pendingSceneMeta;
+  try {
+    for (const f of fields) {
       const res = await api("/v1/product/override/preview", {
         method: "POST",
         body: JSON.stringify({
@@ -844,15 +928,16 @@ async function saveSceneMetadata() {
       if (res.override) {
         current.overrides = [...(current.overrides || []), res.override];
       }
-    } catch (e) {
-      showAlert(e.message || "Could not save scene metadata", { technical: e.detail });
-      return;
     }
+    current.phase = "STALE";
+    saveProjects();
+    pendingSceneMeta = null;
+    $("invalidation-dialog").close();
+    showAlert("Scene metadata locked after confirmation. Dependents marked stale.", { kind: "ok" });
+    await loadSceneDetail(selectedSceneId);
+  } catch (e) {
+    showAlert(e.message || "Could not save scene metadata", { technical: e.detail });
   }
-  current.phase = "STALE";
-  saveProjects();
-  showAlert("Scene metadata locked. Re-analyze or reopen scene to refresh dependents.", { kind: "ok" });
-  await loadSceneDetail(selectedSceneId);
 }
 
 function renderConflictCard(c) {
@@ -1051,6 +1136,11 @@ async function lockEntityValue(entityId, field, original) {
 }
 
 async function confirmOverride() {
+  // Scene metadata batch path (preview already shown)
+  if (pendingSceneMeta?.fields?.length) {
+    await confirmSceneMetadata();
+    return;
+  }
   if (!current || !pendingOverride?.override) {
     $("invalidation-dialog").close();
     return;
@@ -1631,6 +1721,7 @@ function bindEvents() {
   $("btn-mock-proof")?.addEventListener("click", runMockProof);
   $("btn-inv-cancel")?.addEventListener("click", () => {
     pendingOverride = null;
+    pendingSceneMeta = null;
     $("invalidation-dialog").close();
   });
   $("btn-inv-confirm")?.addEventListener("click", confirmOverride);

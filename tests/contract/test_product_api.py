@@ -195,6 +195,69 @@ def test_ui_has_review_actions_and_no_fake_stage_timer() -> None:
     assert "setInterval" not in js or "renderStagesWorking" in js
     # Ensure fake sequential timer progression was removed from analyze path
     assert "stage = Math.min(stage + 1" not in js
+    # Analysis error path must not reference removed timer (ReferenceError)
+    assert "clearInterval(timer)" not in js
     assert "Correct scene metadata" in js or "meta-slugline" in js
+    # Scene metadata must preview invalidation before confirm:true
+    assert "pendingSceneMeta" in js
+    assert "confirm: false" in js or "confirm:false" in js
+    assert "confirmSceneMetadata" in js
     assert "Review" in html
     assert "USER LOCKED" in js or "USER_LOCKED" in js
+
+
+def test_scene_detail_merges_durable_product_meta_overrides() -> None:
+    """Durable scene slugline lock appears on detail even when client omits overrides."""
+    client = TestClient(app)
+    text = FIXTURE.read_text(encoding="utf-8")
+    created = client.post(
+        "/v1/product/create-project",
+        json={"title": "Meta Store", "production_type": "Short Film", "text": text},
+    ).json()
+    analyzed = client.post(
+        "/v1/product/analyze",
+        json={
+            "title": "Meta Store",
+            "text": text,
+            "document_key": created["document_key"],
+            "format": "fountain",
+        },
+    ).json()
+    scene = analyzed["scenes"][0]
+    original_slug = scene["slugline"]
+    locked_slug = "INT. STORE ONLY - NIGHT"
+    assert original_slug != locked_slug
+
+    confirmed = client.post(
+        "/v1/product/override/preview",
+        json={
+            "title": "Meta Store",
+            "text": text,
+            "document_key": created["document_key"],
+            "format": "fountain",
+            "target_kind": "scene",
+            "target_id": scene["scene_id"],
+            "field_name": "slugline",
+            "original_value": original_slug,
+            "locked_value": locked_slug,
+            "confirm": True,
+            "existing_overrides": [],
+        },
+    )
+    assert confirmed.status_code == 200
+    assert confirmed.json().get("confirmed") is True
+
+    # Client deliberately omits overrides — store must still apply
+    detail = client.post(
+        f"/v1/product/scenes/{scene['scene_id']}",
+        json={
+            "title": "Meta Store",
+            "text": text,
+            "document_key": created["document_key"],
+            "format": "fountain",
+            "overrides": [],
+        },
+    )
+    assert detail.status_code == 200, detail.text
+    assert detail.json()["scene"]["slugline"] == locked_slug
+    assert detail.json()["scene"]["slugline"] != original_slug
