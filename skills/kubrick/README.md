@@ -1,5 +1,7 @@
 # Kubrick — Symbolic Cinematic Narrative Engineering System
 
+![Kubrick — Symbolic Cinematic Narrative Engineering](assets/kubrick-hero.svg)
+
 **The primary skill for precise, motif-driven, geometrically rigorous cinematic storytelling.**
 
 kubrick is the evolved replacement for earlier narrative engineering tools. It delivers production-ready scripts, scene contracts, and symbolic architecture that resist generic AI writing while creating latent, powerful visual and thematic systems.
