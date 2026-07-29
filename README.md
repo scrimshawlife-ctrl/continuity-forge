@@ -235,3 +235,35 @@ Install both:
 cp -R skills/scriptwriting ~/.hermes/skills/
 cp -R skills/hermes-continuity-forge ~/.hermes/skills/
 ```
+
+## Symbolic Cinematic Layer: kubrick Skill
+
+This repo ships `skills/kubrick/` — the primary symbolic cinematic narrative engineering system (replacement for the earlier scriptwriting skill).
+
+It includes a full **provenance-linked Symbolic Narrative Pattern System**:
+
+- `SymbolicNarrativePattern` core schema with observed_structure, cinematic_affordances, mutation_rules, and source provenance.
+- Narrative Affordance Registry (BIND, DIVIDE, INITIATE, CONCEAL, REVEAL, INVERT, REPEAT, CONTAMINATE, MIRROR, SACRIFICE, CROSS, ENCLOSE, DESCEND, RETURN, HAUNT, ERASE, RESTORE, and others).
+- Transformation Grammar Registry (alchemical and process-based operations mapped to narrative, character, blocking, shot, editing, and sound).
+- Dedicated Cinematic Symbolism Corpus (shot scale, graphic matches, negative space, acousmatic sound, broken symmetry, motif transfer — no fixed meanings).
+- 10 bounded corpus domains with source hierarchy (PRIMARY / SCHOLARLY / etc.) and explicit cross-tradition relationship types.
+- Strict retrieval rules, quality gates, and validation tests that enforce historically grounded structures translated into subtle enactment without explanation or collage.
+
+Use kubrick for premise-to-production work requiring precise symbolic architecture that survives revision and handoff. It produces `symbolic_architecture` + `cinematic_encoding` ready for Continuity Forge.
+
+Handoff approved material to Continuity Forge (via CLI or MCP) for canonical ledger, IR, and shot contracts.
+
+See:
+- `skills/kubrick/SKILL.md`
+- `skills/kubrick/references/symbolic-dramaturgy.md`
+- `skills/kubrick/references/symbolic-narrative-patterns.yaml`
+- `skills/kubrick/references/narrative-affordance-registry.md`
+- `skills/kubrick/references/transformation-grammar-registry.md`
+- `skills/kubrick/references/cinematic-symbolism-corpus.md`
+- `skills/kubrick/references/corpus-usage.md`
+
+Install:
+```bash
+cp -R skills/kubrick ~/.hermes/skills/
+cp -R skills/hermes-continuity-forge ~/.hermes/skills/
+```
