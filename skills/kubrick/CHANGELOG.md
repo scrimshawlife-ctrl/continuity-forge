@@ -1,3 +1,18 @@
+## [0.6.1] - 2026-07-28 (continuation after merge of #42)
+### Added
+- Populated schema examples (alchemical-nigredo, kubrick-monolith)
+- Dedicated genre packs: horror, noir-thriller, science-fiction (under references/corpus/genre/)
+- Concrete revision diff example (scene deletion)
+- Additional validation tests for sequence/character arc and cultural review gates
+- Concrete "How to Use" procedures in SKILL.md for scoring, ledger, sequence, character arc, revision, and handoff
+
+### Expanded
+- Film-pattern provenance depth examples integrated
+- Cultural review trigger documentation and test
+- Production feasibility notes in genre packs
+
+This continues the P1/P2 hardening after the P0 merge.
+
 ## [0.6.0] - 2026-07-28
 ### Added — Symbolic Retrieval and Continuity Hardening (P0)
 - Machine-readable schemas/ (symbolic-narrative-pattern, cinematic-pattern, transformation-grammar, narrative-affordance, symbolic-architecture, continuity-forge-symbolic-export)

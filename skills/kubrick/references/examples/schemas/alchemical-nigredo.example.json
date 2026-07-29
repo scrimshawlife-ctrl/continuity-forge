@@ -1,0 +1,36 @@
+{
+  "pattern_id": "alchemical_nigredo_putrefaction",
+  "title": "Nigredo / Blackening (Putrefaction)",
+  "domain": "alchemical",
+  "source_tier": "PRIMARY",
+  "source_refs": [
+    {
+      "author": "Pseudo-Arnald of Villanova / Rosarium Philosophorum tradition",
+      "title": "Rosarium Philosophorum",
+      "date": "16th century",
+      "cultural_context": "Late medieval / early modern European alchemy"
+    }
+  ],
+  "dramatic_operations": ["breakdown of identity", "necessary death of illusion", "corruption before rebirth"],
+  "transformation_grammars": ["putrefaction", "dissolution"],
+  "cinematic_affordances": ["reduced palette", "negative space dominance", "slow push into void", "lengthening shots"],
+  "applicable_genres": ["drama", "horror", "thriller", "art film"],
+  "applicable_formats": ["feature", "limited series"],
+  "cultural_scope": ["European medieval", "Renaissance alchemy"],
+  "misuse_risks": ["cliché black imagery", "tradition_flattening to 'depression'", "visual literalism"],
+  "mutation_requirements": {
+    "required": true,
+    "variables": ["scale", "ownership", "color", "material", "sound", "framing", "emotional valence"]
+  },
+  "confidence": 0.85,
+  "retrieval_score": {
+    "dramatic_fit": 0.9,
+    "character_fit": 0.85,
+    "cultural_fit": 0.75,
+    "cinematic_fit": 0.8,
+    "source_quality": 0.9,
+    "mutation_potential": 0.95,
+    "continuity_compatibility": 0.85,
+    "cliché_risk": 0.35
+  }
+}

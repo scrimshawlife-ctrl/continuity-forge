@@ -1,0 +1,45 @@
+{
+  "pattern_id": "kubrick_monolith_2001",
+  "title": "The Monolith (2001: A Space Odyssey) - Threshold / Enclosure / Descent",
+  "domain": "cinematic",
+  "source_tier": "SCHOLARLY",
+  "source_refs": [
+    {
+      "author": "Stanley Kubrick",
+      "title": "2001: A Space Odyssey",
+      "date": "1968",
+      "cultural_context": "Mid-20th century modernist science fiction cinema"
+    }
+  ],
+  "dramatic_operations": ["evolutionary threshold", "initiation into new state", "cosmic indifference"],
+  "transformation_grammars": ["initiation", "descent", "conjunction"],
+  "cinematic_affordances": ["perfect symmetry", "low angle", "graphic match across time", "silence", "scale shift"],
+  "applicable_genres": ["science fiction", "art film", "philosophical drama"],
+  "applicable_formats": ["feature", "installation"],
+  "cultural_scope": ["Western modernist cinema"],
+  "misuse_risks": ["decorative sacred geometry", "unexplained iconography", "overstatement of mystery"],
+  "mutation_requirements": {
+    "required": true,
+    "variables": ["scale", "context", "accompanying sound", "geometric precision"]
+  },
+  "confidence": 0.9,
+  "retrieval_score": {
+    "dramatic_fit": 0.8,
+    "character_fit": 0.6,
+    "cultural_fit": 0.7,
+    "cinematic_fit": 0.95,
+    "source_quality": 0.85,
+    "mutation_potential": 0.9,
+    "continuity_compatibility": 0.8,
+    "cliché_risk": 0.45
+  },
+  "production_cost": {
+    "location_dependency": 0.4,
+    "prop_dependency": 0.7,
+    "lighting_dependency": 0.8,
+    "VFX_dependency": 0.9,
+    "sound_dependency": 0.6,
+    "performance_dependency": 0.3,
+    "editorial_dependency": 0.5
+  }
+}
