@@ -63,6 +63,11 @@ class ProjectStore:
             meta = self._product_meta.get(document_key)
             return dict(meta) if meta is not None else None
 
+    def list_product_meta(self) -> dict[str, dict[str, object]]:
+        """Return a copy of all product-meta overlays keyed by document_key."""
+        with self._lock:
+            return {k: dict(v) for k, v in self._product_meta.items()}
+
     def acquire_lease(
         self,
         document_key: str,

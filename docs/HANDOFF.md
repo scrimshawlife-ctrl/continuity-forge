@@ -48,6 +48,8 @@ make ui
 3. Open **Scenes** / **Continuity** to review; resolve conflicts explicitly.  
 4. **Prepare Scene for Generation** or use **Export** for Markdown/JSON packages.  
 
+Projects **persist on the server** (`ProjectStore`). Reopen via the project switcher or recent list (`GET /v1/product/projects` + hydrate). Browser storage is a cache only.
+
 Engineering tools (hashes, **Run Mock Pipeline Test**, raw JSON) are under **Settings → Developer** — not primary CTAs.
 
 Keyboard: **⌘/Ctrl+Enter** analyzes the script. Sticky mobile CTA is **Analyze Script**.

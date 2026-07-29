@@ -23,9 +23,10 @@ Vanilla SPA (`index.html`, `app.js`, `styles.css`, `tokens.css`).
 
 | Layer | Role |
 |-------|------|
-| Browser product store | Reopen, last-opened, overrides, UI phase |
-| Runtime project store | Canon ingest, leases, approvals (existing) |
-| Memory backend | Dev default |
+| Runtime project store | **Source of truth** — ingest script, IR, product_meta (overrides, phase, review) |
+| `GET /v1/product/projects` | Server project list (logical document keys) |
+| `GET /v1/product/projects/{id}` | Hydrate script + product_meta for UI reopen |
+| Browser localStorage | **Cache only** — last-opened key + offline fallback |
 
 No second persistence framework.
 

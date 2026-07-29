@@ -204,6 +204,11 @@ def test_ui_has_review_actions_and_no_fake_stage_timer() -> None:
     assert "confirmSceneMetadata" in js
     assert "Review" in html
     assert "USER LOCKED" in js or "USER_LOCKED" in js
+    # Server-first project reopen
+    assert "/v1/product/projects" in js
+    assert "refreshProjectsFromServer" in js
+    assert "projectFromHydrate" in js
+    assert "preferServer" in js
 
 
 def test_scene_detail_merges_durable_product_meta_overrides() -> None:
@@ -261,6 +266,52 @@ def test_scene_detail_merges_durable_product_meta_overrides() -> None:
     assert detail.status_code == 200, detail.text
     assert detail.json()["scene"]["slugline"] == locked_slug
     assert detail.json()["scene"]["slugline"] != original_slug
+
+
+def test_product_list_and_hydrate_server_first() -> None:
+    """Server is source of truth for project list + reopen hydrate."""
+    client = TestClient(app)
+    text = FIXTURE.read_text(encoding="utf-8")
+    created = client.post(
+        "/v1/product/create-project",
+        json={
+            "title": "Reopen Me",
+            "production_type": "TV Episode",
+            "text": text,
+        },
+    )
+    assert created.status_code == 200
+    body = created.json()
+    assert body["persisted"] is True
+    doc = body["document_key"]
+
+    listed = client.get("/v1/product/projects")
+    assert listed.status_code == 200
+    payload = listed.json()
+    assert payload["source"] == "project_store"
+    keys = [p["document_key"] for p in payload["projects"]]
+    assert doc in keys
+    row = next(p for p in payload["projects"] if p["document_key"] == doc)
+    assert row["title"] == "Reopen Me"
+    assert row["production_type"] == "TV Episode"
+    assert row["has_script"] is True
+    assert row["persisted"] is True
+    # UI uses logical key, not tenant:: prefix
+    assert "::" not in row["document_key"]
+
+    hydrated = client.get(f"/v1/product/projects/{doc}")
+    assert hydrated.status_code == 200, hydrated.text
+    h = hydrated.json()
+    assert h["document_key"] == doc
+    assert h["text"] == text
+    assert h["title"] == "Reopen Me"
+    assert h["has_script"] is True
+    assert isinstance(h["overrides"], list)
+    assert isinstance(h["resolved_conflict_ids"], list)
+    assert isinstance(h["review_decisions"], list)
+
+    missing = client.get("/v1/product/projects/does-not-exist-xyz")
+    assert missing.status_code == 404
 
 
 def test_user_locked_slugline_on_all_product_surfaces() -> None:
