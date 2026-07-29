@@ -1,4 +1,4 @@
-.PHONY: install install-prod validate validate-repo test lint format typecheck coverage-floors proof handoff ui mcp breakdown
+.PHONY: install install-prod validate validate-repo test lint format typecheck coverage-floors proof handoff connector-smoke ui mcp breakdown
 
 install:
 	python -m pip install -e '.[dev]'
@@ -27,6 +27,10 @@ handoff:
 
 breakdown:
 	python -m continuity_forge_compiler.cli breakdown tests/golden/fixtures/continuity.fountain --out out
+
+# Live API connector smoke (server must be running: make ui)
+connector-smoke:
+	bash scripts/connector_smoke.sh
 
 ui:
 	uvicorn continuity_forge_api.main:app --reload --port 8080

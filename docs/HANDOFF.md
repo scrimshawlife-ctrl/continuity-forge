@@ -2,7 +2,7 @@
 
 **Goal:** A user pastes or imports a screenplay and receives a **shot-by-shot breakdown with continuity**, as **machine-readable JSON** (connectors/API) and optional **Markdown** export.
 
-**Release:** **v1.5.1** (`git checkout v1.5.1`) · Claim: `shot_breakdown_with_continuity_not_production_film`  
+**Release:** **v1.5.2** (`git checkout v1.5.2`) · Claim: `shot_breakdown_with_continuity_not_production_film`  
 Built on frozen **v1.4.0** kernel. This is **not** production film and does **not** generate ACCEPTED media.
 
 ---
@@ -40,6 +40,8 @@ make ui
 
 Optional: **Run proof** for mock media repair loop (separate claim; not required for breakdown handoff).
 
+Keyboard: **⌘/Ctrl+Enter** builds breakdown. Sticky mobile CTA is **Build breakdown**.
+
 ---
 
 ## 2. CLI (import file)
@@ -75,6 +77,13 @@ curl -s http://127.0.0.1:8080/v1/breakdown/markdown \
 ```
 
 OpenAPI: `http://127.0.0.1:8080/docs`
+
+Live connector smoke (API must be up via `make ui`):
+
+```bash
+make connector-smoke
+# or: bash scripts/connector_smoke.sh [path/to/script.fountain]
+```
 
 Related read endpoints (same source body shape as compile):
 
@@ -137,10 +146,10 @@ Unit/contract tests also cover this path under `make validate`.
 
 ## 7. Handoff checklist for a receiving team
 
-- [ ] `git checkout v1.5.1` · `pip install -e '.[dev]'` · `make validate` (includes handoff)  
+- [ ] `git checkout v1.5.2` · `pip install -e '.[dev]'` · `make validate` (includes handoff)  
 - [ ] `make ui` · Import file or sample · Build breakdown · download JSON  
-- [ ] Curl `/v1/breakdown` from your integrator host  
-- [ ] Confirm `/health` reports `"version": "1.5.1"`  
+- [ ] Curl `/v1/breakdown` or `make connector-smoke` (with API up)  
+- [ ] Confirm `/health` reports `"version": "1.5.2"`  
 - [ ] Read claim: not production film; PROPOSED media is a separate path  
 
 ---

@@ -283,6 +283,8 @@ def test_web_ui_is_served() -> None:
     assert 'id="script-file"' in index.text
     assert "Download breakdown JSON" in index.text
     assert 'id="btn-breakdown"' in index.text
+    assert 'id="btn-breakdown-sticky"' in index.text
+    assert "Build breakdown" in index.text
     assert "controlled_proof_not_production_ready" in index.text
     assert 'id="claim-post-proof"' in index.text
     assert "not ready — mock controlled proof only" in index.text
@@ -351,7 +353,7 @@ def test_web_ui_is_served() -> None:
 
 def test_health_reports_version() -> None:
     payload = TestClient(app).get("/health").json()
-    assert payload["version"] == "1.5.1"
+    assert payload["version"] == "1.5.2"
 
 
 def test_compile_incremental_endpoint() -> None:

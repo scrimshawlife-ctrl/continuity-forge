@@ -119,7 +119,7 @@ const els = {
   btnBreakdown: $("btn-breakdown"),
   btnImport: $("btn-import"),
   scriptFile: $("script-file"),
-  btnProofSticky: $("btn-proof-sticky"),
+  btnBreakdownSticky: $("btn-breakdown-sticky"),
   stickyCta: $("sticky-cta"),
   stickyHint: $("sticky-hint"),
   btnHealth: $("btn-health"),
@@ -273,13 +273,25 @@ function setRunState(state, label) {
   if (els.stickyHint) {
     els.stickyHint.textContent =
       state === "running"
-        ? "Proof running…"
+        ? "Working…"
         : state === "done"
-          ? "Proof complete"
+          ? "Done"
           : state === "error"
-            ? "Proof failed"
-            : "Script ready";
+            ? "Failed"
+            : "Script ready — Build breakdown";
   }
+}
+
+function setBreakdownButtons({ disabled, state, label }) {
+  if (els.btnBreakdown) {
+    els.btnBreakdown.disabled = !!disabled;
+    if (label) els.btnBreakdown.textContent = label;
+  }
+  if (els.btnBreakdownSticky) {
+    els.btnBreakdownSticky.disabled = !!disabled;
+    if (label) els.btnBreakdownSticky.textContent = label;
+  }
+  if (state) setRunState(state, state === "running" ? "building" : state);
 }
 
 function setStep(n) {
@@ -1793,8 +1805,11 @@ async function buildBreakdown() {
     showAlert("Paste a screenplay or use Import file first.");
     return;
   }
-  if (els.btnBreakdown) els.btnBreakdown.disabled = true;
-  setProofButtons({ disabled: true, state: "busy", label: "Building…" });
+  setBreakdownButtons({
+    disabled: true,
+    state: "running",
+    label: "Building…",
+  });
   try {
     const body = {
       title: els.title.value.trim() || "Untitled",
@@ -1818,16 +1833,21 @@ async function buildBreakdown() {
     }
     lastBreakdownMarkdown = markdown;
     renderBreakdown(package);
+    setRunState("done", "breakdown ready");
     showAlert(
       `Breakdown ready · ${package.shot_count} shot(s) · ` +
         `${package.entity_count} entit(y/ies) · download JSON for connectors · not production film`,
       "ok",
     );
   } catch (err) {
+    setRunState("error", "failed");
     showAlert(err instanceof Error ? err.message : String(err));
   } finally {
-    if (els.btnBreakdown) els.btnBreakdown.disabled = false;
-    setProofButtons({ disabled: false, state: "", label: "Run proof" });
+    setBreakdownButtons({
+      disabled: false,
+      state: "",
+      label: "Build breakdown",
+    });
   }
 }
 
@@ -1882,7 +1902,7 @@ function clearScript() {
 }
 
 function wireStickyCta() {
-  const primary = $("btn-proof");
+  const primary = els.btnBreakdown || $("btn-breakdown") || $("btn-proof");
   if (!els.stickyCta || !primary) return;
   const io = new IntersectionObserver(
     ([entry]) => {
@@ -2002,7 +2022,13 @@ function wire() {
     });
   }
   els.btnProof.addEventListener("click", runProof);
-  els.btnProofSticky?.addEventListener("click", runProof);
+  if (els.btnBreakdownSticky) {
+    els.btnBreakdownSticky.addEventListener("click", () => {
+      buildBreakdown().catch((err) =>
+        showAlert(err instanceof Error ? err.message : String(err)),
+      );
+    });
+  }
   els.btnHealth.addEventListener("click", async () => {
     showAlert("");
     try {
@@ -2101,7 +2127,12 @@ function wire() {
   document.addEventListener("keydown", (ev) => {
     if ((ev.metaKey || ev.ctrlKey) && ev.key === "Enter") {
       ev.preventDefault();
-      if (!els.btnProof.disabled) runProof();
+      // Primary handoff path: build breakdown (not mock proof)
+      if (els.btnBreakdown && !els.btnBreakdown.disabled) {
+        buildBreakdown().catch((err) =>
+          showAlert(err instanceof Error ? err.message : String(err)),
+        );
+      }
     }
   });
 
