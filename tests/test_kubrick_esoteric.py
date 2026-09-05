@@ -6,7 +6,6 @@ sys.path.insert(0, str(ROOT / "packages" / "kubrick_helpers" / "src"))
 
 from kubrick_helpers.esoteric import requested, select
 
-
 INDEX = {
     "activation": {"explicit_terms": ["alchemy", "hidden symbolism"]},
     "selection_policy": {
