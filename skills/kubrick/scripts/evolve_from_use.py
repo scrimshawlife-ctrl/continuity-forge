@@ -54,10 +54,10 @@ def load_all_sidecars(patterns_dir: str):
     return sidecars
 
 
-def aggregate_usage(receipts_dir, outcomes_dir):
+def aggregate_usage(receipts_dir, outcomes_dir, consumed=None):
     """Content-address events, not filenames; never silently ignore malformed evidence."""
     usage = defaultdict(lambda: {"events": {}})
-    seen = {}
+    seen = dict(consumed or {})
     for directory, kind in ((receipts_dir, "retrieval"), (outcomes_dir, "outcome")):
         for path in sorted(
             glob.glob(os.path.join(directory, "*.json"))
@@ -232,6 +232,7 @@ def run_evolution(
             raise ValueError("evidence directories must exist (empty is allowed)")
     root = Path(patterns_dir).resolve()
     lock = root / ".evolution.lock"
+    recovery_required = False
     if not dry_run:
         lock.mkdir()  # single-writer guard; stale lock requires human recovery
 
@@ -254,7 +255,16 @@ def run_evolution(
         if expected_plan_hash is not None and expected_plan_hash != plan_hash:
             raise ValueError("stale evolution plan; review a new dry-run")
         sidecars = load_all_sidecars(root)
-        usage = aggregate_usage(receipts_dir, outcomes_dir)
+        consumed = {}
+        for info in sidecars.values():
+            for event_id, event in info["data"].get("evolution_events", {}).items():
+                digest = event.get("evidence_hash")
+                if digest is None:  # legacy aggregate events have no evidence hash
+                    continue
+                if event_id in consumed and consumed[event_id] != digest:
+                    raise ValueError("conflicting consumed evidence for stable identity")
+                consumed[event_id] = digest
+        usage = aggregate_usage(receipts_dir, outcomes_dir, consumed)
         if set(usage) - set(sidecars):
             raise ValueError(
                 "unknown pattern in evidence: " + ", ".join(sorted(set(usage) - set(sidecars)))
@@ -330,22 +340,50 @@ def run_evolution(
                 for path, value in changes.items():
                     if path.read_bytes() != value:
                         raise OSError("evolution read-back mismatch")
-            except Exception:
+            except Exception as apply_error:
+                rollback_errors = []
                 for path in reversed(applied):
-                    if originals[path] is None:
-                        path.unlink()
-                    else:
-                        with tempfile.NamedTemporaryFile(dir=path.parent, delete=False) as stream:
-                            stream.write(originals[path])
-                            backup = stream.name
-                        os.replace(backup, path)
+                    if path == receipt_path:
+                        continue  # retain provenance until every corpus restore is verified
+                    backup = None
+                    original = originals[path]
+                    try:
+                        if original is None:
+                            path.unlink()
+                        else:
+                            try:
+                                with tempfile.NamedTemporaryFile(
+                                    dir=path.parent, delete=False
+                                ) as stream:
+                                    backup = Path(stream.name)
+                                    stream.write(original)
+                                os.replace(backup, path)
+                                if path.read_bytes() != original:
+                                    raise OSError("rollback read-back mismatch")
+                            finally:
+                                if backup is not None:
+                                    backup.unlink(missing_ok=True)
+                    except Exception as restore_error:  # noqa: BLE001 - report all failures
+                        rollback_errors.append(f"{path}: {restore_error!r}")
+                if not rollback_errors and receipt_path in applied:
+                    try:
+                        receipt_path.unlink()
+                    except Exception as restore_error:  # noqa: BLE001 - report all failures
+                        rollback_errors.append(f"{receipt_path}: {restore_error!r}")
+                if rollback_errors:
+                    recovery_required = True
+                    raise RuntimeError(
+                        f"evolution apply failed: {apply_error!r}; rollback failed: "
+                        + "; ".join(rollback_errors)
+                        + f"; manual recovery required using {receipt_path}; lock retained at {lock}"
+                    ) from apply_error
                 raise
             finally:
                 for temp in staged.values():
                     temp.unlink(missing_ok=True)
         return result
     finally:
-        if not dry_run:
+        if not dry_run and not recovery_required:
             lock.rmdir()
 
 

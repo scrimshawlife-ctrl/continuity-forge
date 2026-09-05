@@ -176,6 +176,25 @@ def test_same_identity_changed_evidence_is_rejected(engine, tmp_path):
         )
 
 
+@pytest.mark.parametrize("recipients", [[{"pattern_id": "q", "total_score": 0.8}], []])
+def test_consumed_identity_cannot_move_to_disjoint_patterns(engine, tmp_path, recipients):
+    corpus(tmp_path)
+    q = json.loads((tmp_path / "patterns/p.json").read_text())
+    q["pattern_id"] = "q"
+    (tmp_path / "patterns/q.json").write_text(json.dumps(q))
+    args = (tmp_path / "receipts", tmp_path / "outcomes", tmp_path / "patterns")
+    engine.run_evolution(*args, dry_run=False)
+    path = tmp_path / "receipts/0.json"
+    record = json.loads(path.read_text())
+    record["ranked_patterns"] = recipients
+    path.write_text(json.dumps(record))
+    before = tree(tmp_path)
+    with pytest.raises(ValueError, match="conflicting.*stable identity"):
+        engine.run_evolution(*args, dry_run=False)
+    assert tree(tmp_path) == before
+    assert not (tmp_path / "patterns/.evolution.lock").exists()
+
+
 def test_timestamp_change_is_not_new_evidence(engine, tmp_path):
     corpus(tmp_path)
     usage = engine.aggregate_usage(tmp_path / "receipts", tmp_path / "outcomes")
@@ -269,6 +288,61 @@ def test_caught_replace_failure_rolls_back_every_file(engine, tmp_path, monkeypa
         )
     assert {p: value[0] for p, value in tree(tmp_path).items()} == before
     assert not (tmp_path / "patterns/.evolution.lock").exists()
+
+
+@pytest.mark.parametrize("pattern_count", [2, 3])
+def test_double_fault_retains_recovery_guard_and_attempts_all_restores(
+    engine, tmp_path, monkeypatch, pattern_count
+):
+    corpus(tmp_path)
+    template = json.loads((tmp_path / "patterns/p.json").read_text())
+    for pid in ["q", "r"][: pattern_count - 1]:
+        (tmp_path / f"patterns/{pid}.json").write_text(json.dumps(dict(template, pattern_id=pid)))
+        (tmp_path / f"receipts/{pid}.json").write_text(
+            json.dumps(
+                {
+                    "request_hash": pid,
+                    "ranked_patterns": [{"pattern_id": pid, "total_score": 0.8}],
+                }
+            )
+        )
+    before = {p: p.read_bytes() for p in (tmp_path / "patterns").glob("*.json")}
+    replace = engine.os.replace
+    targets = []
+
+    def double_fault(source, target):
+        targets.append(Path(target))
+        if len(targets) == pattern_count + 1:
+            raise OSError("injected apply failure")
+        if len(targets) == pattern_count + 2:
+            raise OSError("injected restore failure")
+        return replace(source, target)
+
+    monkeypatch.setattr(engine.os, "replace", double_fault)
+    with pytest.raises(Exception) as caught:
+        engine.run_evolution(
+            tmp_path / "receipts", tmp_path / "outcomes", tmp_path / "patterns", dry_run=False
+        )
+    message = str(caught.value)
+    assert "injected apply failure" in message
+    assert "injected restore failure" in message
+    receipt_path = targets[0]
+    assert str(receipt_path) in message
+    assert receipt_path.is_file()
+    lock = tmp_path / "patterns/.evolution.lock"
+    assert lock.is_dir()
+    receipt = json.loads(receipt_path.read_text())["evolution_receipt"]
+    assert receipt["before_contents"] == {str(p): b.decode() for p, b in before.items()}
+    activated = targets[1:pattern_count]
+    assert targets[pattern_count + 1 :] == list(reversed(activated))
+    failed_restore = activated[-1]
+    for path, contents in before.items():
+        assert (path.read_bytes() == contents) == (path != failed_restore)
+    assert set((tmp_path / "patterns").iterdir()) == set(before) | {lock}
+    with pytest.raises(FileExistsError):
+        engine.run_evolution(
+            tmp_path / "receipts", tmp_path / "outcomes", tmp_path / "patterns", dry_run=False
+        )
 
 
 def test_embedded_package_code_and_schema_parity():
