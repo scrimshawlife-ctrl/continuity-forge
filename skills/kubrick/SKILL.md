@@ -74,23 +74,16 @@ A motif becomes powerful when it crosses channels without being explicitly ident
 
 ## Prerequisites
 
-- Continuity Forge installed and in PATH:
-  ```bash
-  pip install -e '.[dev]'   # from continuity-forge repo
-  continuity-forge --help
-  ```
-- (Recommended) `continuity-forge-mcp` configured in Hermes for tool use.
-- Optional: `humanizer` for final voice.
-
-Env for Forge (pass to any MCP/terminal calls):
-```bash
-export CF_STORE_ROOT="$HOME/.local/share/continuity-forge"
-# export CF_PROVIDER=mock
-```
+Creative use is standalone: load this directory's SKILL.md and the relevant references.
+Read `references/standalone-procedure.md` before routing, drafting or scoring.
+For optional Forge handoff only, use a Python 3.12+ full editable checkout and the
+operator skill; setup and MCP registration are in repo `docs/SETUP.md` and
+`docs/hermes/README.md`. Package installation does not install skill directories.
+Do not configure credentials, provider calls or a live store merely to write a scene.
 
 ## Request Routing & Modes
 
-Same as base (DEVELOP, DRAFT, DIAGNOSE, REVISE, POLISH, CONTINUITY, PRODUCTION, ADAPT) plus symbolic-specific routing.
+Read `references/standalone-procedure.md` for mode routing, ordered phases, artifact selection and the cited diagnosis rubric; load the named local narrative references for the selected mode.
 
 When the goal is production use with Forge, prefer:
 - DEVELOP → handoff to Forge ingest/compile
@@ -113,7 +106,7 @@ When the goal is production use with Forge, prefer:
 
 ## Core Workflow (Phases)
 
-1–11. (Intake → Premise → Characters → World → Theme → Macrostructure → Sequences/Beats → Scene Engine → Dialogue/Prose → Continuity Ledger → Revision) — same as base, now augmented with symbolic tracking.
+Read `references/standalone-procedure.md` for mode routing, ordered phases, artifact selection and the cited diagnosis rubric; load the named local narrative references for the selected mode.
 
 **Module 5B — Symbolic Dramaturgy and Cinematic Encoding** (new primary module, integrated throughout):
 
@@ -125,7 +118,7 @@ Before or alongside scene work:
 - Record `tradition_boundaries` and `correspondence_map` (private/hidden where appropriate).
 - Translate to `cinematic_encoding`: composition_patterns (relational, not cliché), geometric_patterns, blocking_patterns, camera_patterns, shot_recurrence (with mutation ledger), edit_cadence, sonic_motifs, production_design_states.
 
-**12. Handoff to Continuity Forge (critical phase)**
+**12. Handoff to Continuity Forge (optional, explicit handoff)**
 
 After foundations or scene contracts (now including symbolic architecture) are approved:
 - Use Forge to materialize canonical state:
@@ -156,11 +149,11 @@ A–L (see `references/anti-slop-patterns.md`) plus M–W for symbolic work:
 - **Gate V (Mystery by Obscurity)**: Ambiguity from withheld causal information rather than open relation.
 - **Gate W (Premature Closure)**: Explicit confirmation of the "correct" interpretation.
 
-Additional Forge gate (carried over): Gate M (Forge Bypass) — generating changes without Forge ledger update.
+Additional Forge gate (carried over): Gate F-CANON (Forge Bypass) — generating changes without Forge ledger update.
 
 ## Output Selection Logic
 
-Same as base. Preferred handoff artifacts:
+Read `references/standalone-procedure.md` for mode routing, ordered phases, artifact selection and the cited diagnosis rubric; load the named local narrative references for the selected mode.
 - Structured project brief (matches Forge intake)
 - Scene contracts (feed `build_shot_contracts`)
 - Approved canon list (for mutation envelopes)
@@ -171,7 +164,7 @@ Same as base. Preferred handoff artifacts:
 
 **Handoff rules**:
 - Creative development (this skill) produces **PROPOSED** or draft material (including symbolic proposals).
-- Forge ingestion makes it canonical.
+- Only schema-validated deterministic output committed through Forge is canonical; narrative/model proposals are not promoted merely by attachment.
 - Use leases + full mutation contract (`actor_id`, `authorization_scope`, `idempotency_key`, `rationale`) for any write path.
 - Always surface Forge receipts/hashes in responses.
 - Claim policy: material generated here is for development; final identity lives in Forge.
@@ -185,11 +178,11 @@ See the companion skill `hermes-continuity-forge` for operator details (leases, 
 
 ## Format-Specific Routing
 
-Same as base, with the addition that Forge's shot contracts and ledger are format-aware. Symbolic density and cinematic encoding expectations scale with format (features support richer recurrence and geometric layering; shorts demand extreme compression and precision).
+Read `references/standalone-procedure.md` for mode routing, ordered phases, artifact selection and the cited diagnosis rubric; load the named local narrative references for the selected mode.
 
 ## Diagnosis Rubric
 
-Same 1-5 rubric. When Forge is in play, also score "Forge alignment". When symbolic work active, additionally score:
+Use the anchored 1–5 rubric in `references/standalone-procedure.md`. When Forge is in play, also score "Forge alignment". When symbolic work active, additionally score:
 - Motif mutation and lifecycle fidelity
 - Channel crossing without explanation
 - Relational composition (vs. cliché)
@@ -220,42 +213,14 @@ Same 1-5 rubric. When Forge is in play, also score "Forge alignment". When symbo
 
 
 
-## Evolution from Use (Self-Improving Corpus)
+## Evolution from Use (explicit, local corpus maintenance)
 
-Kubrick is designed to improve itself through repeated application.
-
-**Core Mechanism**
-- Every retrieval automatically logs a receipt to `references/usage/receipts/`.
-- After Forge handoff, revision, or project review, record outcomes in `references/usage/outcomes/`.
-- Run the evolution engine: `python scripts/evolve_from_use.py`
-
-**What Evolves**
-- Pattern `confidence` is raised for patterns that repeatedly deliver clean results (low debt, successful mutations, no collisions).
-- `usage_history` is appended to sidecars with performance data.
-- `corpus-index.yaml` re-orders suggestions based on observed success.
-- Weak or overused patterns have confidence lowered and may be flagged for deprecation or mutation rule changes.
-
-**How to Feed It**
-1. After a project or significant sequence:
-   ```bash
-   # record outcome
-   echo '{"pattern_id": "alchemical_nigredo_putrefaction", "project": "my-film-042", "outcome": "success", "signals": ["clean revision", "Forge accepted"]}' > references/usage/outcomes/$(date +%s).json
-   ```
-2. Run evolution:
-   ```bash
-   python scripts/evolve_from_use.py
-   ```
-3. The engine produces `references/evolution/evolution-*.json` receipts.
-
-**Integration with Ledger**
-Project symbolic ledgers can be copied to `references/usage/ledgers/` for richer signals (saturation trends, debt accumulation, revision diff results).
-
-**Governance**
-- Evolution only adjusts confidence and history. Structural changes (new patterns, new grammars) still require human review.
-- All changes are timestamped and accompanied by an evolution receipt.
-- You can disable auto-logging or run evolution in dry-run mode.
-
-This turns every real use of the skill (especially when paired with Continuity Forge) into training data that sharpens future retrieval.
+Read `references/evolution-safety.md` before running evolution. It is plan-only by
+default, requires explicit project-owned corpus/evidence paths, validates changed
+sidecars, preserves unused index entries, and consumes stable receipt identities
+once. Use `--apply` only after reviewing the plan. This is heuristic ranking,
+not measured calibration or proof of artistic success. No automatic mutation is
+triggered by loading the skill.
 
 **Key Commands / Behaviors**
 - "Develop this premise with strong symbolic architecture and motif lifecycle" → DEVELOP + symbolic_intent + motif_registry (observed first) + cinematic_encoding.

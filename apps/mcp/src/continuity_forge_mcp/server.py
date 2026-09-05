@@ -518,36 +518,46 @@ def queue_generation(
     idempotency_key: str = "mcp-queue-generation",
     rationale: str = "PROPOSED generation (no canon write)",
     seed: str = "0",
+    expected_state_hash: str | None = None,
 ) -> dict[str, Any]:
     """Generate a PROPOSED mock media candidate for a shot (no canon mutation).
 
     MutationEnvelope fields are validated for audit consistency; output remains
-    PROPOSED and never becomes film canon.
+    PROPOSED and never becomes film canon. Pass the reviewed project state_hash;
+    omission binds to a fresh server snapshot. The store lock covers generation
+    and persistence within this runtime (not across independent processes).
     """
-    MutationEnvelope.from_parts(
+    runtime = _rt()
+    project = runtime.project_store.get_project(document_key)
+    if project is None or not project.shot_contracts:
+        raise ValueError("project or shot contracts not found")
+    envelope = MutationEnvelope.from_parts(
         actor_id=actor_id,
         authorization_scope=authorization_scope,
         idempotency_key=idempotency_key,
         rationale=rationale,
-    )
-    project = _rt().project_store.get_project(document_key)
-    if project is None or not project.shot_contracts:
-        raise ValueError("project or shot contracts not found")
-    contract = next(
-        (
-            c
-            for c in project.shot_contracts.get("contracts") or []
-            if str(c.get("shot_id")) == shot_id
+        expected_state_hash=(
+            expected_state_hash if expected_state_hash is not None else project.state_hash
         ),
-        None,
     )
-    if contract is None:
-        raise ValueError("shot not found")
-    candidate = _rt().gateway.generate_for_shot(contract, seed=seed)
-    artifact_store = _rt().artifact_store
-    if artifact_store is not None:
-        artifact_store.put(candidate)
-    return candidate.model_dump(mode="json")
+    with runtime.project_store.candidate_write(document_key, envelope):
+        contract = next(
+            (
+                c
+                for c in project.shot_contracts.get("contracts") or []
+                if str(c.get("shot_id")) == shot_id
+            ),
+            None,
+        )
+        if contract is None:
+            raise ValueError("shot not found")
+        candidate = runtime.gateway.generate_for_shot(contract, seed=seed)
+        artifact_store = runtime.artifact_store
+        if artifact_store is not None:
+            # Recheck before persistence, including re-entrant provider callbacks.
+            with runtime.project_store.candidate_write(document_key, envelope):
+                artifact_store.put(candidate)
+        return candidate.model_dump(mode="json")
 
 
 @mcp.tool()
@@ -561,42 +571,52 @@ def run_shot_repair_loop(
     seed: str = "0",
     max_attempts: int = 3,
     fail_first: bool = False,
+    expected_state_hash: str | None = None,
 ) -> dict[str, Any]:
     """Run generate→validate→repair loop for one shot (mock worker).
 
     MutationEnvelope fields are validated for audit consistency; accepted
-    candidates remain PROPOSED.
+    candidates remain PROPOSED. Pass the reviewed project state_hash; omission
+    binds to a fresh server snapshot. The store lock covers the loop and
+    persistence within this runtime (not across independent processes).
     """
-    MutationEnvelope.from_parts(
+    runtime = _rt()
+    project = runtime.project_store.get_project(document_key)
+    if project is None or not project.shot_contracts:
+        raise ValueError("project or shot contracts not found")
+    envelope = MutationEnvelope.from_parts(
         actor_id=actor_id,
         authorization_scope=authorization_scope,
         idempotency_key=idempotency_key,
         rationale=rationale,
-    )
-    project = _rt().project_store.get_project(document_key)
-    if project is None or not project.shot_contracts:
-        raise ValueError("project or shot contracts not found")
-    contract = next(
-        (
-            c
-            for c in project.shot_contracts.get("contracts") or []
-            if str(c.get("shot_id")) == shot_id
+        expected_state_hash=(
+            expected_state_hash if expected_state_hash is not None else project.state_hash
         ),
-        None,
     )
-    if contract is None:
-        raise ValueError("shot not found")
-    result = run_repair_loop(
-        contract,
-        gateway=_rt().gateway,
-        seed=seed,
-        max_attempts=max_attempts,
-        fail_first=fail_first,
-    )
-    artifact_store = _rt().artifact_store
-    if result.accepted_candidate is not None and artifact_store is not None:
-        artifact_store.put(result.accepted_candidate)
-    return result.model_dump(mode="json")
+    with runtime.project_store.candidate_write(document_key, envelope):
+        contract = next(
+            (
+                c
+                for c in project.shot_contracts.get("contracts") or []
+                if str(c.get("shot_id")) == shot_id
+            ),
+            None,
+        )
+        if contract is None:
+            raise ValueError("shot not found")
+        result = run_repair_loop(
+            contract,
+            gateway=runtime.gateway,
+            seed=seed,
+            max_attempts=max_attempts,
+            fail_first=fail_first,
+        )
+        artifact_store = runtime.artifact_store
+        if result.accepted_candidate is not None and artifact_store is not None:
+            # Recheck before persistence, including re-entrant provider callbacks.
+            with runtime.project_store.candidate_write(document_key, envelope):
+                artifact_store.put(result.accepted_candidate)
+        return result.model_dump(mode="json")
 
 
 def main() -> None:

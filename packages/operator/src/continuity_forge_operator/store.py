@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import timedelta
 from threading import RLock
 from uuid import UUID
@@ -130,6 +132,18 @@ class ProjectStore:
             raise OperatorError(
                 "expected_state_hash conflict: does not match current project state_hash"
             )
+
+    @contextmanager
+    def candidate_write(self, document_key: str, envelope: MutationEnvelope) -> Iterator[None]:
+        """Validate candidate state and serialize writes with this store's project commits.
+
+        This is the in-process store lock, not a distributed write lease.
+        """
+        with self._lock:
+            if document_key not in self._projects:
+                raise OperatorError("unknown project")
+            self._check_expected_project_state(document_key, envelope)
+            yield
 
     def ingest_script(
         self,

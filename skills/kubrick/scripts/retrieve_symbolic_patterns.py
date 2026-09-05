@@ -359,7 +359,7 @@ def log_receipt(receipt: Dict, log_dir: str = None) -> str:
     return path
 
 
-def run_retrieval(brief: Dict) -> Dict:
+def run_retrieval(brief: Dict, log_dir: str = None) -> Dict:
     patterns_db = load_all_patterns()
     ranked_patterns, rejected_patterns = rank_patterns(brief, patterns_db)
 
@@ -374,13 +374,15 @@ def run_retrieval(brief: Dict) -> Dict:
     receipt = build_receipt(
         brief, ranked_patterns, rejected_patterns, esoteric_selection=esoteric_selection
     )
-    receipt["retrieval_receipt"]["logged_to"] = log_receipt(receipt)
+    if log_dir is not None:
+        receipt["retrieval_receipt"]["logged_to"] = log_receipt(receipt, log_dir)
     return receipt
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--brief", type=str, help="Path to YAML/JSON brief")
+    parser.add_argument("--log-dir", help="Explicit project-owned receipt directory (default: no logging)")
     args = parser.parse_args()
 
     if args.brief:
@@ -389,7 +391,7 @@ def main() -> None:
     else:
         brief = yaml.safe_load(sys.stdin) or {}
 
-    receipt = run_retrieval(brief or {})
+    receipt = run_retrieval(brief or {}, log_dir=args.log_dir)
     print(yaml.dump(receipt, sort_keys=False, default_flow_style=False))
     if receipt["retrieval_receipt"]["status"] == "NOT_COMPUTABLE":
         sys.exit(1)
