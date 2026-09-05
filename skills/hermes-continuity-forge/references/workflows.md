@@ -67,10 +67,15 @@ This complete sequence uses freshly read project state (not a pipeline shots has
 acquire_write_lease(document_key=DOC, holder=ACTOR, ttl_seconds=600)
 try:
     prior = get_project_status(document_key=DOC)
-    result = ingest_script(source=SOURCE, document_key=DOC, actor_id=ACTOR,
-        authorization_scope="kernel:pipeline", idempotency_key=INTENT,
+    result = ingest_script(
+        source=SOURCE,
+        document_key=DOC,
+        actor_id=ACTOR,
+        authorization_scope="kernel:pipeline",
+        idempotency_key=INTENT,
         rationale="Apply user-approved screenplay revision",
-        expected_state_hash=prior["state_hash"] if prior else None)
+        expected_state_hash=prior["state_hash"] if prior else None,
+    )
     status = get_project_status(document_key=DOC)
     assert status["state_hash"] == result["project"]["state_hash"]
 finally:
@@ -87,13 +92,26 @@ the server constructs a versioned MutationEnvelope from the supported fields.
 
 ```python
 before = get_project_status(document_key=DOC)
-candidate = queue_generation(document_key=DOC, shot_id=SHOT, actor_id=ACTOR,
-    authorization_scope="generation:preview", idempotency_key=INTENT,
-    rationale="User requested mock preview", seed="hermes-1")
-repair = run_shot_repair_loop(document_key=DOC, shot_id=SHOT, actor_id=ACTOR,
-    authorization_scope="generation:repair", idempotency_key=REPAIR_INTENT,
-    rationale="User requested bounded mock repair", seed="hermes-1",
-    max_attempts=3, fail_first=False)
+candidate = queue_generation(
+    document_key=DOC,
+    shot_id=SHOT,
+    actor_id=ACTOR,
+    authorization_scope="generation:preview",
+    idempotency_key=INTENT,
+    rationale="User requested mock preview",
+    seed="hermes-1",
+)
+repair = run_shot_repair_loop(
+    document_key=DOC,
+    shot_id=SHOT,
+    actor_id=ACTOR,
+    authorization_scope="generation:repair",
+    idempotency_key=REPAIR_INTENT,
+    rationale="User requested bounded mock repair",
+    seed="hermes-1",
+    max_attempts=3,
+    fail_first=False,
+)
 after = get_project_status(document_key=DOC)
 assert before["state_hash"] == after["state_hash"]
 ```

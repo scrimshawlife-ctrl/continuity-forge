@@ -23,10 +23,15 @@ acquire_write_lease(document_key=DOC, holder=ACTOR, ttl_seconds=600)
 try:
     prior = get_project_status(document_key=DOC)
     result = ingest_script(
-        source=SOURCE, document_key=DOC, actor_id=ACTOR,
-        authorization_scope="kernel:pipeline", idempotency_key=INTENT,
-        rationale="Apply user-approved screenplay revision", title="Reviewed script",
-        format="fountain", revision="0.1.0",
+        source=SOURCE,
+        document_key=DOC,
+        actor_id=ACTOR,
+        authorization_scope="kernel:pipeline",
+        idempotency_key=INTENT,
+        rationale="Apply user-approved screenplay revision",
+        title="Reviewed script",
+        format="fountain",
+        revision="0.1.0",
         expected_state_hash=prior["state_hash"] if prior else None,
     )
     status = get_project_status(document_key=DOC)

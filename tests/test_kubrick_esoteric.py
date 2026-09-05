@@ -40,9 +40,7 @@ INDEX = {
             "misuse_risks": ["random surrealism"],
         },
     },
-    "problem_routes": {
-        "identity_breakdown": ["alchemical_nigredo", "choronzon_drift"]
-    },
+    "problem_routes": {"identity_breakdown": ["alchemical_nigredo", "choronzon_drift"]},
 }
 
 
@@ -65,7 +63,9 @@ def test_missing_observable_evidence_fails_closed():
     )
     assert result["status"] == "NOT_COMPUTABLE"
     assert result["selections"] == []
-    assert any(item["reason"] == "observable evidence missing" for item in result["rejected_concepts"])
+    assert any(
+        item["reason"] == "observable evidence missing" for item in result["rejected_concepts"]
+    )
 
 
 def test_selection_is_bounded_proposed_and_evidence_grounded():
