@@ -1,121 +1,55 @@
-# Kubrick — Symbolic Cinematic Narrative Engineering System
+# Kubrick — embedded Continuity Forge variant
 
-![Kubrick — Symbolic Cinematic Narrative Engineering](assets/kubrick-hero.svg)
+Creative narrative work is standalone. Load SKILL.md and
+[standalone-procedure](references/standalone-procedure.md); Forge is optional for
+explicit canon handoff, not a prerequisite to write or diagnose a scene.
 
-**The primary skill for precise, motif-driven, geometrically rigorous cinematic storytelling.**
+## Install safely
 
-kubrick is the evolved replacement for earlier narrative engineering tools. It delivers production-ready scripts, scene contracts, and symbolic architecture that resist generic AI writing while creating latent, powerful visual and thematic systems.
-
-## Quick Install (Standalone in Hermes)
-
-```bash
-# From inside this directory
-./install.sh                 # installs to ~/.hermes/skills/kubrick
-./install.sh creative        # installs to ~/.hermes/skills/creative/kubrick
-```
-
-Or manually:
-```bash
-cp -R . ~/.hermes/skills/kubrick
-# or categorized
-cp -R . ~/.hermes/skills/creative/kubrick
-```
-
-**Kubrick works completely on its own** — no continuity-forge installation required.
-
-After install, restart Hermes and use natural language triggers (see SKILL.md).
-
-## What Makes It Different
-
-- **Observed first, meaning second**: Every motif begins with concrete, observable form before any interpretation.
-- **Mandatory mutation**: No motif recurs identically unless stagnation is the dramatic point.
-- **Three-channel symbolism**: Diegetic (objects/behavior), Dramaturgical (structure/choice), Cinematic (framing/geometry/rhythm) — power comes from crossing channels without explanation.
-- **Provenance-linked Symbolic Narrative Pattern System**: Full `SymbolicNarrativePattern` schema, Narrative Affordance Registry, Transformation Grammar Registry, and 10+ domain packs grounded in PRIMARY/SCHOLARLY sources.
-- **Executable Retrieval**: `scripts/retrieve_symbolic_patterns.py` provides deterministic, scored retrieval with exclusions, saturation awareness, and `NOT_COMPUTABLE` fallback.
-- **Self-Evolution from Use**: The skill improves itself. Retrievals are auto-logged; project outcomes adjust pattern confidence, usage history, and index ordering via `scripts/evolve_from_use.py`.
-- **Forge-native**: Produces clean `symbolic_architecture` and `cinematic_encoding` ready for Continuity Forge ledger and shot contracts.
-
-## Key New Capabilities (0.7.x)
-
-- Machine-readable pattern sidecars (`references/patterns/`)
-- Deterministic retrieval with score decomposition and receipt emission
-- Autonomous evolution engine that learns from real project/Forge usage
-- Full support for project symbolic ledger, revision diffing, cultural review gates, and production feasibility
-
-## Distribution & Installation
-
-**Kubrick is a Hermes skill, not a Python package.**
-
-It is **not** distributed via PyPI or included in the `continuity-forge` wheel. The core package only ships the production kernel (IR, compiler, ledger, harness, etc.). Skills live as self-contained directories.
-
-### Recommended installation
-
-From the continuity-forge repo root:
+From the continuity-forge checkout, record `git rev-parse HEAD`, then:
 
 ```bash
-mkdir -p ~/.hermes/skills
-cp -R skills/kubrick ~/.hermes/skills/
-cp -R skills/hermes-continuity-forge ~/.hermes/skills/   # strongly recommended companion
+bash skills/kubrick/install.sh --dry-run
+# Review active-profile target and backup root before opting in:
+bash skills/kubrick/install.sh --apply
 ```
 
-Categorized layout (if your Hermes setup uses `creative/`):
+`HERMES_HOME` selects the profile. `--target` selects an explicit destination;
+`creative` selects categorized installation. From another cwd, use the absolute
+installer path, never `cp -R .`. Python-only Windows hosts can invoke
+`scripts/install_skill.py`. This installs the skill directory, not a package.
+See [source ownership, backups and evolution safety](references/evolution-safety.md).
+Do not install this variant alongside another `kubrick` trigger or assume personal,
+organizational and embedded releases are identical. No license is changed here.
 
-```bash
-cp -R skills/kubrick ~/.hermes/skills/creative/
-```
+## Optional Python helpers
 
-You can also symlink for development:
-```bash
-ln -s "$(pwd)/skills/kubrick" ~/.hermes/skills/kubrick
-```
+The continuity-forge wheel includes kubrick_helpers and its CLIs, **not** SKILL.md
+or the narrative corpus. Python 3.12+ editable install from repo root:
+`python -m pip install -e '.[kubrick-helpers]'`.
+The standalone evolution script requires `pyyaml` and `jsonschema` in a reviewed
+venv. Creative use needs neither. Retrieval emits candidate ranking receipts;
+persist real receipts explicitly in project-owned directories.
 
-### Why directory-only distribution?
+## Evolution
 
-- Skills contain markdown, schemas, examples, and small helper scripts that Hermes loads directly.
-- **Kubrick works completely on its own inside Hermes**. No continuity-forge installation is required.
-- Copy the skill directory and the scripts run self-contained with no external dependencies.
+No unattended auto-evolution is enabled. Copy the pattern corpus/index to a
+project directory and use the complete plan/apply recipe in
+[references/evolution-safety.md](references/evolution-safety.md).
+Default mode and `--dry-run` are zero-write. `--apply` validates changed sidecars,
+deduplicates immutable evidence, recomputes cumulative scores from a fixed
+baseline, preserves unused index entries, and writes a unique recovery receipt.
+Caught I/O failures roll back; multi-file changes are not crash-atomic.
 
-**Note for Continuity Forge users**: An optional `kubrick-helpers` Python package exists inside the continuity-forge repo (for CLIs and imports when using the full Python package). It is **not required** to use this skill in Hermes.
+## Forge handoff
 
-See `QUICKSTART.md` for the fastest way to get started.
+Use [the MCP handoff recipe](references/continuity-forge-integration.md).
+There is no Forge ingest CLI. Symbolic packets remain proposed attachments unless
+the actual kernel schema and returned persisted state demonstrate support.
 
-See `docs/hermes/README.md` for general Hermes + Continuity Forge integration guidance.
+## Verification
 
-
-## Quick Start
-
-A minimal working example (brief + expected receipt) is included in `examples/minimal-retrieval-example.zip`.
-
-Load `kubrick`.
-
-**Retrieval example:**
-```bash
-python scripts/retrieve_symbolic_patterns.py --brief my-brief.yaml
-```
-
-**Evolution (after use):**
-```bash
-# After projects, drop outcomes in references/usage/outcomes/
-python scripts/evolve_from_use.py
-```
-
-See SKILL.md for full procedures, prompts, and evolution workflow.
-
-## Core Artifacts
-
-- symbolic_intent contract
-- motif_registry (observed_form + lifecycle)
-- cinematic_encoding (relational + shot recurrence)
-- symbolic_architecture (Forge handoff)
-- retrieval_receipt
-- evolution_receipt
-
-## Companion
-
-Use with `hermes-continuity-forge` for the full symbolic-to-production pipeline with memory and revision safety.
-
-## Version
-
-0.8.0 (Executable Retrieval + Self-Evolution)
-
-See CHANGELOG.md for details.
+From a Python 3.12+ checkout with `.[dev,kubrick-helpers]`:
+`python -m pytest tests/test_kubrick_evolution_audit.py tests/test_kubrick_install_audit.py tests/test_authored_skill_recipes.py tests/test_kubrick_esoteric.py -q`.
+All installer/evolution writes use disposable directories; recipe tests use a
+fresh local runtime and mock provider, not live services.

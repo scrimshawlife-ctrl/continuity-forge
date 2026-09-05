@@ -198,7 +198,7 @@ Primary REST: `POST /v1/proof` → `ProofReceipt` with claim `controlled_proof_n
 ### Hermes (agentic operator)
 
 1. Install package (`pip install -e '.[dev]'`).
-2. Copy skill: `cp -R skills/hermes-continuity-forge ~/.hermes/skills/` (or your Hermes skills path).
+2. Copy skill: `cp -R skills/hermes-continuity-forge "${HERMES_HOME:-$HOME/.hermes}/skills"/` (or your Hermes skills path).
 3. Wire MCP stdio to `.venv/bin/continuity-forge-mcp` — see [`docs/hermes/mcp.example.json`](docs/hermes/mcp.example.json).
 4. Read [`docs/hermes/README.md`](docs/hermes/README.md).
 
@@ -277,8 +277,8 @@ See `skills/scriptwriting/SKILL.md` and `skills/scriptwriting/references/continu
 
 Install both:
 ```bash
-cp -R skills/scriptwriting ~/.hermes/skills/
-cp -R skills/hermes-continuity-forge ~/.hermes/skills/
+cp -R skills/scriptwriting "${HERMES_HOME:-$HOME/.hermes}/skills"/
+cp -R skills/hermes-continuity-forge "${HERMES_HOME:-$HOME/.hermes}/skills"/
 ```
 
 ## Symbolic Cinematic Layer: kubrick Skill
@@ -309,6 +309,6 @@ See:
 
 Install:
 ```bash
-cp -R skills/kubrick ~/.hermes/skills/
-cp -R skills/hermes-continuity-forge ~/.hermes/skills/
+bash skills/kubrick/install.sh --dry-run  # review, then --apply
+cp -R skills/hermes-continuity-forge "${HERMES_HOME:-$HOME/.hermes}/skills"/
 ```

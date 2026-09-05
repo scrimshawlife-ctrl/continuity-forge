@@ -49,23 +49,16 @@ This skill **does not** own canon, run the deterministic kernel, or claim produc
 
 ## Prerequisites
 
-- Continuity Forge installed and in PATH:
-  ```bash
-  pip install -e '.[dev]'   # from continuity-forge repo
-  continuity-forge --help
-  ```
-- (Recommended) `continuity-forge-mcp` configured in Hermes for tool use.
-- Optional: `humanizer` for final voice.
-
-Env for Forge (pass to any MCP/terminal calls):
-```bash
-export CF_STORE_ROOT="$HOME/.local/share/continuity-forge"
-# export CF_PROVIDER=mock
-```
+Creative use is standalone: load this directory's SKILL.md and the relevant references.
+Read `references/standalone-procedure.md` before routing, drafting or scoring.
+For optional Forge handoff only, use a Python 3.12+ full editable checkout and the
+operator skill; setup and MCP registration are in repo `docs/SETUP.md` and
+`docs/hermes/README.md`. Package installation does not install skill directories.
+Do not configure credentials, provider calls or a live store merely to write a scene.
 
 ## Request Routing & Modes
 
-Same as base (DEVELOP, DRAFT, DIAGNOSE, REVISE, POLISH, CONTINUITY, PRODUCTION, ADAPT).
+Read `references/standalone-procedure.md` for mode routing, ordered phases, artifact selection and the cited diagnosis rubric; load the named local narrative references for the selected mode.
 
 When the goal is production use with Forge, prefer:
 - DEVELOP → handoff to Forge ingest/compile
@@ -73,15 +66,15 @@ When the goal is production use with Forge, prefer:
 
 ## Core Operating Principles
 
-(unchanged from base — Structure Before Pages, Drama Is Change Under Pressure, Behavior Before Explanation, Causality, Compression, Specificity, Approved Material Is Canon).
+Read `references/standalone-procedure.md` for mode routing, ordered phases, artifact selection and the cited diagnosis rubric; load the named local narrative references for the selected mode.
 
 **Forge-specific addition**: Once material is ingested to Forge under a lease + mutation contract, the Forge ledger + IR becomes the source of truth. Chat memory or local artifacts are proposals only until committed via Forge.
 
 ## Core Workflow (Phases)
 
-1–11. (Intake → Premise → Characters → World → Theme → Macrostructure → Sequences/Beats → Scene Engine → Dialogue/Prose → Continuity Ledger → Revision) — same as base.
+Read `references/standalone-procedure.md` for mode routing, ordered phases, artifact selection and the cited diagnosis rubric; load the named local narrative references for the selected mode.
 
-**12. Handoff to Continuity Forge (new critical phase)**
+**12. Handoff to Continuity Forge (optional, explicit handoff)**
 
 After foundations or scene contracts are approved:
 
@@ -97,12 +90,12 @@ See `references/continuity-forge-integration.md` for exact commands and mutation
 
 ## Anti-Slop Quality Gates
 
-Same A–L as base. Additionally:
-- **Gate M (Forge Bypass)**: Generating or committing narrative changes without updating the Forge ledger/IR. Always hand off material changes.
+Read `references/standalone-procedure.md` for mode routing, ordered phases, artifact selection and the cited diagnosis rubric; load the named local narrative references for the selected mode.
+- **Gate F-CANON (Forge Bypass)**: Generating or committing narrative changes without updating the Forge ledger/IR. Always hand off material changes.
 
 ## Output Selection Logic
 
-Same as base. Preferred handoff artifacts:
+Read `references/standalone-procedure.md` for mode routing, ordered phases, artifact selection and the cited diagnosis rubric; load the named local narrative references for the selected mode.
 - Structured project brief (matches Forge intake)
 - Scene contracts (feed `build_shot_contracts`)
 - Approved canon list (for mutation envelopes)
@@ -112,7 +105,7 @@ Same as base. Preferred handoff artifacts:
 
 **Handoff rules**:
 - Creative development (this skill) produces **PROPOSED** or draft material.
-- Forge ingestion makes it canonical.
+- Only schema-validated deterministic output committed through Forge is canonical; narrative/model proposals are not promoted merely by attachment.
 - Use leases + full mutation contract (`actor_id`, `authorization_scope`, `idempotency_key`, `rationale`) for any write path.
 - Always surface Forge receipts/hashes in responses.
 - Claim policy: material generated here is for development; final identity lives in Forge.
@@ -126,11 +119,11 @@ See the companion skill `hermes-continuity-forge` for operator details (leases, 
 
 ## Format-Specific Routing
 
-Same as base, with the addition that Forge's shot contracts and ledger are format-aware (features, pilots, shorts have different expectations for scene/shot density).
+Read `references/standalone-procedure.md` for mode routing, ordered phases, artifact selection and the cited diagnosis rubric; load the named local narrative references for the selected mode.
 
 ## Diagnosis Rubric
 
-Same 1-5 rubric. When Forge is in play, also score "Forge alignment" (does the output produce clean ingestable material?).
+Use the anchored 1–5 rubric in `references/standalone-procedure.md`. When Forge is in play, also score "Forge alignment" (does the output produce clean ingestable material?).
 
 ## Validation Requirements
 
@@ -159,7 +152,7 @@ Then hand off: "compile this to Continuity Forge and ingest under lease".
 - `references/format-specific-guidance.md`
 - `references/anti-slop-patterns.md`
 - **`references/continuity-forge-integration.md`** (new — handoff commands, MCP patterns)
-- `schemas/`
+- `references/schemas/`
 - `templates/`
 - `evals/`
 
