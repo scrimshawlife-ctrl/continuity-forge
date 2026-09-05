@@ -87,8 +87,13 @@ finally:
 Resolve SHOT from the project's stored contracts. ACTOR is stable; INTENT and
 REPAIR_INTENT are distinct, fresh per logical operation (reused only on retries).
 These calls may write candidate artifacts but do not acquire a canon lease.
-Do not add unsupported expected_state_hash / command_schema_version arguments;
-the server constructs a versioned MutationEnvelope from the supported fields.
+Pass the freshly read project `state_hash` as `expected_state_hash` (not a shot or
+pipeline hash). The server validates it before generation and persistence while
+holding the runtime project-store lock. Omission binds to a server-read snapshot,
+not to an earlier client review. On conflict, re-read and review before retrying.
+The server constructs command_schema_version; do not pass that argument.
+This lock coordinates a single store instance; it is not a distributed lease
+across independently hydrated filesystem/Postgres runtimes.
 
 ```python
 before = get_project_status(document_key=DOC)
@@ -99,6 +104,7 @@ candidate = queue_generation(
     authorization_scope="generation:preview",
     idempotency_key=INTENT,
     rationale="User requested mock preview",
+    expected_state_hash=before["state_hash"],
     seed="hermes-1",
 )
 repair = run_shot_repair_loop(
@@ -108,6 +114,7 @@ repair = run_shot_repair_loop(
     authorization_scope="generation:repair",
     idempotency_key=REPAIR_INTENT,
     rationale="User requested bounded mock repair",
+    expected_state_hash=before["state_hash"],
     seed="hermes-1",
     max_attempts=3,
     fail_first=False,

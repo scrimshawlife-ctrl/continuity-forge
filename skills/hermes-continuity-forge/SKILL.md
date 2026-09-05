@@ -28,7 +28,7 @@ Continuity Forge is a **deterministic cinematic-production kernel**. You call it
    - `idempotency_key` (unique per intent)
    - `rationale` (human-readable why)
    - `expected_state_hash` when continuing prior project state
-6. **Write lease** before canon/project or approval writes; release in finally after successful acquisition. Read-side compilation needs none. Candidate artifact writes (`queue_generation`, `run_shot_repair_loop`) validate envelopes but do not require a project lease and never promote canon.
+6. **Write lease** before canon/project or approval writes; release in finally after successful acquisition. Read-side compilation needs none. Candidate artifact writes (`queue_generation`, `run_shot_repair_loop`) validate project expected-state hashes under the runtime store lock but do not require a project lease and never promote canon.
 7. **No unbounded director loop.** Work shot-by-shot or pipeline-by-pipeline with validation.
 
 If a user asks you to “just generate the whole movie in chat,” refuse and route through **breakdown** (structure + continuity) or shot contracts + proof/repair tools.

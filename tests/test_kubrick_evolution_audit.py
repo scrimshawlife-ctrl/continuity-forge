@@ -345,6 +345,59 @@ def test_double_fault_retains_recovery_guard_and_attempts_all_restores(
         )
 
 
+@pytest.mark.skipif(__import__("os").name != "posix", reason="POSIX mode contract")
+@pytest.mark.parametrize("rollback", [False, True])
+def test_evolution_preserves_staged_and_rollback_modes(engine, tmp_path, monkeypatch, rollback):
+    import stat
+
+    corpus(tmp_path)
+    q = json.loads((tmp_path / "patterns/p.json").read_text())
+    q["pattern_id"] = "q"
+    (tmp_path / "patterns/q.json").write_text(json.dumps(q))
+    (tmp_path / "receipts/q.json").write_text(
+        json.dumps(
+            {"request_hash": "q", "ranked_patterns": [{"pattern_id": "q", "total_score": 0.1}]}
+        )
+    )
+    (tmp_path / "index.yaml").write_text("by_dramatic_problem:\n  test:\n    patterns: [q, p]\n")
+    paths = [tmp_path / "patterns/p.json", tmp_path / "index.yaml"]
+    modes = dict(zip(paths, [0o640, 0o664], strict=True))
+    for path, mode in modes.items():
+        path.chmod(mode)
+    before = {path: path.read_bytes() for path in paths}
+    replace = engine.os.replace
+    installed = []
+
+    def inspect_replace(source, target):
+        if target in modes:
+            assert stat.S_IMODE(Path(source).stat().st_mode) == modes[target]
+            installed.append(target)
+        return replace(source, target)
+
+    monkeypatch.setattr(engine.os, "replace", inspect_replace)
+    read_bytes = Path.read_bytes
+    failed = False
+
+    def fail_verification(path):
+        nonlocal failed
+        if rollback and len(installed) == 2 and not failed and path == paths[0]:
+            failed = True
+            raise OSError("injected read-back failure")
+        return read_bytes(path)
+
+    monkeypatch.setattr(Path, "read_bytes", fail_verification)
+    args = (tmp_path / "receipts", tmp_path / "outcomes", tmp_path / "patterns", paths[1])
+    if rollback:
+        with pytest.raises(OSError, match="injected read-back"):
+            engine.run_evolution(*args, dry_run=False)
+        assert {path: path.read_bytes() for path in paths} == before
+        assert installed == paths + list(reversed(paths))
+    else:
+        engine.run_evolution(*args, dry_run=False)
+        assert installed == paths
+    assert {path: stat.S_IMODE(path.stat().st_mode) for path in paths} == modes
+
+
 def test_embedded_package_code_and_schema_parity():
     assert ENGINES[0].read_bytes() == ENGINES[1].read_bytes()
     assert (

@@ -321,6 +321,7 @@ def run_evolution(
             receipt["before_contents"] = {str(path.resolve()): path.read_text() for path in changes}
             changes[receipt_path] = json.dumps(result, indent=2, allow_nan=False).encode()
             originals = {path: path.read_bytes() if path.exists() else None for path in changes}
+            modes = {path: path.stat().st_mode & 0o7777 for path in changes if path.exists()}
             staged = {}
             applied = []
             try:
@@ -329,6 +330,8 @@ def run_evolution(
                         staged[path] = Path(stream.name)
                         stream.write(value)
                         stream.flush()
+                        if path in modes:
+                            os.chmod(stream.name, modes[path])
                         os.fsync(stream.fileno())
                 if input_hash() != plan_hash:
                     raise ValueError("stale inputs changed during staging")
@@ -357,6 +360,8 @@ def run_evolution(
                                 ) as stream:
                                     backup = Path(stream.name)
                                     stream.write(original)
+                                    stream.flush()
+                                    os.chmod(stream.name, modes[path])
                                 os.replace(backup, path)
                                 if path.read_bytes() != original:
                                     raise OSError("rollback read-back mismatch")
