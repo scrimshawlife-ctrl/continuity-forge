@@ -16,8 +16,8 @@ Copy (or symlink) the skill into Hermes’ skills directory:
 
 ```bash
 # from continuity-forge repo root
-mkdir -p ~/.hermes/skills   # adjust if your Hermes install uses another path
-cp -R skills/hermes-continuity-forge ~/.hermes/skills/
+mkdir -p "${HERMES_HOME:-$HOME/.hermes}/skills"   # adjust if your Hermes install uses another path
+cp -R skills/hermes-continuity-forge "${HERMES_HOME:-$HOME/.hermes}/skills"/
 # or project-local, if Hermes supports workspace skills:
 # cp -R skills/hermes-continuity-forge /path/to/workspace/.hermes/skills/
 ```
@@ -47,7 +47,7 @@ In addition to the operator skill (`hermes-continuity-forge`), the repo ships `s
 **Kubrick works completely on its own inside Hermes** (no continuity-forge required). The skill is distributed by simple directory copy:
 
 ```bash
-pip install continuity-forge[kubrick-helpers]
+python -m pip install -e '.[kubrick-helpers]'  # Python 3.12+, repo root
 ```
 
 This provides `kubrick_helpers` Python package + `kubrick-retrieve` / `kubrick-evolve` CLIs.
@@ -55,9 +55,9 @@ This provides `kubrick_helpers` Python package + `kubrick-retrieve` / `kubrick-e
 Install it the same way:
 
 ```bash
-cp -R skills/kubrick ~/.hermes/skills/
+bash skills/kubrick/install.sh --dry-run  # review, then --apply
 # or
-cp -R skills/kubrick ~/.hermes/skills/creative/
+bash skills/kubrick/install.sh creative --dry-run  # review, then --apply
 ```
 
 See `skills/kubrick/README.md` and `skills/kubrick/SKILL.md` for details on its executable retrieval helper and self-evolution system.
@@ -168,8 +168,8 @@ See `skills/kubrick/references/continuity-forge-integration.md` for exact handof
 
 Install:
 ```bash
-cp -R skills/kubrick ~/.hermes/skills/
-cp -R skills/hermes-continuity-forge ~/.hermes/skills/
+bash skills/kubrick/install.sh --dry-run  # review, then --apply
+cp -R skills/hermes-continuity-forge "${HERMES_HOME:-$HOME/.hermes}/skills"/
 ```
 
 ## Symbolic Cinematic Layer: kubrick Skill
@@ -207,5 +207,5 @@ See skills/kubrick/references/continuity-forge-integration.md for exact handoff 
 Both skills are designed to be used together. The kubrick skill produces high-quality, drift-resistant creative material with sophisticated symbolic layer. The operator skill ensures it is governed by the deterministic kernel.
 
 Install:
-cp -R skills/kubrick ~/.hermes/skills/
-cp -R skills/hermes-continuity-forge ~/.hermes/skills/
+bash skills/kubrick/install.sh --dry-run  # review, then --apply
+cp -R skills/hermes-continuity-forge "${HERMES_HOME:-$HOME/.hermes}/skills"/

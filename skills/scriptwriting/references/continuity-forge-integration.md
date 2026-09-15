@@ -1,70 +1,62 @@
-# Continuity Forge Integration
+# Optional Continuity Forge handoff
 
-This skill is the **creative / structural** layer. Continuity Forge is the **deterministic kernel** that owns canonical state.
+Creative work is standalone. For an explicitly requested canon handoff, load
+`hermes-continuity-forge`, resolve the authorized document and actor, and confirm
+MCP registration through repo `docs/hermes/README.md` (Python 3.12+; `docs/SETUP.md`).
+No `ingest` subcommand exists in the Forge CLI. The CLI `compile` command is a
+local deterministic parse/export, not a canonical project write.
 
-## When to Handoff
+Use `terminal(command="continuity-forge compile path/to/script.fountain --out path/to/ir.json")`
+only for a reviewed output file. Compile Fountain/FDX screenplay source, not a
+JSON scene contract, outline prose or symbolic packet. Preserve source as immutable input.
 
-- After premise, characters, structure, or scene contracts are approved by the user.
-- Before or instead of writing full prose pages when the goal is production use.
-- On any material change to canon (new approved scenes, character traits that affect continuity, structure revisions).
+## MCP sequence
 
-## Recommended Handoff Flow
+This Python-shaped recipe names MCP tools, not a new client library. Substitute
+`DOC`, `ACTOR`, `SOURCE` and `INTENT` from the approved request; `INTENT` is a fresh
+unique key per logical write, reused only for a retry of that identical intent.
+Never import server persistence into an operator client. The server constructs
+command_schema_version through MutationEnvelope; it is not an ingest_script argument.
 
-1. Produce clean artifacts from this skill (project brief, scene contracts, character bibles, approved canon list).
-2. Ingest via Forge (prefer MCP or CLI with proper mutation envelope):
-   - `acquire_write_lease`
-   - `ingest_script` (or `compile_script` + ingest)
-   - `build_ledger` / `build_shot_contracts`
-3. Capture receipt (hashes, document_key, shot IDs).
-4. Reference Forge state in future work (use `get_project_status`, `inspect_scene`, etc. for grounding).
-
-## CLI Examples
-
-```bash
-# Basic compile from fountain or structured text
-continuity-forge compile path/to/outline.fountain --out out/
-
-# Or from a scene contract / brief you produced here
-continuity-forge ingest --document-key myfilm --source structured-outline.md
+```python
+acquire_write_lease(document_key=DOC, holder=ACTOR, ttl_seconds=600)
+try:
+    prior = get_project_status(document_key=DOC)
+    result = ingest_script(
+        source=SOURCE,
+        document_key=DOC,
+        actor_id=ACTOR,
+        authorization_scope="kernel:pipeline",
+        idempotency_key=INTENT,
+        rationale="Apply user-approved screenplay revision",
+        title="Reviewed script",
+        format="fountain",
+        revision="0.1.0",
+        expected_state_hash=prior["state_hash"] if prior else None,
+    )
+    status = get_project_status(document_key=DOC)
+    assert status is not None
+    assert status["state_hash"] == result["project"]["state_hash"]
+finally:
+    release_write_lease(document_key=DOC, holder=ACTOR)
 ```
 
-## MCP Tools (via companion `hermes-continuity-forge` skill)
+Acquire must succeed before entering the try/finally; never release someone else's
+lease. Stop on conflicts, stale hashes, failed schema validation or incomplete
+read-back. Keep the full result, document key, run ID, scene/shot IDs and hashes.
+Future revisions use fresh project `state_hash`, not a pipeline shots hash.
 
-Typical tools you will call after creative work:
-- `compile_script`
-- `ingest_script` (with mutation contract)
-- `build_ledger`
-- `build_shot_contracts`
-- `get_project_status`
-- `audit_drift`
+## Narrative and symbolic packets
 
-Always include:
-- `document_key`
-- `actor_id` (e.g. hermes-scriptwriting-<session>)
-- Full mutation envelope when writing
+Briefs, character bibles, scene contracts, symbolic_architecture and cinematic_encoding
+are **PROPOSED attachments for review**, not guaranteed compiler inputs or supported
+IR fields. No automatic motif/geometry field mapping is promised. Check the actual
+kernel models and round-trip returned schemas before claiming a constraint was
+stored. The deterministic kernel alone owns approved identity, ledger, IR and shot
+contracts; a narrative skill or model cannot promote attachments into canon.
 
-## Mutation Contract Requirements (when ingesting changes)
+## Verification without live writes
 
-From the operator skill:
-- actor_id
-- authorization_scope
-- idempotency_key
-- rationale
-- expected_state_hash (when updating existing)
-
-This skill produces the *rationale* and *content*. The operator skill (or direct MCP call) supplies the envelope.
-
-## Boundaries
-
-- This skill may generate **PROPOSED** narrative material and scene contracts.
-- Forge owns the canonical ledger, IR, and shot contracts.
-- Never claim "this is now in the film" until you have a Forge receipt with committed status.
-- For drift or contradictions discovered here: run local CONTINUITY pass, then cross-validate with Forge `audit_drift`.
-
-## Recommended Pairing
-
-Load both skills:
-- `scriptwriting` for creative development, diagnosis, anti-slop, voice, structure.
-- `hermes-continuity-forge` for leases, ingestion, proof, shot repair, approvals.
-
-See main repo `docs/hermes/README.md` and the companion skill for full operator rules.
+From a full checkout, use `terminal(command="python -m pytest tests/test_authored_skill_recipes.py tests/contract/test_mcp.py -q")`.
+Tests bind this exact recipe to real MCP signatures with a fresh in-memory runtime
+and mock provider; no external service, credentials or live approval is involved.

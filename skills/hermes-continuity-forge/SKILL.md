@@ -28,14 +28,14 @@ Continuity Forge is a **deterministic cinematic-production kernel**. You call it
    - `idempotency_key` (unique per intent)
    - `rationale` (human-readable why)
    - `expected_state_hash` when continuing prior project state
-6. **Write lease** before mutating a project (`acquire_write_lease` → work → `release_write_lease`).
+6. **Write lease** before canon/project or approval writes; release in finally after successful acquisition. Read-side compilation needs none. Candidate artifact writes (`queue_generation`, `run_shot_repair_loop`) validate project expected-state hashes under the runtime store lock but do not require a project lease and never promote canon.
 7. **No unbounded director loop.** Work shot-by-shot or pipeline-by-pipeline with validation.
 
 If a user asks you to “just generate the whole movie in chat,” refuse and route through **breakdown** (structure + continuity) or shot contracts + proof/repair tools.
 
 ## Prefer MCP
 
-Assume MCP server `continuity-forge` is configured (`continuity-forge-mcp`). Tool catalog: `references/mcp-tools.md`.
+Confirm MCP server `continuity-forge` is configured (`continuity-forge-mcp`). Bootstrap from repo `docs/SETUP.md` (Python 3.12+, editable checkout), then `docs/hermes/README.md` and `docs/hermes/mcp.example.json` for stdio registration. A pip package does not install the skill. Never invent host tool names or credentials. Tool catalog: `references/mcp-tools.md`.
 
 REST fallback when MCP is unavailable (same host as UI):
 
@@ -63,7 +63,7 @@ REST fallback when MCP is unavailable (same host as UI):
 **Goal:** User pastes/imports a script → machine-readable **shot-by-shot breakdown with continuity** for connectors or review.
 
 1. Obtain Fountain/FDX source (user paste).
-2. Call **`build_breakdown`** (MCP) or REST `POST /v1/breakdown` with `title`, `text`, `document_key`, `format`.
+2. Call **`build_breakdown`** (MCP) or REST `POST /v1/breakdown` with `title`, `document_key`, `format`. MCP uses `source`; REST uses `text`.
 3. Optionally **`build_breakdown_markdown`** for a human-readable export.
 4. Return a short summary to the human:
    - claim (`shot_breakdown_with_continuity_not_production_film`)
@@ -104,8 +104,8 @@ On lease conflict: report holder/expiry; do not force; ask human or wait.
 
 1. Ensure project exists (Workflow C).
 2. `list_shot_summaries` or project shot contracts → pick `shot_id`.
-3. `queue_generation` **or** `run_shot_repair_loop`.
-4. Present candidate as **PROPOSED**.
+3. `queue_generation` **or** `run_shot_repair_loop` with explicit actor_id, authorization_scope (`generation:preview` / `generation:repair`), unique-per-intent idempotency_key and rationale. Do not rely on static server defaults; see complete recipes in `references/workflows.md`.
+4. Check returned candidate shot ID, authority **PROPOSED**, status and validation results. Read project status again and confirm its state_hash is unchanged. Candidate artifacts have no public MCP read-back endpoint: distinguish returned candidate verification from persisted-artifact verification; do not claim persistence without a store read-back route.
 5. Approvals only with lease + envelope and explicit human instruction.
 
 ---
@@ -122,7 +122,7 @@ On lease conflict: report holder/expiry; do not force; ask human or wait.
 
 1. Hold lease as actor.
 2. `POST /v1/approvals/request` then `decide` with new idempotency keys.
-3. Never auto-grant without explicit human instruction.
+3. Never auto-grant without explicit human instruction. Read `GET /v1/projects/{key}/approvals`, match exact approval_id/status, then release the acquired lease in finally; failed read-back means unverified, not success.
 
 ## Communication style
 
