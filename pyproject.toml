@@ -6,6 +6,7 @@ build-backend = "hatchling.build"
 name = "continuity-forge"
 version = "1.5.3"
 description = "Deterministic cinematic-production kernel and durable harness for drift-resistant AI film generation"
+license = { text = "MIT" }
 requires-python = ">=3.12"
 dependencies = [
   "pydantic>=2.8,<3",
