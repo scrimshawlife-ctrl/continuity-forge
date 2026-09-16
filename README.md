@@ -261,7 +261,7 @@ Canonical mutations require schema validation, provenance, deterministic diagnos
 
 ## License / status
 
-**Public research repository** ([github.com/scrimshawlife-ctrl/continuity-forge](https://github.com/scrimshawlife-ctrl/continuity-forge)). Source is published for research and collaboration; this is **not** a production-supported product release and does not imply production readiness.
+**MIT** ([LICENSE](LICENSE); SPDX: MIT). **Public research repository** ([github.com/scrimshawlife-ctrl/continuity-forge](https://github.com/scrimshawlife-ctrl/continuity-forge)). Source is published for research and collaboration; this is **not** a production-supported product release and does not imply production readiness.
 
 Package version: **1.5.3** (kept in sync with [`pyproject.toml`](pyproject.toml) `[project].version`).
 
